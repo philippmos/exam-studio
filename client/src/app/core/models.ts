@@ -64,3 +64,35 @@ export interface SessionSetup {
   mode: SessionMode;
   sectionId: string | null;
 }
+
+export interface SectionStats {
+  sectionId: string;
+  name: string;
+  totalQuestions: number;
+  attemptedQuestions: number;
+  masteredQuestions: number;
+  strugglingQuestions: number;
+  correctAttempts: number;
+  incorrectAttempts: number;
+  accuracy: number;
+  mastery: number;
+}
+
+export interface ExamStats {
+  examId: string;
+  examName: string;
+  totalQuestions: number;
+  attemptedQuestions: number;
+  masteredQuestions: number;
+  strugglingQuestions: number;
+  unattemptedQuestions: number;
+  totalAttempts: number;
+  correctAttempts: number;
+  incorrectAttempts: number;
+  accuracy: number;
+  coverage: number;
+  mastery: number;
+  sessionsCount: number;
+  lastActivity: string | null;
+  sections: SectionStats[];
+}

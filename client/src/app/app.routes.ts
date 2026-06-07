@@ -16,6 +16,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'exams/:id/progress',
+    loadComponent: () =>
+      import('./features/exam-progress/exam-progress.component').then(
+        (m) => m.ExamProgressComponent,
+      ),
+  },
+  {
     path: 'sessions/:id',
     loadComponent: () =>
       import('./features/quiz/quiz.component').then((m) => m.QuizComponent),

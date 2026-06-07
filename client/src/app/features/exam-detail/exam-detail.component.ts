@@ -6,7 +6,7 @@ import {
   input,
   signal,
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
@@ -23,6 +23,7 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
   selector: 'app-exam-detail',
   standalone: true,
   imports: [
+    RouterLink,
     MatButtonModule,
     MatIconModule,
     MatCardModule,
@@ -48,14 +49,14 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
               questions
             </p>
           </div>
-          <button
-            mat-flat-button
-            color="primary"
-            class="start-btn"
-            (click)="openSetup(exam)"
-          >
-            <mat-icon>play_arrow</mat-icon> Start exam mode
-          </button>
+          <div class="header-actions">
+            <button mat-stroked-button [routerLink]="['/exams', exam.id, 'progress']">
+              <mat-icon>insights</mat-icon> Learning progress
+            </button>
+            <button mat-flat-button color="primary" (click)="openSetup(exam)">
+              <mat-icon>play_arrow</mat-icon> Start exam mode
+            </button>
+          </div>
         </header>
 
         <mat-card appearance="outlined">
@@ -104,6 +105,11 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
       .meta {
         margin: 8px 0 0;
         color: rgba(0, 0, 0, 0.6);
+      }
+      .header-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
       }
       .center {
         display: flex;

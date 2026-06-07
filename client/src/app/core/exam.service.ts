@@ -6,6 +6,7 @@ import {
   AnswerResult,
   Exam,
   ExamSession,
+  ExamStats,
   SessionMode,
 } from './models';
 
@@ -54,6 +55,36 @@ const SESSION_FIELDS = `
   }
 `;
 
+const EXAM_STATS_FIELDS = `
+  examId
+  examName
+  totalQuestions
+  attemptedQuestions
+  masteredQuestions
+  strugglingQuestions
+  unattemptedQuestions
+  totalAttempts
+  correctAttempts
+  incorrectAttempts
+  accuracy
+  coverage
+  mastery
+  sessionsCount
+  lastActivity
+  sections {
+    sectionId
+    name
+    totalQuestions
+    attemptedQuestions
+    masteredQuestions
+    strugglingQuestions
+    correctAttempts
+    incorrectAttempts
+    accuracy
+    mastery
+  }
+`;
+
 @Injectable({ providedIn: 'root' })
 export class ExamService {
   private readonly graphql = inject(GraphqlService);
@@ -80,6 +111,15 @@ export class ExamService {
         { id },
       )
       .pipe(map((data) => data.session));
+  }
+
+  getExamStats(examId: string): Observable<ExamStats | null> {
+    return this.graphql
+      .request<{ examStats: ExamStats | null }>(
+        `query Stats($examId: UUID!) { examStats(examId: $examId) { ${EXAM_STATS_FIELDS} } }`,
+        { examId },
+      )
+      .pipe(map((data) => data.examStats));
   }
 
   importExam(payload: string): Observable<Exam> {

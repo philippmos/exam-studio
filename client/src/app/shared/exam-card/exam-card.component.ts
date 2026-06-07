@@ -9,13 +9,20 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { Exam } from '../../core/models';
 
 @Component({
   selector: 'app-exam-card',
   standalone: true,
-  imports: [MatCardModule, MatButtonModule, MatIconModule, MatChipsModule],
+  imports: [
+    MatCardModule,
+    MatButtonModule,
+    MatIconModule,
+    MatChipsModule,
+    MatTooltipModule,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <mat-card class="exam-card" appearance="outlined">
@@ -40,6 +47,13 @@ import { Exam } from '../../core/models';
         </div>
       </mat-card-content>
       <mat-card-actions align="end">
+        <button
+          mat-icon-button
+          matTooltip="Learning progress"
+          (click)="progress.emit(exam)"
+        >
+          <mat-icon>insights</mat-icon>
+        </button>
         <button mat-button color="warn" (click)="delete.emit(exam)">
           <mat-icon>delete</mat-icon> Delete
         </button>
@@ -70,4 +84,5 @@ export class ExamCardComponent {
   @Input({ required: true }) exam!: Exam;
   @Output() open = new EventEmitter<Exam>();
   @Output() delete = new EventEmitter<Exam>();
+  @Output() progress = new EventEmitter<Exam>();
 }

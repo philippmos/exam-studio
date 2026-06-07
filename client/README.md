@@ -24,10 +24,12 @@ src/app/
 │   └── exam.service.ts       # all exam/session queries & mutations
 ├── shared/                   # reusable, presentational components
 │   ├── exam-card/            # one exam tile on the dashboard
+│   ├── stat-card/            # a reusable KPI tile
 │   └── question-view/        # a question + its answer options (with feedback)
 └── features/                 # routed pages + their dialogs
     ├── dashboard/            # exam list + import dialog
     ├── exam-detail/          # exam overview + start-mode dialog
+    ├── exam-progress/        # per-exam learning-progress dashboard
     └── quiz/                 # the question-by-question runner + summary
 ```
 
@@ -44,3 +46,8 @@ src/app/
 4. **Quiz runner** (`/sessions/:id`) – answer questions one by one. Clicking an
    option submits it (persisted in the DB) and reveals whether it was correct.
    Navigate back/forth; finish to see a summary.
+5. **Learning progress** (`/exams/:id/progress`) – a dashboard of KPI tiles
+   (coverage, mastery, accuracy, mastered / needs-review / not-started counts,
+   sessions, last activity), an overall question-breakdown bar and a per-module
+   breakdown. Reachable from the dashboard card (chart icon) or the exam detail
+   page (**Learning progress**).

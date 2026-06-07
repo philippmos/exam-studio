@@ -30,6 +30,22 @@ ExamSession ──< SessionItem ─── Question
   **SessionItem**s is snapshotted. Answering a question writes the chosen
   answer (`selected_answer_id`) and whether it was correct onto its item.
 
+### Learning-progress statistics
+
+The `examStats` query derives all progress metrics **on the fly** from the
+`SessionItem` history (no aggregates are stored, keeping the schema normalised):
+
+* **coverage** – distinct questions attempted / total
+* **mastery** – distinct questions answered correctly at least once / total
+* **accuracy** – correct attempts / total attempts (a question re-attempted in a
+  later session counts as another attempt)
+* counts of mastered / struggling (attempted but never correct) / not-started
+  questions, plus a per-module breakdown, session count and last activity.
+
+Migration `0002` adds the integrity constraints these numbers rely on: a partial
+unique index enforcing **at most one correct answer per question**, and unique
+constraints so a question appears **at most once per session**.
+
 ## Getting started
 
 ### 1. Start PostgreSQL
@@ -133,11 +149,12 @@ the same file multiple times.
 
 **Queries**
 
-| Field                 | Description                                  |
-| --------------------- | -------------------------------------------- |
-| `exams`               | All exams (dashboard).                       |
-| `exam(id)`            | A single exam with its sections and counts.  |
-| `session(id)`         | A session with its ordered questions.        |
+| Field                 | Description                                          |
+| --------------------- | ---------------------------------------------------- |
+| `exams`               | All exams (dashboard).                               |
+| `exam(id)`            | A single exam with its sections and counts.          |
+| `session(id)`         | A session with its ordered questions.                |
+| `examStats(examId)`   | Aggregated learning-progress statistics for an exam. |
 
 **Mutations**
 

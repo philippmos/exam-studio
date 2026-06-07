@@ -49,6 +49,7 @@ import { ImportDialogComponent } from './import-dialog.component';
             <app-exam-card
               [exam]="exam"
               (open)="openExam($event)"
+              (progress)="openProgress($event)"
               (delete)="deleteExam($event)"
             />
           }
@@ -138,6 +139,10 @@ export class DashboardComponent {
 
   openExam(exam: Exam): void {
     this.router.navigate(['/exams', exam.id]);
+  }
+
+  openProgress(exam: Exam): void {
+    this.router.navigate(['/exams', exam.id, 'progress']);
   }
 
   deleteExam(exam: Exam): void {
