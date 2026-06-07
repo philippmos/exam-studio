@@ -1,0 +1,10 @@
+image: node:latest
+
+build:
+  script:
+    - cd client
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - client/dist/
