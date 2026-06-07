@@ -1,0 +1,27 @@
+from __future__ import annotations
+
+import uuid
+
+import strawberry
+from strawberry.types import Info
+
+from app.graphql import loaders
+from app.graphql.types import ExamSessionType, ExamType
+
+
+@strawberry.type
+class Query:
+    @strawberry.field
+    async def exams(self, info: Info) -> list[ExamType]:
+        """All exams for the dashboard."""
+        return await loaders.load_exams(info.context["db"])
+
+    @strawberry.field
+    async def exam(self, info: Info, id: uuid.UUID) -> ExamType | None:
+        result = await loaders.load_exams(info.context["db"], exam_id=id)
+        return result[0] if result else None
+
+    @strawberry.field
+    async def session(self, info: Info, id: uuid.UUID) -> ExamSessionType | None:
+        """A running (or finished) exam session with its ordered questions."""
+        return await loaders.load_session_type(info.context["db"], id)

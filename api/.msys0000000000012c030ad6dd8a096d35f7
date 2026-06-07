@@ -1,0 +1,87 @@
+"""Temporary end-to-end smoke test against a real Postgres DB."""
+import asyncio
+
+from app.database import SessionLocal
+from app.graphql.schema import schema
+
+
+async def run(query, variables=None):
+    async with SessionLocal() as db:
+        result = await schema.execute(
+            query, variable_values=variables or {}, context_value={"db": db}
+        )
+    if result.errors:
+        raise SystemExit(f"GraphQL errors: {result.errors}")
+    return result.data
+
+
+async def main():
+    payload = open("../ceh_questions.json", encoding="utf-8").read()
+
+    data = await run(
+        "mutation($p:String!){ importExam(payload:$p){ id name issuer questionCount sections { id name questionCount } } }",
+        {"p": payload},
+    )
+    exam = data["importExam"]
+    print("Imported:", exam["name"], "| questions:", exam["questionCount"],
+          "| sections:", len(exam["sections"]))
+    exam_id = exam["id"]
+
+    data = await run("query{ exams { id name questionCount } }")
+    print("Exams in DB:", len(data["exams"]))
+
+    # Start an ALL_RANDOM session
+    data = await run(
+        "mutation($e:UUID!){ startSession(examId:$e, mode:ALL_RANDOM){ id total items { id question { id number answers { id text } } } } }",
+        {"e": exam_id},
+    )
+    session = data["startSession"]
+    print("Session total:", session["total"])
+    first = session["items"][0]
+    item_id = first["id"]
+    answer_id = first["question"]["answers"][0]["id"]
+
+    # Submit an answer
+    data = await run(
+        "mutation($i:UUID!,$a:UUID!){ submitAnswer(sessionItemId:$i, selectedAnswerId:$a){ isCorrect correctAnswerId } }",
+        {"i": item_id, "a": answer_id},
+    )
+    res = data["submitAnswer"]
+    print("Submit result -> isCorrect:", res["isCorrect"],
+          "| correctAnswerId:", res["correctAnswerId"])
+
+    # Submit the CORRECT answer to mark this question as answered correctly
+    await run(
+        "mutation($i:UUID!,$a:UUID!){ submitAnswer(sessionItemId:$i, selectedAnswerId:$a){ isCorrect } }",
+        {"i": item_id, "a": res["correctAnswerId"]},
+    )
+
+    # UNANSWERED session should now have total = all - 1
+    data = await run(
+        "mutation($e:UUID!){ startSession(examId:$e, mode:UNANSWERED){ total } }",
+        {"e": exam_id},
+    )
+    print("UNANSWERED total (expect questionCount - 1):", data["startSession"]["total"])
+
+    # BY_SECTION session
+    sec = exam["sections"][0]
+    data = await run(
+        "mutation($e:UUID!,$s:UUID!){ startSession(examId:$e, mode:BY_SECTION, sectionId:$s){ total } }",
+        {"e": exam_id, "s": sec["id"]},
+    )
+    print(f"BY_SECTION '{sec['name']}' total (expect {sec['questionCount']}):",
+          data["startSession"]["total"])
+
+    # session() query
+    data = await run(
+        "query($i:UUID!){ session(id:$i){ total answered correct } }",
+        {"i": session["id"]},
+    )
+    print("Session progress:", data["session"])
+
+    # cleanup
+    await run("mutation($i:UUID!){ deleteExam(id:$i) }", {"i": exam_id})
+    print("Cleaned up. ALL GOOD.")
+
+
+asyncio.run(main())

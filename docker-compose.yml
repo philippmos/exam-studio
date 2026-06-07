@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16
+    container_name: exam-studio-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: exam
+      POSTGRES_PASSWORD: exam
+      POSTGRES_DB: examstudio
+    ports:
+      - "5432:5432"
+    volumes:
+      - exam_studio_pgdata:/var/lib/postgresql/data
+
+volumes:
+  exam_studio_pgdata:
