@@ -139,7 +139,9 @@ class Mutation:
         if selected_answer_id not in answers_by_id:
             raise ValueError("Selected answer does not belong to this question.")
 
-        correct_answer = next(a for a in answers if a.is_correct)
+        correct_answer = next((a for a in answers if a.is_correct), None)
+        if correct_answer is None:
+            raise ValueError("This question has no correct answer configured.")
 
         item.selected_answer_id = selected_answer_id
         item.is_correct = selected_answer_id == correct_answer.id

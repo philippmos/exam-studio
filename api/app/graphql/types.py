@@ -92,6 +92,44 @@ class AnswerResult:
     correct_answer_id: uuid.UUID
 
 
+@strawberry.type
+class SectionStats:
+    """Per-module learning progress."""
+
+    section_id: uuid.UUID
+    name: str
+    total_questions: int
+    attempted_questions: int  # answered at least once
+    mastered_questions: int  # answered correctly at least once
+    struggling_questions: int  # attempted but never correct
+    correct_attempts: int
+    incorrect_attempts: int
+    accuracy: float  # correct_attempts / total attempts
+    mastery: float  # mastered_questions / total_questions
+
+
+@strawberry.type
+class ExamStats:
+    """Aggregated learning progress for a whole exam (dashboard data)."""
+
+    exam_id: uuid.UUID
+    exam_name: str
+    total_questions: int
+    attempted_questions: int
+    mastered_questions: int
+    struggling_questions: int
+    unattempted_questions: int
+    total_attempts: int
+    correct_attempts: int
+    incorrect_attempts: int
+    accuracy: float
+    coverage: float  # attempted_questions / total_questions
+    mastery: float  # mastered_questions / total_questions
+    sessions_count: int
+    last_activity: datetime | None
+    sections: list[SectionStats]
+
+
 # --------------------------------------------------------------------------- #
 # Converters: ORM -> GraphQL types (relationships must be loaded beforehand)   #
 # --------------------------------------------------------------------------- #

@@ -49,14 +49,23 @@ def build_exam_from_payload(payload: str) -> Exam:
         )
 
         correct_id = raw_question.get("correct_answer")
+        correct_count = 0
         for position, (answer_id, answer_text) in enumerate(
             raw_question.get("answers", {}).items()
         ):
+            is_correct = answer_id == correct_id
+            correct_count += int(is_correct)
             Answer(
                 text=answer_text,
-                is_correct=(answer_id == correct_id),
+                is_correct=is_correct,
                 position=position,
                 question=question,
+            )
+
+        if correct_count != 1:
+            raise ImportError_(
+                f"Question {raw_question.get('number')} must have exactly one "
+                f"correct answer, found {correct_count}."
             )
 
     return exam
