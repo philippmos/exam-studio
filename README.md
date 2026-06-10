@@ -28,7 +28,29 @@ ExamSession ──< SessionItem (stores the chosen answer + correctness)
 * Starting an exam snapshots an ordered **ExamSession** of **SessionItem**s.
   Every answer you give is persisted on its item.
 
-## Quick start
+## Run the whole stack with Docker
+
+Build and start PostgreSQL, the API and the client together:
+
+```bash
+docker compose up --build
+```
+
+Then open the app at <http://localhost:8080>. nginx serves the Angular build and
+reverse-proxies `/graphql` to the API (same origin, so no CORS). The API is also
+reachable directly at <http://localhost:8000/graphql>. Database migrations
+(`alembic upgrade head`) run automatically when the API container starts.
+
+Stop everything with `docker compose down` (add `-v` to also drop the database
+volume).
+
+| Service | Image                        | Host port |
+| ------- | ---------------------------- | --------- |
+| client  | Angular build served by nginx | 8080      |
+| api     | FastAPI / uvicorn             | 8000      |
+| db      | PostgreSQL 16                 | 5432      |
+
+## Quick start (local dev, without containers for the apps)
 
 ### 1. Database
 
