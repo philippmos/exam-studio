@@ -83,6 +83,16 @@ class Mutation:
         return True
 
     @strawberry.mutation
+    async def delete_session(self, info: Info, id: uuid.UUID) -> bool:
+        db: AsyncSession = info.context["db"]
+        session = await db.get(models.ExamSession, id)
+        if session is None:
+            return False
+        await db.delete(session)
+        await db.commit()
+        return True
+
+    @strawberry.mutation
     async def start_session(
         self,
         info: Info,

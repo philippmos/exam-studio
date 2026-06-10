@@ -73,13 +73,22 @@ import { SessionOverview } from '../../core/models';
                       {{ s.answered }} / {{ s.total }} answered
                     </span>
                   </div>
-                  <button
-                    mat-flat-button
-                    color="primary"
-                    (click)="openSession(s)"
-                  >
-                    <mat-icon>play_arrow</mat-icon> Continue
-                  </button>
+                  <div class="actions">
+                    <button
+                      mat-flat-button
+                      color="primary"
+                      (click)="openSession(s)"
+                    >
+                      <mat-icon>play_arrow</mat-icon> Continue
+                    </button>
+                    <button
+                      mat-icon-button
+                      aria-label="Delete session"
+                      (click)="deleteSession(s)"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
                 </mat-card-content>
               </mat-card>
             }
@@ -105,9 +114,18 @@ import { SessionOverview } from '../../core/models';
                       {{ s.correct }} / {{ s.total }} correct
                     </span>
                   </div>
-                  <button mat-stroked-button (click)="openSession(s)">
-                    <mat-icon>visibility</mat-icon> Review
-                  </button>
+                  <div class="actions">
+                    <button mat-stroked-button (click)="openSession(s)">
+                      <mat-icon>visibility</mat-icon> Review
+                    </button>
+                    <button
+                      mat-icon-button
+                      aria-label="Delete session"
+                      (click)="deleteSession(s)"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
                 </mat-card-content>
               </mat-card>
             }
@@ -187,6 +205,11 @@ import { SessionOverview } from '../../core/models';
         height: 20px;
         width: 20px;
       }
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
       .center,
       .empty {
         display: flex;
@@ -262,6 +285,22 @@ export class SessionsComponent {
 
   openSession(session: SessionOverview): void {
     this.router.navigate(['/sessions', session.id]);
+  }
+
+  deleteSession(session: SessionOverview): void {
+    if (!confirm(`Delete this "${session.examName}" session and its answers?`)) {
+      return;
+    }
+    this.examService.deleteSession(session.id).subscribe({
+      next: () => {
+        this.sessions.update((list) =>
+          list.filter((s) => s.id !== session.id),
+        );
+        this.snackBar.open('Session deleted.', 'OK', { duration: 3000 });
+      },
+      error: (err: Error) =>
+        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+    });
   }
 
   goDashboard(): void {

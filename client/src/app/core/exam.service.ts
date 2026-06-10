@@ -206,6 +206,15 @@ export class ExamService {
       .pipe(map((data) => data.submitAnswer));
   }
 
+  deleteSession(id: string): Observable<boolean> {
+    return this.graphql
+      .request<{ deleteSession: boolean }>(
+        `mutation DeleteSession($id: UUID!) { deleteSession(id: $id) }`,
+        { id },
+      )
+      .pipe(map((data) => data.deleteSession));
+  }
+
   finishSession(id: string): Observable<ExamSession> {
     return this.graphql
       .request<{ finishSession: ExamSession }>(
