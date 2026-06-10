@@ -88,3 +88,35 @@ exam and **Start exam mode**.
 
 See `api/README.md` for database-migration details and `client/README.md` for
 the frontend structure.
+
+### Import data
+
+Create a json file with your desired exam content
+
+```json
+{
+  "exam": {
+    "name": "Dummy Exam",
+    "issuer": "Dummy Issuer",
+    "sections": [
+      {
+        "key": "dummy_section",
+        "name": "Dummy Section"
+      }
+    ],
+    "questions": [
+      {
+        "question": "Dummy question text?",
+        "answers": [
+          { "text": "Dummy answer A" },
+          { "text": "Dummy answer B", "is_correct": true },
+          { "text": "Dummy answer C" },
+          { "text": "Dummy answer D" }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "single_choice"
+      }
+    ]
+  }
+}
+```
