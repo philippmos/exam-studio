@@ -53,6 +53,20 @@ export interface ExamSession {
   items: SessionItem[];
 }
 
+export interface SessionOverview {
+  id: string;
+  examId: string;
+  examName: string;
+  mode: SessionMode;
+  sectionId: string | null;
+  sectionName: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+  total: number;
+  answered: number;
+  correct: number;
+}
+
 export interface AnswerResult {
   sessionItemId: string;
   isCorrect: boolean;

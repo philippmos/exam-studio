@@ -6,7 +6,12 @@ import strawberry
 from strawberry.types import Info
 
 from app.graphql import loaders, stats
-from app.graphql.types import ExamSessionType, ExamStats, ExamType
+from app.graphql.types import (
+    ExamSessionType,
+    ExamStats,
+    ExamType,
+    SessionOverviewType,
+)
 
 
 @strawberry.type
@@ -25,6 +30,13 @@ class Query:
     async def session(self, info: Info, id: uuid.UUID) -> ExamSessionType | None:
         """A running (or finished) exam session with its ordered questions."""
         return await loaders.load_session_type(info.context["db"], id)
+
+    @strawberry.field
+    async def sessions(
+        self, info: Info, exam_id: uuid.UUID | None = None
+    ) -> list[SessionOverviewType]:
+        """All sessions (optionally one exam's) with answer progress, newest first."""
+        return await loaders.load_session_overviews(info.context["db"], exam_id)
 
     @strawberry.field
     async def exam_stats(self, info: Info, exam_id: uuid.UUID) -> ExamStats | None:

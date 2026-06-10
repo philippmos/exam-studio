@@ -84,6 +84,23 @@ class ExamSessionType:
 
 
 @strawberry.type
+class SessionOverviewType:
+    """Lightweight session row for the sessions overview (no items)."""
+
+    id: uuid.UUID
+    exam_id: uuid.UUID
+    exam_name: str
+    mode: SessionModeEnum
+    section_id: uuid.UUID | None
+    section_name: str | None
+    created_at: datetime
+    finished_at: datetime | None
+    total: int
+    answered: int
+    correct: int
+
+
+@strawberry.type
 class AnswerResult:
     """Returned after a question is answered so the UI can show feedback."""
 
@@ -185,6 +202,29 @@ def to_session_item(item: models.SessionItem) -> SessionItemType:
         correct_answer_id=correct_answer_id,
         is_correct=item.is_correct,
         answered_at=item.answered_at,
+    )
+
+
+def to_session_overview(
+    session: models.ExamSession,
+    exam_name: str,
+    section_name: str | None,
+    total: int,
+    answered: int,
+    correct: int,
+) -> SessionOverviewType:
+    return SessionOverviewType(
+        id=session.id,
+        exam_id=session.exam_id,
+        exam_name=exam_name,
+        mode=SessionMode(session.mode),
+        section_id=session.section_id,
+        section_name=section_name,
+        created_at=session.created_at,
+        finished_at=session.finished_at,
+        total=total,
+        answered=answered,
+        correct=correct,
     )
 
 

@@ -64,3 +64,46 @@ async def load_session_type(
 ) -> types.ExamSessionType | None:
     session = await load_session(db, session_id)
     return types.to_session(session) if session is not None else None
+
+
+async def load_session_overviews(
+    db: AsyncSession, exam_id: uuid.UUID | None = None
+) -> list[types.SessionOverviewType]:
+    """Session rows with their answer counts (aggregated in SQL), newest first."""
+    progress = (
+        select(
+            models.SessionItem.session_id,
+            func.count(models.SessionItem.id).label("total"),
+            func.count(models.SessionItem.selected_answer_id).label("answered"),
+            func.count(models.SessionItem.id)
+            .filter(models.SessionItem.is_correct.is_(True))
+            .label("correct"),
+        )
+        .group_by(models.SessionItem.session_id)
+        .subquery()
+    )
+
+    stmt = (
+        select(
+            models.ExamSession,
+            models.Exam.name,
+            models.Section.name,
+            func.coalesce(progress.c.total, 0),
+            func.coalesce(progress.c.answered, 0),
+            func.coalesce(progress.c.correct, 0),
+        )
+        .join(models.Exam, models.ExamSession.exam_id == models.Exam.id)
+        .outerjoin(models.Section, models.ExamSession.section_id == models.Section.id)
+        .outerjoin(progress, progress.c.session_id == models.ExamSession.id)
+        .order_by(models.ExamSession.created_at.desc())
+    )
+    if exam_id is not None:
+        stmt = stmt.where(models.ExamSession.exam_id == exam_id)
+
+    rows = (await db.execute(stmt)).all()
+    return [
+        types.to_session_overview(
+            session, exam_name, section_name, total, answered, correct
+        )
+        for session, exam_name, section_name, total, answered, correct in rows
+    ]

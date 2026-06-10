@@ -14,6 +14,11 @@ import { MatIconModule } from '@angular/material/icon';
         <mat-icon>school</mat-icon>
         <span>Exam Studio</span>
       </a>
+      <span class="spacer"></span>
+      <a routerLink="/sessions" class="nav-link">
+        <mat-icon>history</mat-icon>
+        <span>Sessions</span>
+      </a>
     </mat-toolbar>
     <main>
       <router-outlet />
@@ -32,6 +37,18 @@ import { MatIconModule } from '@angular/material/icon';
         gap: 8px;
         color: inherit;
         text-decoration: none;
+        font-weight: 500;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: inherit;
+        text-decoration: none;
+        font-size: 14px;
         font-weight: 500;
       }
     `,

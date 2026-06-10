@@ -8,6 +8,7 @@ import {
   ExamSession,
   ExamStats,
   SessionMode,
+  SessionOverview,
 } from './models';
 
 const EXAM_FIELDS = `
@@ -53,6 +54,20 @@ const SESSION_FIELDS = `
       }
     }
   }
+`;
+
+const SESSION_OVERVIEW_FIELDS = `
+  id
+  examId
+  examName
+  mode
+  sectionId
+  sectionName
+  createdAt
+  finishedAt
+  total
+  answered
+  correct
 `;
 
 const EXAM_STATS_FIELDS = `
@@ -111,6 +126,17 @@ export class ExamService {
         { id },
       )
       .pipe(map((data) => data.session));
+  }
+
+  getSessions(examId: string | null = null): Observable<SessionOverview[]> {
+    return this.graphql
+      .request<{ sessions: SessionOverview[] }>(
+        `query Sessions($examId: UUID) {
+          sessions(examId: $examId) { ${SESSION_OVERVIEW_FIELDS} }
+        }`,
+        { examId },
+      )
+      .pipe(map((data) => data.sessions));
   }
 
   getExamStats(examId: string): Observable<ExamStats | null> {
