@@ -17,9 +17,13 @@ from datetime import datetime
 import strawberry
 
 from app import models
+from app.enums import QuestionType as QuestionTypeValue
 from app.enums import SessionMode
 
 SessionModeEnum = strawberry.enum(SessionMode)
+# The GraphQL object type below is already called "QuestionType", so the enum
+# gets a distinct schema name.
+QuestionTypeEnum = strawberry.enum(QuestionTypeValue, name="QuestionKind")
 
 
 @strawberry.type
@@ -32,9 +36,9 @@ class AnswerType:
 @strawberry.type
 class QuestionType:
     id: uuid.UUID
-    number: int
     text: str
     section_id: uuid.UUID
+    question_type: QuestionTypeEnum
     answers: list[AnswerType]
 
 
@@ -61,10 +65,10 @@ class SessionItemType:
     id: uuid.UUID
     position: int
     question: QuestionType
-    selected_answer_id: uuid.UUID | None
+    selected_answer_ids: list[uuid.UUID]
     # Only revealed once the question has been answered, so the solution can be
     # shown when reviewing/resuming without leaking it beforehand.
-    correct_answer_id: uuid.UUID | None
+    correct_answer_ids: list[uuid.UUID] | None
     is_correct: bool | None
     answered_at: datetime | None
 
@@ -106,7 +110,7 @@ class AnswerResult:
 
     session_item_id: uuid.UUID
     is_correct: bool
-    correct_answer_id: uuid.UUID
+    correct_answer_ids: list[uuid.UUID]
 
 
 @strawberry.type
@@ -159,9 +163,9 @@ def to_answer(answer: models.Answer) -> AnswerType:
 def to_question(question: models.Question) -> QuestionType:
     return QuestionType(
         id=question.id,
-        number=question.number,
         text=question.text,
         section_id=question.section_id,
+        question_type=QuestionTypeValue(question.question_type),
         answers=[to_answer(a) for a in question.answers],
     )
 
@@ -188,18 +192,16 @@ def to_exam(exam: models.Exam, counts_by_section: dict[uuid.UUID, int]) -> ExamT
 
 
 def to_session_item(item: models.SessionItem) -> SessionItemType:
-    answered = item.selected_answer_id is not None
-    correct_answer_id = None
+    answered = item.answered_at is not None
+    correct_answer_ids = None
     if answered:
-        correct_answer_id = next(
-            (a.id for a in item.question.answers if a.is_correct), None
-        )
+        correct_answer_ids = [a.id for a in item.question.answers if a.is_correct]
     return SessionItemType(
         id=item.id,
         position=item.position,
         question=to_question(item.question),
-        selected_answer_id=item.selected_answer_id,
-        correct_answer_id=correct_answer_id,
+        selected_answer_ids=[sa.answer_id for sa in item.selected_answers],
+        correct_answer_ids=correct_answer_ids,
         is_correct=item.is_correct,
         answered_at=item.answered_at,
     )
@@ -230,7 +232,7 @@ def to_session_overview(
 
 def to_session(session: models.ExamSession) -> ExamSessionType:
     items = list(session.items)
-    answered = sum(1 for i in items if i.selected_answer_id is not None)
+    answered = sum(1 for i in items if i.answered_at is not None)
     correct = sum(1 for i in items if i.is_correct)
     return ExamSessionType(
         id=session.id,

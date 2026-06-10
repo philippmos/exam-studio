@@ -18,13 +18,15 @@ exam-studio/
 ## Domain model
 
 ```
-Exam ──< Section ──< Question ──< Answer (one flagged is_correct)
-ExamSession ──< SessionItem (stores the chosen answer + correctness)
+Exam ──< Section ──< Question ──< Answer (flagged is_correct)
+ExamSession ──< SessionItem ──< SessionItemAnswer (the chosen answers)
 ```
 
 * An **Exam** is a certification (e.g. *Certified Ethical Hacker*).
 * It is split into **Section**s (modules), each holding **Question**s.
-* Each question has four **Answer**s; the correct one is a boolean flag.
+* Each question has several **Answer**s; correct ones carry a boolean flag.
+  A question is either `single_choice` (exactly one correct answer) or
+  `multiple_choice` (one or more correct answers).
 * Starting an exam snapshots an ordered **ExamSession** of **SessionItem**s.
   Every answer you give is persisted on its item.
 
@@ -91,7 +93,11 @@ the frontend structure.
 
 ### Import data
 
-Create a json file with your desired exam content
+Create a json file with your desired exam content. The file carries no ids:
+sections are referenced by their `key`, question numbers follow the order in
+the file, and the database generates fresh UUIDs on import. `question_type`
+is either `single_choice` (exactly one answer with `is_correct: true`) or
+`multiple_choice` (one or more correct answers).
 
 ```json
 {
@@ -115,6 +121,17 @@ Create a json file with your desired exam content
         ],
         "section_key": "dummy_section",
         "question_type": "single_choice"
+      },
+      {
+        "question": "Dummy question text?",
+        "answers": [
+          { "text": "Dummy answer A" },
+          { "text": "Dummy answer B", "is_correct": true },
+          { "text": "Dummy answer C", "is_correct": true },
+          { "text": "Dummy answer D" }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "multiple_choice"
       }
     ]
   }

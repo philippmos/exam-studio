@@ -57,7 +57,7 @@ async def compute_exam_stats(
         ).all()
     )
 
-    answered = models.SessionItem.selected_answer_id.is_not(None)
+    answered = models.SessionItem.answered_at.is_not(None)
     section_join = (
         select(models.Section.id)
         .select_from(models.SessionItem)

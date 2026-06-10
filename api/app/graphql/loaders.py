@@ -53,7 +53,10 @@ async def load_session(
         .options(
             selectinload(models.ExamSession.items)
             .selectinload(models.SessionItem.question)
-            .selectinload(models.Question.answers)
+            .selectinload(models.Question.answers),
+            selectinload(models.ExamSession.items).selectinload(
+                models.SessionItem.selected_answers
+            ),
         )
     )
     return await db.scalar(stmt)
@@ -74,7 +77,7 @@ async def load_session_overviews(
         select(
             models.SessionItem.session_id,
             func.count(models.SessionItem.id).label("total"),
-            func.count(models.SessionItem.selected_answer_id).label("answered"),
+            func.count(models.SessionItem.answered_at).label("answered"),
             func.count(models.SessionItem.id)
             .filter(models.SessionItem.is_correct.is_(True))
             .label("correct"),

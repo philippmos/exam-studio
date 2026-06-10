@@ -19,8 +19,10 @@ class Section(Base):
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     exam: Mapped["Exam"] = relationship(back_populates="sections")
+    # Question order within a section does not matter (sessions shuffle anyway);
+    # ordering by id just keeps the result deterministic.
     questions: Mapped[list["Question"]] = relationship(
         back_populates="section",
         cascade="all, delete-orphan",
-        order_by="Question.number",
+        order_by="Question.id",
     )

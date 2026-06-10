@@ -38,15 +38,15 @@ const SESSION_FIELDS = `
   items {
     id
     position
-    selectedAnswerId
-    correctAnswerId
+    selectedAnswerIds
+    correctAnswerIds
     isCorrect
     answeredAt
     question {
       id
-      number
       text
       sectionId
+      questionType
       answers {
         id
         text
@@ -187,21 +187,21 @@ export class ExamService {
 
   submitAnswer(
     sessionItemId: string,
-    selectedAnswerId: string,
+    selectedAnswerIds: string[],
   ): Observable<AnswerResult> {
     return this.graphql
       .request<{ submitAnswer: AnswerResult }>(
-        `mutation Submit($sessionItemId: UUID!, $selectedAnswerId: UUID!) {
+        `mutation Submit($sessionItemId: UUID!, $selectedAnswerIds: [UUID!]!) {
           submitAnswer(
             sessionItemId: $sessionItemId
-            selectedAnswerId: $selectedAnswerId
+            selectedAnswerIds: $selectedAnswerIds
           ) {
             sessionItemId
             isCorrect
-            correctAnswerId
+            correctAnswerIds
           }
         }`,
-        { sessionItemId, selectedAnswerId },
+        { sessionItemId, selectedAnswerIds },
       )
       .pipe(map((data) => data.submitAnswer));
   }

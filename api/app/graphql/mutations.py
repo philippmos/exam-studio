@@ -7,10 +7,11 @@ from datetime import datetime, timezone
 import strawberry
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from strawberry.types import Info
 
 from app import models
-from app.enums import SessionMode
+from app.enums import QuestionType, SessionMode
 from app.graphql import loaders
 from app.graphql.types import (
     AnswerResult,
@@ -127,14 +128,34 @@ class Mutation:
         self,
         info: Info,
         session_item_id: uuid.UUID,
-        selected_answer_id: uuid.UUID,
+        selected_answer_ids: list[uuid.UUID],
     ) -> AnswerResult:
-        """Persist the chosen answer for a question and report correctness."""
+        """Persist the chosen answer(s) for a question and report correctness.
+
+        A multiple-choice question only counts as correct when exactly the set
+        of correct answers was selected.
+        """
         db: AsyncSession = info.context["db"]
 
-        item = await db.get(models.SessionItem, session_item_id)
+        item = await db.get(
+            models.SessionItem,
+            session_item_id,
+            options=(selectinload(models.SessionItem.selected_answers),),
+        )
         if item is None:
             raise ValueError("Session item not found.")
+
+        question = await db.get(models.Question, item.question_id)
+        selected_ids = set(selected_answer_ids)
+        if not selected_ids:
+            raise ValueError("At least one answer must be selected.")
+        if (
+            question.question_type == QuestionType.SINGLE_CHOICE.value
+            and len(selected_ids) != 1
+        ):
+            raise ValueError(
+                "Exactly one answer must be selected for a single-choice question."
+            )
 
         answers = list(
             (
@@ -145,23 +166,27 @@ class Mutation:
                 )
             ).all()
         )
-        answers_by_id = {a.id: a for a in answers}
-        if selected_answer_id not in answers_by_id:
-            raise ValueError("Selected answer does not belong to this question.")
+        answer_ids = {a.id for a in answers}
+        if not selected_ids <= answer_ids:
+            raise ValueError("Selected answers do not belong to this question.")
 
-        correct_answer = next((a for a in answers if a.is_correct), None)
-        if correct_answer is None:
+        correct_ids = {a.id for a in answers if a.is_correct}
+        if not correct_ids:
             raise ValueError("This question has no correct answer configured.")
 
-        item.selected_answer_id = selected_answer_id
-        item.is_correct = selected_answer_id == correct_answer.id
+        # Replacing the collection also clears any previous selection rows.
+        item.selected_answers = [
+            models.SessionItemAnswer(answer_id=answer_id)
+            for answer_id in selected_ids
+        ]
+        item.is_correct = selected_ids == correct_ids
         item.answered_at = datetime.now(timezone.utc)
         await db.commit()
 
         return AnswerResult(
             session_item_id=item.id,
             is_correct=bool(item.is_correct),
-            correct_answer_id=correct_answer.id,
+            correct_answer_ids=sorted(correct_ids, key=str),
         )
 
     @strawberry.mutation

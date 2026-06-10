@@ -4,11 +4,13 @@ export interface Answer {
   position: number;
 }
 
+export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
+
 export interface Question {
   id: string;
-  number: number;
   text: string;
   sectionId: string;
+  questionType: QuestionType;
   answers: Answer[];
 }
 
@@ -34,8 +36,8 @@ export interface SessionItem {
   id: string;
   position: number;
   question: Question;
-  selectedAnswerId: string | null;
-  correctAnswerId: string | null;
+  selectedAnswerIds: string[];
+  correctAnswerIds: string[] | null;
   isCorrect: boolean | null;
   answeredAt: string | null;
 }
@@ -70,7 +72,7 @@ export interface SessionOverview {
 export interface AnswerResult {
   sessionItemId: string;
   isCorrect: boolean;
-  correctAnswerId: string;
+  correctAnswerIds: string[];
 }
 
 /** Result of the session-setup dialog. */

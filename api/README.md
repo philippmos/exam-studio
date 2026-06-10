@@ -16,19 +16,24 @@ FastAPI + Strawberry (GraphQL) + SQLAlchemy (async) + Alembic + PostgreSQL.
 
 ```
 Exam ──< Section ──< Question ──< Answer
-                                   └─ is_correct flag (exactly one per question)
+                        │            └─ is_correct flag
+                        └─ question_type (SINGLE_CHOICE / MULTIPLE_CHOICE)
 
-ExamSession ──< SessionItem ─── Question
-                     └─ selected_answer_id + is_correct  (the persisted answer)
+ExamSession ──< SessionItem ──< SessionItemAnswer  (the persisted selection)
+                     └─ is_correct + answered_at
 ```
 
 * An **Exam** (a certification) is divided into **Section**s (modules).
 * Each **Section** contains **Question**s, each with several **Answer** rows.
-  The correct option is stored as a boolean flag on the answer row rather than
-  as a duplicated id on the question (proper normalisation).
+  Correct options are stored as a boolean flag on the answer row rather than
+  as duplicated ids on the question (proper normalisation). A question's
+  `question_type` decides how many answers are expected: `SINGLE_CHOICE`
+  (exactly one correct answer) or `MULTIPLE_CHOICE` (one or more).
 * An **ExamSession** is one run. When it starts, an ordered list of
   **SessionItem**s is snapshotted. Answering a question writes the chosen
-  answer (`selected_answer_id`) and whether it was correct onto its item.
+  answers (one **SessionItemAnswer** row each) and whether the selection was
+  correct onto its item. A multiple-choice selection only counts as correct
+  when it matches the set of correct answers exactly.
 
 ### Learning-progress statistics
 
@@ -42,9 +47,11 @@ The `examStats` query derives all progress metrics **on the fly** from the
 * counts of mastered / struggling (attempted but never correct) / not-started
   questions, plus a per-module breakdown, session count and last activity.
 
-Migration `0002` adds the integrity constraints these numbers rely on: a partial
-unique index enforcing **at most one correct answer per question**, and unique
-constraints so a question appears **at most once per session**.
+Migration `0002` adds the integrity constraints these numbers rely on: unique
+constraints so a question appears **at most once per session**. Migration
+`0003` adds multiple-choice support: the `questions.question_type` column, the
+`session_item_answers` table (replacing `session_items.selected_answer_id`)
+and it drops the former one-correct-answer-per-question index.
 
 ## Getting started
 
@@ -141,9 +148,11 @@ mutation Import($payload: String!) {
 }
 ```
 
-…passing the contents of `ceh_questions.json` as the `payload` variable (a JSON
-string). Every import creates a brand-new exam with fresh ids, so you can import
-the same file multiple times.
+…passing the exam document as the `payload` variable (a JSON string; see
+`ceh_questions.schema.json` in the repository root for the expected shape).
+The JSON carries no ids — sections are referenced by their `key` and question
+numbers follow the order in the file. Every import generates fresh UUIDs, so
+you can import the same file multiple times.
 
 ## GraphQL API overview
 
@@ -163,7 +172,7 @@ the same file multiple times.
 | `importExam(payload)`                              | Import an exam from a JSON string.       |
 | `deleteExam(id)`                                   | Delete an exam (cascades).               |
 | `startSession(examId, mode, sectionId)`            | Start a run; snapshots the questions.    |
-| `submitAnswer(sessionItemId, selectedAnswerId)`    | Persist an answer, returns correctness.  |
+| `submitAnswer(sessionItemId, selectedAnswerIds)`   | Persist the answer(s), returns correctness. |
 | `finishSession(id)`                                | Mark a session finished.                 |
 
 `mode` is one of `ALL_RANDOM`, `BY_SECTION` (requires `sectionId`) or

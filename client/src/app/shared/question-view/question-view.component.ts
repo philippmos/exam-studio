@@ -3,8 +3,11 @@ import {
   Component,
   EventEmitter,
   Input,
+  OnChanges,
   Output,
+  SimpleChanges,
 } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 import { Answer, Question } from '../../core/models';
@@ -12,41 +15,59 @@ import { Answer, Question } from '../../core/models';
 @Component({
   selector: 'app-question-view',
   standalone: true,
-  imports: [MatIconModule],
+  imports: [MatButtonModule, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Question text is imported, trusted content; Angular sanitises innerHTML. -->
     <div class="question-text" [innerHTML]="question.text"></div>
+
+    @if (isMultiple && !answered) {
+      <p class="multi-hint">
+        <mat-icon>checklist</mat-icon> Select all answers that apply.
+      </p>
+    }
 
     <div class="options">
       @for (answer of question.answers; track answer.id; let i = $index) {
         <button
           type="button"
           class="option"
-          [class.correct]="answered && answer.id === correctAnswerId"
+          [class.selected]="!answered && isSelected(answer)"
+          [class.correct]="answered && isCorrectAnswer(answer)"
           [class.wrong]="
-            answered &&
-            answer.id === selectedAnswerId &&
-            answer.id !== correctAnswerId
+            answered && isSelected(answer) && !isCorrectAnswer(answer)
           "
           [class.muted]="answered && !isHighlighted(answer)"
           [disabled]="answered"
-          (click)="select.emit(answer.id)"
+          (click)="onOptionClick(answer)"
         >
           <span class="letter">{{ letters[i] }}</span>
           <span class="label">{{ answer.text }}</span>
-          @if (answered && answer.id === correctAnswerId) {
+          @if (answered && isCorrectAnswer(answer)) {
             <mat-icon class="state-icon">check_circle</mat-icon>
           } @else if (
-            answered &&
-            answer.id === selectedAnswerId &&
-            answer.id !== correctAnswerId
+            answered && isSelected(answer) && !isCorrectAnswer(answer)
           ) {
             <mat-icon class="state-icon">cancel</mat-icon>
+          } @else if (!answered && isSelected(answer)) {
+            <mat-icon class="state-icon">check</mat-icon>
           }
         </button>
       }
     </div>
+
+    @if (isMultiple && !answered) {
+      <div class="submit-row">
+        <button
+          mat-flat-button
+          color="primary"
+          [disabled]="pending.length === 0"
+          (click)="submitPending()"
+        >
+          Check answer
+        </button>
+      </div>
+    }
   `,
   styles: [
     `
@@ -62,6 +83,14 @@ import { Answer, Question } from '../../core/models';
         border-radius: 8px;
         overflow-x: auto;
         font-size: 14px;
+      }
+      .multi-hint {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #1976d2;
+        font-weight: 500;
+        margin: 0 0 16px;
       }
       .options {
         display: flex;
@@ -107,6 +136,17 @@ import { Answer, Question } from '../../core/models';
       .state-icon {
         flex: 0 0 auto;
       }
+      .option.selected {
+        border-color: #1976d2;
+        background: #f0f6ff;
+      }
+      .option.selected .letter {
+        background: #1976d2;
+        color: #fff;
+      }
+      .option.selected .state-icon {
+        color: #1976d2;
+      }
       .option.correct {
         border-color: #2e7d32;
         background: #e8f5e9;
@@ -126,21 +166,67 @@ import { Answer, Question } from '../../core/models';
       .option.muted {
         opacity: 0.6;
       }
+      .submit-row {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 16px;
+      }
     `,
   ],
 })
-export class QuestionViewComponent {
+export class QuestionViewComponent implements OnChanges {
   @Input({ required: true }) question!: Question;
   @Input() answered = false;
-  @Input() selectedAnswerId: string | null = null;
-  @Input() correctAnswerId: string | null = null;
-  @Output() select = new EventEmitter<string>();
+  @Input() selectedAnswerIds: string[] = [];
+  @Input() correctAnswerIds: string[] | null = null;
+  /** Emits the chosen answer ids: one for single choice, several for multiple. */
+  @Output() submitAnswers = new EventEmitter<string[]>();
 
   readonly letters = ['A', 'B', 'C', 'D', 'E', 'F'];
 
+  /** Local multiple-choice selection, before it is submitted. */
+  pending: string[] = [];
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['question']) {
+      this.pending = [];
+    }
+  }
+
+  get isMultiple(): boolean {
+    return this.question.questionType === 'MULTIPLE_CHOICE';
+  }
+
+  onOptionClick(answer: Answer): void {
+    if (this.answered) {
+      return;
+    }
+    if (!this.isMultiple) {
+      this.submitAnswers.emit([answer.id]);
+      return;
+    }
+    this.pending = this.pending.includes(answer.id)
+      ? this.pending.filter((id) => id !== answer.id)
+      : [...this.pending, answer.id];
+  }
+
+  submitPending(): void {
+    if (this.pending.length > 0) {
+      this.submitAnswers.emit(this.pending);
+    }
+  }
+
+  isSelected(answer: Answer): boolean {
+    return this.answered
+      ? this.selectedAnswerIds.includes(answer.id)
+      : this.pending.includes(answer.id);
+  }
+
+  isCorrectAnswer(answer: Answer): boolean {
+    return this.correctAnswerIds?.includes(answer.id) ?? false;
+  }
+
   isHighlighted(answer: Answer): boolean {
-    return (
-      answer.id === this.correctAnswerId || answer.id === this.selectedAnswerId
-    );
+    return this.isCorrectAnswer(answer) || this.isSelected(answer);
   }
 }

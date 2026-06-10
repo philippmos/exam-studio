@@ -79,9 +79,9 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
               <app-question-view
                 [question]="item.question"
                 [answered]="isAnswered(item)"
-                [selectedAnswerId]="item.selectedAnswerId"
-                [correctAnswerId]="item.correctAnswerId"
-                (select)="answer(item, $event)"
+                [selectedAnswerIds]="item.selectedAnswerIds"
+                [correctAnswerIds]="item.correctAnswerIds"
+                (submitAnswers)="answer(item, $event)"
               />
             </mat-card-content>
           </mat-card>
@@ -108,7 +108,11 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
                 {{ item.isCorrect ? 'Correct' : 'Incorrect' }}
               </span>
             } @else {
-              <span class="hint">Select an answer</span>
+              <span class="hint">{{
+                item.question.questionType === 'MULTIPLE_CHOICE'
+                  ? 'Select all answers that apply'
+                  : 'Select an answer'
+              }}</span>
             }
 
             @if (isLast()) {
@@ -232,7 +236,7 @@ export class QuizComponent implements OnInit {
     () => this.items().filter((i) => i.isCorrect).length,
   );
   readonly answeredCount = computed(
-    () => this.items().filter((i) => i.selectedAnswerId !== null).length,
+    () => this.items().filter((i) => i.selectedAnswerIds.length > 0).length,
   );
   readonly progress = computed(() => {
     const total = this.items().length;
@@ -258,7 +262,7 @@ export class QuizComponent implements OnInit {
         this.items.set(session.items);
         // Resume at the first unanswered question.
         const firstUnanswered = session.items.findIndex(
-          (i) => i.selectedAnswerId === null,
+          (i) => i.selectedAnswerIds.length === 0,
         );
         this.index.set(firstUnanswered === -1 ? 0 : firstUnanswered);
       },
@@ -270,7 +274,7 @@ export class QuizComponent implements OnInit {
   }
 
   isAnswered(item: SessionItem): boolean {
-    return item.selectedAnswerId !== null;
+    return item.selectedAnswerIds.length > 0;
   }
 
   isLast(): boolean {
@@ -278,22 +282,22 @@ export class QuizComponent implements OnInit {
   }
 
   allAnswered(): boolean {
-    return this.items().every((i) => i.selectedAnswerId !== null);
+    return this.items().every((i) => i.selectedAnswerIds.length > 0);
   }
 
-  answer(item: SessionItem, answerId: string): void {
+  answer(item: SessionItem, answerIds: string[]): void {
     if (this.isAnswered(item)) {
       return;
     }
-    this.examService.submitAnswer(item.id, answerId).subscribe({
+    this.examService.submitAnswer(item.id, answerIds).subscribe({
       next: (result) => {
         this.items.update((list) =>
           list.map((it) =>
             it.id === item.id
               ? {
                   ...it,
-                  selectedAnswerId: answerId,
-                  correctAnswerId: result.correctAnswerId,
+                  selectedAnswerIds: answerIds,
+                  correctAnswerIds: result.correctAnswerIds,
                   isCorrect: result.isCorrect,
                 }
               : it,

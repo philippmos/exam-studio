@@ -10,7 +10,7 @@ from app.database import Base
 
 
 class SessionItem(Base):
-    """One question inside a session, plus the answer the user gave for it."""
+    """One question inside a session, plus the answers the user gave for it."""
 
     __tablename__ = "session_items"
 
@@ -33,12 +33,12 @@ class SessionItem(Base):
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    selected_answer_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("answers.id", ondelete="SET NULL")
-    )
     is_correct: Mapped[bool | None] = mapped_column(Boolean)
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     session: Mapped["ExamSession"] = relationship(back_populates="items")
     question: Mapped["Question"] = relationship()
-    selected_answer: Mapped["Answer | None"] = relationship()
+    # The user's selection: one row for single choice, several for multiple choice.
+    selected_answers: Mapped[list["SessionItemAnswer"]] = relationship(
+        back_populates="session_item", cascade="all, delete-orphan"
+    )
