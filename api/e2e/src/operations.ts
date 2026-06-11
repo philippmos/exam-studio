@@ -7,6 +7,7 @@ import {
   SessionItem,
   SessionMode,
   SessionOverview,
+  StudyDayStats,
 } from './types';
 
 /** Typed wrappers around the GraphQL operations used by the tests. */
@@ -214,6 +215,25 @@ export async function getExamStats(
     { examId },
   );
   return data.examStats;
+}
+
+export async function getStudyHistory(
+  gql: GraphqlClient,
+  examId: string | null = null,
+  tzOffsetMinutes = 0,
+): Promise<StudyDayStats[]> {
+  const data = await gql.query<{ studyHistory: StudyDayStats[] }>(
+    `query StudyHistory($examId: UUID, $tzOffsetMinutes: Int!) {
+      studyHistory(examId: $examId, tzOffsetMinutes: $tzOffsetMinutes) {
+        day
+        total
+        correct
+        incorrect
+      }
+    }`,
+    { examId, tzOffsetMinutes },
+  );
+  return data.studyHistory;
 }
 
 /** Ids of the answers marked as correct via the text convention (CORRECT_PREFIX). */

@@ -81,6 +81,14 @@ export interface SessionSetup {
   sectionId: string | null;
 }
 
+/** Questions answered on one calendar day (study-history chart data). */
+export interface StudyDayStats {
+  day: string; // ISO date, e.g. "2026-06-11"
+  total: number;
+  correct: number;
+  incorrect: number;
+}
+
 export interface SectionStats {
   sectionId: string;
   name: string;

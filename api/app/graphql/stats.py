@@ -16,16 +16,60 @@ Definitions
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 
 from sqlalchemy import case, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import models
-from app.graphql.types import ExamStats, SectionStats
+from app.graphql.types import ExamStats, SectionStats, StudyDayStats
 
 
 def _ratio(part: int, whole: int) -> float:
     return (part / whole) if whole else 0.0
+
+
+async def compute_study_history(
+    db: AsyncSession,
+    exam_id: uuid.UUID | None = None,
+    tz_offset_minutes: int = 0,
+) -> list[StudyDayStats]:
+    """Questions answered per calendar day, oldest day first.
+
+    Covers all exams unless ``exam_id`` narrows it down to one. Timestamps are
+    stored in UTC; ``tz_offset_minutes`` shifts them into the caller's local
+    time before bucketing so a late-evening session lands on the right day.
+    """
+    local_time = models.SessionItem.answered_at + timedelta(
+        minutes=tz_offset_minutes
+    )
+    day = func.date(local_time)
+    stmt = (
+        select(
+            day.label("day"),
+            func.count(models.SessionItem.id),
+            func.coalesce(
+                func.sum(
+                    case((models.SessionItem.is_correct.is_(True), 1), else_=0)
+                ),
+                0,
+            ),
+        )
+        .where(models.SessionItem.answered_at.is_not(None))
+        .group_by(day)
+        .order_by(day)
+    )
+    if exam_id is not None:
+        stmt = stmt.join(
+            models.ExamSession,
+            models.SessionItem.session_id == models.ExamSession.id,
+        ).where(models.ExamSession.exam_id == exam_id)
+
+    rows = (await db.execute(stmt)).all()
+    return [
+        StudyDayStats(day=d, total=total, correct=correct, incorrect=total - correct)
+        for d, total, correct in rows
+    ]
 
 
 async def compute_exam_stats(

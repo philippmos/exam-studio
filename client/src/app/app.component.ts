@@ -17,17 +17,25 @@ import { MatIconModule } from '@angular/material/icon';
           <span>Exam Studio</span>
         </a>
         <span class="spacer"></span>
-        <a routerLink="/" class="nav-link" [class.active]="!onSessions()">
+        <a routerLink="/" class="nav-link" [class.active]="section() === 'exams'">
           <mat-icon>grid_view</mat-icon>
           <span>Exams</span>
         </a>
         <a
           routerLink="/sessions"
           class="nav-link"
-          [class.active]="onSessions()"
+          [class.active]="section() === 'sessions'"
         >
           <mat-icon>history</mat-icon>
           <span>Sessions</span>
+        </a>
+        <a
+          routerLink="/statistics"
+          class="nav-link"
+          [class.active]="section() === 'statistics'"
+        >
+          <mat-icon>monitoring</mat-icon>
+          <span>Statistics</span>
         </a>
       </nav>
     </header>
@@ -113,7 +121,7 @@ import { MatIconModule } from '@angular/material/icon';
 })
 export class AppComponent {
   /** Current top-level area, used to highlight the active nav pill. */
-  readonly onSessions = signal(false);
+  readonly section = signal<'exams' | 'sessions' | 'statistics'>('exams');
 
   constructor() {
     const router = inject(Router);
@@ -122,8 +130,15 @@ export class AppComponent {
         filter((e): e is NavigationEnd => e instanceof NavigationEnd),
         takeUntilDestroyed(),
       )
-      .subscribe((e) =>
-        this.onSessions.set(e.urlAfterRedirects.startsWith('/sessions')),
-      );
+      .subscribe((e) => {
+        const url = e.urlAfterRedirects;
+        this.section.set(
+          url.startsWith('/sessions')
+            ? 'sessions'
+            : url.startsWith('/statistics')
+              ? 'statistics'
+              : 'exams',
+        );
+      });
   }
 }

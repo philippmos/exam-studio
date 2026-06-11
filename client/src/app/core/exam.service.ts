@@ -9,6 +9,7 @@ import {
   ExamStats,
   SessionMode,
   SessionOverview,
+  StudyDayStats,
 } from './models';
 
 const EXAM_FIELDS = `
@@ -146,6 +147,24 @@ export class ExamService {
         { examId },
       )
       .pipe(map((data) => data.examStats));
+  }
+
+  /** Per-day answer history, across all exams or one exam's, oldest first. */
+  getStudyHistory(examId: string | null = null): Observable<StudyDayStats[]> {
+    return this.graphql
+      .request<{ studyHistory: StudyDayStats[] }>(
+        `query StudyHistory($examId: UUID, $tzOffsetMinutes: Int!) {
+          studyHistory(examId: $examId, tzOffsetMinutes: $tzOffsetMinutes) {
+            day
+            total
+            correct
+            incorrect
+          }
+        }`,
+        // The API buckets by UTC unless told the browser's local offset.
+        { examId, tzOffsetMinutes: -new Date().getTimezoneOffset() },
+      )
+      .pipe(map((data) => data.studyHistory));
   }
 
   importExam(payload: string): Observable<Exam> {

@@ -11,6 +11,7 @@ from app.graphql.types import (
     ExamStats,
     ExamType,
     SessionOverviewType,
+    StudyDayStats,
 )
 
 
@@ -42,3 +43,15 @@ class Query:
     async def exam_stats(self, info: Info, exam_id: uuid.UUID) -> ExamStats | None:
         """Aggregated learning-progress statistics for an exam."""
         return await stats.compute_exam_stats(info.context["db"], exam_id)
+
+    @strawberry.field
+    async def study_history(
+        self,
+        info: Info,
+        exam_id: uuid.UUID | None = None,
+        tz_offset_minutes: int = 0,
+    ) -> list[StudyDayStats]:
+        """Questions answered per day -- all exams, or one exam's history."""
+        return await stats.compute_study_history(
+            info.context["db"], exam_id, tz_offset_minutes
+        )

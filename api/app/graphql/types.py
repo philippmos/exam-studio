@@ -12,7 +12,7 @@ returned by the ``submit_answer`` mutation.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 import strawberry
 
@@ -127,6 +127,16 @@ class SectionStats:
     incorrect_attempts: int
     accuracy: float  # correct_attempts / total attempts
     mastery: float  # mastered_questions / total_questions
+
+
+@strawberry.type
+class StudyDayStats:
+    """Questions answered on one calendar day (study-history chart data)."""
+
+    day: date
+    total: int
+    correct: int
+    incorrect: int
 
 
 @strawberry.type
