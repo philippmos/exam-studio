@@ -17,10 +17,12 @@ from datetime import date, datetime
 import strawberry
 
 from app import models
+from app.enums import GoalPeriod
 from app.enums import QuestionType as QuestionTypeValue
 from app.enums import SessionMode
 
 SessionModeEnum = strawberry.enum(SessionMode)
+GoalPeriodEnum = strawberry.enum(GoalPeriod)
 # The GraphQL object type below is already called "QuestionType", so the enum
 # gets a distinct schema name.
 QuestionTypeEnum = strawberry.enum(QuestionTypeValue, name="QuestionKind")
@@ -51,12 +53,21 @@ class SectionType:
 
 
 @strawberry.type
+class StudyGoalType:
+    """Per-exam study goal: answer ``target`` questions per ``period``."""
+
+    period: GoalPeriodEnum
+    target: int
+
+
+@strawberry.type
 class ExamType:
     id: uuid.UUID
     name: str
     issuer: str | None
     created_at: datetime
     question_count: int
+    study_goal: StudyGoalType | None
     sections: list[SectionType]
 
 
@@ -140,6 +151,17 @@ class StudyDayStats:
 
 
 @strawberry.type
+class StudyGoalProgress:
+    """How far an exam's study goal has come in the current period."""
+
+    exam_id: uuid.UUID
+    period: GoalPeriodEnum
+    target: int
+    answered: int  # questions answered since the period started
+    period_start: date  # local calendar day the current period began on
+
+
+@strawberry.type
 class ExamStats:
     """Aggregated learning progress for a whole exam (dashboard data)."""
 
@@ -189,6 +211,14 @@ def to_section(section: models.Section, question_count: int) -> SectionType:
     )
 
 
+def to_study_goal(exam: models.Exam) -> StudyGoalType | None:
+    if exam.study_goal_period is None or exam.study_goal_target is None:
+        return None
+    return StudyGoalType(
+        period=GoalPeriod(exam.study_goal_period), target=exam.study_goal_target
+    )
+
+
 def to_exam(exam: models.Exam, counts_by_section: dict[uuid.UUID, int]) -> ExamType:
     sections = [to_section(s, counts_by_section.get(s.id, 0)) for s in exam.sections]
     return ExamType(
@@ -197,6 +227,7 @@ def to_exam(exam: models.Exam, counts_by_section: dict[uuid.UUID, int]) -> ExamT
         issuer=exam.issuer,
         created_at=exam.created_at,
         question_count=sum(counts_by_section.get(s.id, 0) for s in exam.sections),
+        study_goal=to_study_goal(exam),
         sections=sections,
     )
 

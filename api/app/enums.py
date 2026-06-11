@@ -14,3 +14,10 @@ class QuestionType(str, enum.Enum):
 
     SINGLE_CHOICE = "SINGLE_CHOICE"
     MULTIPLE_CHOICE = "MULTIPLE_CHOICE"
+
+
+class GoalPeriod(str, enum.Enum):
+    """Time window of a per-exam study goal ("N questions per ...")."""
+
+    DAILY = "DAILY"  # current local calendar day
+    WEEKLY = "WEEKLY"  # current ISO week (Monday to Sunday, local time)

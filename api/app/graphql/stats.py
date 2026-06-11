@@ -16,17 +16,99 @@ Definitions
 from __future__ import annotations
 
 import uuid
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta, timezone
 
 from sqlalchemy import case, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import models
-from app.graphql.types import ExamStats, SectionStats, StudyDayStats
+from app.enums import GoalPeriod
+from app.graphql.types import (
+    ExamStats,
+    SectionStats,
+    StudyDayStats,
+    StudyGoalProgress,
+)
 
 
 def _ratio(part: int, whole: int) -> float:
     return (part / whole) if whole else 0.0
+
+
+def _current_period_start(
+    period: GoalPeriod, tz_offset_minutes: int
+) -> tuple[date, datetime]:
+    """First local day of the running goal period and its UTC start instant.
+
+    DAILY periods start at local midnight, WEEKLY periods on Monday of the
+    current ISO week. ``tz_offset_minutes`` shifts UTC into the caller's local
+    time (same convention as ``compute_study_history``).
+    """
+    offset = timedelta(minutes=tz_offset_minutes)
+    local_now = datetime.now(timezone.utc) + offset
+    start_day = local_now.date()
+    if period is GoalPeriod.WEEKLY:
+        start_day -= timedelta(days=local_now.weekday())
+    start_utc = datetime.combine(start_day, time.min, tzinfo=timezone.utc) - offset
+    return start_day, start_utc
+
+
+async def compute_study_goal_progress(
+    db: AsyncSession,
+    exam_id: uuid.UUID | None = None,
+    tz_offset_minutes: int = 0,
+) -> list[StudyGoalProgress]:
+    """Progress of every configured study goal in its current period.
+
+    Returns one entry per exam that has a goal (optionally narrowed to one
+    exam), counting the questions answered since the period started. Every
+    answered SessionItem counts, so re-attempting a question also counts.
+    """
+    stmt = select(models.Exam).where(models.Exam.study_goal_period.is_not(None))
+    if exam_id is not None:
+        stmt = stmt.where(models.Exam.id == exam_id)
+    exams = list((await db.scalars(stmt.order_by(models.Exam.created_at.desc()))).all())
+    if not exams:
+        return []
+
+    starts = {
+        period: _current_period_start(period, tz_offset_minutes)
+        for period in {GoalPeriod(e.study_goal_period) for e in exams}
+    }
+
+    # One grouped count per period kind (at most two queries).
+    answered_counts: dict[uuid.UUID, int] = {}
+    for period, (_, start_utc) in starts.items():
+        ids = [e.id for e in exams if e.study_goal_period == period.value]
+        rows = (
+            await db.execute(
+                select(
+                    models.ExamSession.exam_id,
+                    func.count(models.SessionItem.id),
+                )
+                .join(
+                    models.SessionItem,
+                    models.SessionItem.session_id == models.ExamSession.id,
+                )
+                .where(
+                    models.ExamSession.exam_id.in_(ids),
+                    models.SessionItem.answered_at >= start_utc,
+                )
+                .group_by(models.ExamSession.exam_id)
+            )
+        ).all()
+        answered_counts.update(dict(rows))
+
+    return [
+        StudyGoalProgress(
+            exam_id=exam.id,
+            period=GoalPeriod(exam.study_goal_period),
+            target=exam.study_goal_target,
+            answered=answered_counts.get(exam.id, 0),
+            period_start=starts[GoalPeriod(exam.study_goal_period)][0],
+        )
+        for exam in exams
+    ]
 
 
 async def compute_study_history(
