@@ -72,6 +72,7 @@ import { Exam } from '../../core/models';
       }
       mat-dialog-content {
         min-width: 360px;
+        overflow: hidden;
       }
     `,
   ],
