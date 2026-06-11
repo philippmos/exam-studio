@@ -1,0 +1,67 @@
+{
+  "exam": {
+    "name": "Sample: Network Fundamentals",
+    "issuer": "Exam Studio",
+    "sections": [
+      { "key": "basics", "name": "Networking Basics" },
+      { "key": "security", "name": "Network Security" }
+    ],
+    "questions": [
+      {
+        "question": "What does the abbreviation LAN stand for?",
+        "answers": [
+          { "text": "Local Area Network", "is_correct": true },
+          { "text": "Large Access Node" },
+          { "text": "Long Antenna Network" },
+          { "text": "Linked Application Net" }
+        ],
+        "section_key": "basics",
+        "question_type": "single_choice"
+      },
+      {
+        "question": "Which protocol is used to assign IP addresses automatically?",
+        "answers": [
+          { "text": "DNS" },
+          { "text": "DHCP", "is_correct": true },
+          { "text": "FTP" },
+          { "text": "SNMP" }
+        ],
+        "section_key": "basics",
+        "question_type": "single_choice"
+      },
+      {
+        "question": "Which of the following are transport layer protocols?",
+        "answers": [
+          { "text": "TCP", "is_correct": true },
+          { "text": "UDP", "is_correct": true },
+          { "text": "IP" },
+          { "text": "HTTP" }
+        ],
+        "section_key": "basics",
+        "question_type": "multiple_choice"
+      },
+      {
+        "question": "What kind of attack floods a service with traffic to make it unavailable?",
+        "answers": [
+          { "text": "Phishing" },
+          { "text": "Denial of Service", "is_correct": true },
+          { "text": "SQL Injection" },
+          { "text": "Cross-Site Scripting" }
+        ],
+        "section_key": "security",
+        "question_type": "single_choice"
+      },
+      {
+        "question": "Which measures help to secure a Wi-Fi network?",
+        "answers": [
+          { "text": "WPA3 encryption", "is_correct": true },
+          { "text": "A strong pre-shared key", "is_correct": true },
+          { "text": "Broadcasting the admin password" },
+          { "text": "Disabling all encryption" }
+        ],
+        "section_key": "security",
+        "question_type": "multiple_choice"
+      }
+    ]
+  }
+}

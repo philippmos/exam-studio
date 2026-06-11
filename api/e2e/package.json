@@ -1,0 +1,16 @@
+{
+  "name": "exam-studio-api-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright API tests for the Exam Studio GraphQL API",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0",
+    "@types/node": "^22.15.0",
+    "typescript": "~5.8.0"
+  }
+}
