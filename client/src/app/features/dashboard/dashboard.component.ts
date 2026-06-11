@@ -8,6 +8,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
 import { Exam } from '../../core/models';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { ExamCardComponent } from '../../shared/exam-card/exam-card.component';
 import { ImportDialogComponent } from './import-dialog.component';
 
@@ -23,23 +24,23 @@ import { ImportDialogComponent } from './import-dialog.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
-      <header class="header">
+      <header class="page-header">
         <div>
           <h1>Your exams</h1>
           <p class="subtitle">Pick a certification to start practising.</p>
         </div>
-        <button mat-flat-button color="primary" (click)="openImport()">
+        <button mat-flat-button (click)="openImport()">
           <mat-icon>add</mat-icon> Import exam
         </button>
       </header>
 
       @if (loading()) {
-        <div class="center"><mat-spinner diameter="48" /></div>
+        <div class="center-state"><mat-spinner diameter="44" /></div>
       } @else if (exams().length === 0) {
-        <div class="empty">
-          <mat-icon>inbox</mat-icon>
+        <div class="empty-state">
+          <div class="empty-icon"><mat-icon>school</mat-icon></div>
           <p>No exams yet. Import a JSON file to get started.</p>
-          <button mat-stroked-button color="primary" (click)="openImport()">
+          <button mat-stroked-button (click)="openImport()">
             <mat-icon>upload_file</mat-icon> Import your first exam
           </button>
         </div>
@@ -59,39 +60,10 @@ import { ImportDialogComponent } from './import-dialog.component';
   `,
   styles: [
     `
-      .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-        margin-bottom: 24px;
-      }
-      h1 {
-        margin: 0;
-      }
-      .subtitle {
-        margin: 4px 0 0;
-        color: rgba(0, 0, 0, 0.6);
-      }
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
         gap: 16px;
-      }
-      .center,
-      .empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        padding: 64px 0;
-        color: rgba(0, 0, 0, 0.6);
-        text-align: center;
-      }
-      .empty mat-icon {
-        font-size: 48px;
-        height: 48px;
-        width: 48px;
       }
     `,
   ],
@@ -146,16 +118,23 @@ export class DashboardComponent {
   }
 
   deleteExam(exam: Exam): void {
-    if (!confirm(`Delete "${exam.name}" and all its data?`)) {
-      return;
-    }
-    this.examService.deleteExam(exam.id).subscribe({
-      next: () => {
-        this.exams.update((list) => list.filter((e) => e.id !== exam.id));
-        this.snackBar.open('Exam deleted.', 'OK', { duration: 3000 });
-      },
-      error: (err: Error) =>
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+    ConfirmDialogComponent.open(this.dialog, {
+      title: 'Delete exam',
+      message: `Delete "${exam.name}" and all of its data? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    }).subscribe((confirmed) => {
+      if (!confirmed) {
+        return;
+      }
+      this.examService.deleteExam(exam.id).subscribe({
+        next: () => {
+          this.exams.update((list) => list.filter((e) => e.id !== exam.id));
+          this.snackBar.open('Exam deleted.', 'OK', { duration: 3000 });
+        },
+        error: (err: Error) =>
+          this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+      });
     });
   }
 }

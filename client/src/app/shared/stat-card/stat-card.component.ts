@@ -49,13 +49,16 @@ import { MatIconModule } from '@angular/material/icon';
         font-size: 26px;
         font-weight: 600;
         line-height: 1.1;
+        letter-spacing: -0.01em;
+        font-variant-numeric: tabular-nums;
       }
       .label {
-        color: rgba(0, 0, 0, 0.7);
+        color: var(--mat-sys-on-surface);
         font-weight: 500;
+        margin-top: 2px;
       }
       .sublabel {
-        color: rgba(0, 0, 0, 0.5);
+        color: var(--mat-sys-on-surface-variant);
         font-size: 12px;
         margin-top: 2px;
       }

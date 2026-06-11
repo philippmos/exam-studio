@@ -6,20 +6,104 @@ body {
 body {
   margin: 0;
   font-family: Roboto, "Helvetica Neue", sans-serif;
-  background: #f4f5f7;
-  color: #1f2430;
+  background: var(--mat-sys-surface-container-low, #f4f3f6);
+  color: var(--mat-sys-on-surface, #1a1b1f);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
   box-sizing: border-box;
 }
 
+:root {
+  /* Semantic colours the Material theme does not provide. */
+  --app-success: #2e7d32;
+  --app-success-bg: #e8f5e9;
+  --app-danger: var(--mat-sys-error, #ba1a1a);
+  --app-danger-bg: #fdecea;
+  --app-warning: #f9a825;
+  --app-warning-bg: #fff8e1;
+
+  /* Softer, slightly rounder cards on the grey page background. */
+  --mdc-outlined-card-container-shape: 16px;
+  --mdc-elevated-card-container-shape: 16px;
+  --mdc-outlined-card-outline-color: color-mix(
+    in srgb,
+    var(--mat-sys-outline-variant) 60%,
+    transparent
+  );
+}
+
 .page {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 24px 16px 64px;
+  padding: 32px 24px 72px;
 }
 
 .spacer {
   flex: 1 1 auto;
+}
+
+/* Shared page header: title + subtitle on the left, actions on the right. */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+
+  h1 {
+    margin: 0;
+    font-size: 26px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  .subtitle {
+    margin: 6px 0 0;
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+/* Shared loading state. */
+.center-state {
+  display: flex;
+  justify-content: center;
+  padding: 72px 0;
+}
+
+/* Shared empty state with a tinted icon badge. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 72px 24px;
+  color: var(--mat-sys-on-surface-variant);
+  text-align: center;
+
+  .empty-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--mat-sys-surface-container-high);
+
+    mat-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+    }
+  }
+
+  p {
+    margin: 0 0 12px;
+    max-width: 420px;
+  }
 }

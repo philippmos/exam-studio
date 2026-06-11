@@ -60,7 +60,6 @@ import { Answer, Question } from '../../core/models';
       <div class="submit-row">
         <button
           mat-flat-button
-          color="primary"
           [disabled]="pending.length === 0"
           (click)="submitPending()"
         >
@@ -72,15 +71,15 @@ import { Answer, Question } from '../../core/models';
   styles: [
     `
       .question-text {
-        font-size: 18px;
-        line-height: 1.5;
+        font-size: 17px;
+        line-height: 1.6;
         margin-bottom: 24px;
       }
       .question-text ::ng-deep pre {
         background: #1f2430;
         color: #f8f8f2;
         padding: 12px 16px;
-        border-radius: 8px;
+        border-radius: 10px;
         overflow-x: auto;
         font-size: 14px;
       }
@@ -88,14 +87,19 @@ import { Answer, Question } from '../../core/models';
         display: flex;
         align-items: center;
         gap: 6px;
-        color: #1976d2;
+        color: var(--mat-sys-primary);
         font-weight: 500;
         margin: 0 0 16px;
+      }
+      .multi-hint mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
       }
       .options {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 10px;
       }
       .option {
         display: flex;
@@ -103,18 +107,26 @@ import { Answer, Question } from '../../core/models';
         gap: 12px;
         text-align: left;
         padding: 14px 16px;
-        border: 2px solid #d6d9e0;
-        border-radius: 10px;
-        background: #fff;
-        cursor: pointer;
+        border: 2px solid
+          color-mix(in srgb, var(--mat-sys-outline-variant) 55%, transparent);
+        border-radius: 12px;
+        background: var(--mat-sys-surface);
+        color: inherit;
+        font: inherit;
         font-size: 15px;
+        line-height: 1.45;
+        cursor: pointer;
         transition:
           border-color 0.15s,
           background 0.15s;
       }
       .option:not(:disabled):hover {
-        border-color: #1976d2;
-        background: #f0f6ff;
+        border-color: var(--mat-sys-primary);
+        background: color-mix(in srgb, var(--mat-sys-primary) 4%, var(--mat-sys-surface));
+      }
+      .option:focus-visible {
+        outline: 2px solid var(--mat-sys-primary);
+        outline-offset: 2px;
       }
       .option:disabled {
         cursor: default;
@@ -124,10 +136,12 @@ import { Answer, Question } from '../../core/models';
         height: 28px;
         width: 28px;
         border-radius: 50%;
-        background: #eceef3;
+        background: var(--mat-sys-surface-container);
+        color: var(--mat-sys-on-surface-variant);
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        font-size: 13px;
         font-weight: 600;
       }
       .label {
@@ -137,34 +151,40 @@ import { Answer, Question } from '../../core/models';
         flex: 0 0 auto;
       }
       .option.selected {
-        border-color: #1976d2;
-        background: #f0f6ff;
+        border-color: var(--mat-sys-primary);
+        background: color-mix(in srgb, var(--mat-sys-primary) 6%, var(--mat-sys-surface));
       }
       .option.selected .letter {
-        background: #1976d2;
-        color: #fff;
+        background: var(--mat-sys-primary);
+        color: var(--mat-sys-on-primary);
       }
       .option.selected .state-icon {
-        color: #1976d2;
+        color: var(--mat-sys-primary);
       }
       .option.correct {
-        border-color: #2e7d32;
-        background: #e8f5e9;
+        border-color: var(--app-success);
+        background: var(--app-success-bg);
       }
       .option.correct .letter,
       .option.correct .state-icon {
-        color: #2e7d32;
+        color: var(--app-success);
+      }
+      .option.correct .letter {
+        background: color-mix(in srgb, var(--app-success) 14%, transparent);
       }
       .option.wrong {
-        border-color: #c62828;
-        background: #ffebee;
+        border-color: var(--app-danger);
+        background: var(--app-danger-bg);
       }
       .option.wrong .letter,
       .option.wrong .state-icon {
-        color: #c62828;
+        color: var(--app-danger);
+      }
+      .option.wrong .letter {
+        background: color-mix(in srgb, var(--app-danger) 12%, transparent);
       }
       .option.muted {
-        opacity: 0.6;
+        opacity: 0.55;
       }
       .submit-row {
         display: flex;

@@ -9,13 +9,16 @@ import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { ExamService } from '../../core/exam.service';
 import { SessionOverview } from '../../core/models';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-sessions',
@@ -27,11 +30,12 @@ import { SessionOverview } from '../../core/models';
     MatIconModule,
     MatProgressBarModule,
     MatProgressSpinnerModule,
+    MatTooltipModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
-      <header class="header">
+      <header class="page-header">
         <div>
           <h1>Sessions</h1>
           <p class="subtitle">
@@ -41,12 +45,12 @@ import { SessionOverview } from '../../core/models';
       </header>
 
       @if (loading()) {
-        <div class="center"><mat-spinner diameter="48" /></div>
+        <div class="center-state"><mat-spinner diameter="44" /></div>
       } @else if (sessions().length === 0) {
-        <div class="empty">
-          <mat-icon>history</mat-icon>
+        <div class="empty-state">
+          <div class="empty-icon"><mat-icon>history</mat-icon></div>
           <p>No sessions yet. Open an exam and start practising.</p>
-          <button mat-stroked-button color="primary" (click)="goDashboard()">
+          <button mat-stroked-button (click)="goDashboard()">
             <mat-icon>school</mat-icon> Browse exams
           </button>
         </div>
@@ -74,19 +78,17 @@ import { SessionOverview } from '../../core/models';
                     </span>
                   </div>
                   <div class="actions">
-                    <button
-                      mat-flat-button
-                      color="primary"
-                      (click)="openSession(s)"
-                    >
+                    <button mat-flat-button (click)="openSession(s)">
                       <mat-icon>play_arrow</mat-icon> Continue
                     </button>
                     <button
                       mat-icon-button
                       aria-label="Delete session"
+                      matTooltip="Delete session"
+                      class="delete"
                       (click)="deleteSession(s)"
                     >
-                      <mat-icon>delete</mat-icon>
+                      <mat-icon>delete_outline</mat-icon>
                     </button>
                   </div>
                 </mat-card-content>
@@ -121,9 +123,11 @@ import { SessionOverview } from '../../core/models';
                     <button
                       mat-icon-button
                       aria-label="Delete session"
+                      matTooltip="Delete session"
+                      class="delete"
                       (click)="deleteSession(s)"
                     >
-                      <mat-icon>delete</mat-icon>
+                      <mat-icon>delete_outline</mat-icon>
                     </button>
                   </div>
                 </mat-card-content>
@@ -136,25 +140,13 @@ import { SessionOverview } from '../../core/models';
   `,
   styles: [
     `
-      .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-        margin-bottom: 24px;
-      }
-      h1 {
-        margin: 0;
-      }
-      .subtitle {
-        margin: 4px 0 0;
-        color: rgba(0, 0, 0, 0.6);
-      }
       .group-title {
-        font-size: 16px;
+        font-size: 13px;
         font-weight: 600;
-        margin: 24px 0 12px;
-        color: rgba(0, 0, 0, 0.7);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 28px 0 12px;
+        color: var(--mat-sys-on-surface-variant);
       }
       .list {
         display: flex;
@@ -181,7 +173,7 @@ import { SessionOverview } from '../../core/models';
       }
       .meta {
         font-size: 12px;
-        color: rgba(0, 0, 0, 0.6);
+        color: var(--mat-sys-on-surface-variant);
       }
       .progress-block {
         flex: 0 0 220px;
@@ -191,14 +183,16 @@ import { SessionOverview } from '../../core/models';
       }
       .progress-label {
         font-size: 12px;
-        color: rgba(0, 0, 0, 0.6);
+        color: var(--mat-sys-on-surface-variant);
+        font-variant-numeric: tabular-nums;
       }
       .result {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         font-weight: 500;
-        color: #2e7d32;
+        color: var(--app-success);
+        font-variant-numeric: tabular-nums;
       }
       .result-icon {
         font-size: 20px;
@@ -210,20 +204,8 @@ import { SessionOverview } from '../../core/models';
         align-items: center;
         gap: 4px;
       }
-      .center,
-      .empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        padding: 64px 0;
-        color: rgba(0, 0, 0, 0.6);
-        text-align: center;
-      }
-      .empty mat-icon {
-        font-size: 48px;
-        height: 48px;
-        width: 48px;
+      .delete:hover mat-icon {
+        color: var(--app-danger);
       }
       @media (max-width: 700px) {
         .row {
@@ -244,6 +226,7 @@ export class SessionsComponent {
   private readonly examService = inject(ExamService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   readonly sessions = signal<SessionOverview[]>([]);
   readonly loading = signal(true);
@@ -288,18 +271,25 @@ export class SessionsComponent {
   }
 
   deleteSession(session: SessionOverview): void {
-    if (!confirm(`Delete this "${session.examName}" session and its answers?`)) {
-      return;
-    }
-    this.examService.deleteSession(session.id).subscribe({
-      next: () => {
-        this.sessions.update((list) =>
-          list.filter((s) => s.id !== session.id),
-        );
-        this.snackBar.open('Session deleted.', 'OK', { duration: 3000 });
-      },
-      error: (err: Error) =>
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+    ConfirmDialogComponent.open(this.dialog, {
+      title: 'Delete session',
+      message: `Delete this "${session.examName}" session and its answers? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    }).subscribe((confirmed) => {
+      if (!confirmed) {
+        return;
+      }
+      this.examService.deleteSession(session.id).subscribe({
+        next: () => {
+          this.sessions.update((list) =>
+            list.filter((s) => s.id !== session.id),
+          );
+          this.snackBar.open('Session deleted.', 'OK', { duration: 3000 });
+        },
+        error: (err: Error) =>
+          this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+      });
     });
   }
 

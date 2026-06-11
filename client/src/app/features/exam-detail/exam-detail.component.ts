@@ -38,7 +38,7 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
       </button>
 
       @if (exam(); as exam) {
-        <header class="header">
+        <header class="page-header">
           <div>
             <h1>{{ exam.name }}</h1>
             @if (exam.issuer) {
@@ -53,7 +53,7 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
             <button mat-stroked-button [routerLink]="['/exams', exam.id, 'progress']">
               <mat-icon>insights</mat-icon> Learning progress
             </button>
-            <button mat-flat-button color="primary" (click)="openSetup(exam)">
+            <button mat-flat-button (click)="openSetup(exam)">
               <mat-icon>play_arrow</mat-icon> Start exam mode
             </button>
           </div>
@@ -67,16 +67,18 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
             <mat-list>
               @for (section of exam.sections; track section.id) {
                 <mat-list-item>
-                  <mat-icon matListItemIcon>folder</mat-icon>
+                  <mat-icon matListItemIcon>folder_open</mat-icon>
                   <span matListItemTitle>{{ section.name }}</span>
-                  <span matListItemMeta>{{ section.questionCount }}</span>
+                  <span matListItemMeta class="count">
+                    {{ section.questionCount }} questions
+                  </span>
                 </mat-list-item>
               }
             </mat-list>
           </mat-card-content>
         </mat-card>
       } @else if (loading()) {
-        <div class="center"><mat-spinner diameter="48" /></div>
+        <div class="center-state"><mat-spinner diameter="44" /></div>
       } @else {
         <p>Exam not found.</p>
       }
@@ -85,36 +87,21 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
   styles: [
     `
       .back {
-        margin-bottom: 8px;
-      }
-      .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-        margin-bottom: 24px;
-      }
-      h1 {
-        margin: 0;
-      }
-      .subtitle {
-        margin: 4px 0 0;
-        font-weight: 500;
-        color: rgba(0, 0, 0, 0.7);
+        margin: 0 0 12px -12px;
       }
       .meta {
         margin: 8px 0 0;
-        color: rgba(0, 0, 0, 0.6);
+        font-size: 14px;
+        color: var(--mat-sys-on-surface-variant);
       }
       .header-actions {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
       }
-      .center {
-        display: flex;
-        justify-content: center;
-        padding: 64px 0;
+      .count {
+        font-size: 13px;
+        color: var(--mat-sys-on-surface-variant);
       }
     `,
   ],

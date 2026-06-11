@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -17,6 +18,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
 import { ExamSession, SessionItem } from '../../core/models';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { QuestionViewComponent } from '../../shared/question-view/question-view.component';
 
 @Component({
@@ -37,8 +39,8 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
         @if (finished()) {
           <!-- Summary -->
           <mat-card appearance="outlined" class="summary">
-            <mat-card-content>
-              <mat-icon class="trophy">emoji_events</mat-icon>
+            <mat-card-content class="summary-content">
+              <div class="trophy"><mat-icon>emoji_events</mat-icon></div>
               <h1>Session complete</h1>
               <p class="score">
                 {{ correctCount() }} / {{ items().length }} correct
@@ -48,7 +50,7 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
                 <button mat-stroked-button (click)="backToExam(session)">
                   Back to exam
                 </button>
-                <button mat-flat-button color="primary" (click)="goDashboard()">
+                <button mat-flat-button (click)="goDashboard()">
                   Dashboard
                 </button>
               </div>
@@ -58,7 +60,7 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
           @if (current(); as item) {
           <!-- Runner header -->
           <div class="top">
-            <button mat-button (click)="confirmExit()">
+            <button mat-button (click)="confirmExit()" class="exit">
               <mat-icon>close</mat-icon> Exit
             </button>
             <span class="position">
@@ -118,22 +120,21 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
             @if (isLast()) {
               <button
                 mat-flat-button
-                color="primary"
                 [disabled]="!allAnswered()"
                 (click)="finish(session)"
               >
-                Finish <mat-icon>flag</mat-icon>
+                Finish <mat-icon iconPositionEnd>flag</mat-icon>
               </button>
             } @else {
-              <button mat-flat-button color="primary" (click)="next()">
-                Next <mat-icon>chevron_right</mat-icon>
+              <button mat-flat-button (click)="next()">
+                Next <mat-icon iconPositionEnd>chevron_right</mat-icon>
               </button>
             }
           </div>
           }
         }
       } @else if (loading()) {
-        <div class="center"><mat-spinner diameter="48" /></div>
+        <div class="center-state"><mat-spinner diameter="44" /></div>
       } @else {
         <p>Session not found.</p>
       }
@@ -141,33 +142,45 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
   `,
   styles: [
     `
-      .center {
-        display: flex;
-        justify-content: center;
-        padding: 64px 0;
-      }
       .top {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
+      }
+      .exit {
+        margin-left: -12px;
       }
       .position {
         font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        color: var(--mat-sys-on-surface-variant);
       }
       .live-score {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        color: #2e7d32;
+        gap: 5px;
+        color: var(--app-success);
         font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+      .live-score mat-icon {
+        font-size: 19px;
+        width: 19px;
+        height: 19px;
       }
       .progress {
-        border-radius: 4px;
-        margin-bottom: 16px;
+        border-radius: 99px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        --mdc-linear-progress-track-height: 8px;
+        --mdc-linear-progress-active-indicator-height: 8px;
       }
       .question-card {
         margin-bottom: 16px;
+      }
+      .question-card .mat-mdc-card-content {
+        padding: 24px;
       }
       .nav {
         display: flex;
@@ -182,32 +195,54 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
         font-weight: 600;
       }
       .feedback.correct {
-        color: #2e7d32;
+        color: var(--app-success);
       }
       .feedback.wrong {
-        color: #c62828;
+        color: var(--app-danger);
       }
       .hint {
-        color: rgba(0, 0, 0, 0.5);
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 14px;
       }
       .summary {
+        max-width: 520px;
+        margin: 56px auto 0;
         text-align: center;
-        margin-top: 48px;
       }
-      .summary .trophy {
-        font-size: 64px;
-        height: 64px;
-        width: 64px;
-        color: #f9a825;
+      .summary-content {
+        padding: 48px 24px;
+      }
+      .trophy {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        margin: 0 auto 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--app-warning-bg);
+        color: var(--app-warning);
+      }
+      .trophy mat-icon {
+        font-size: 36px;
+        width: 36px;
+        height: 36px;
+      }
+      .summary h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
       }
       .score {
         font-size: 28px;
         font-weight: 600;
-        margin: 8px 0 0;
+        margin: 12px 0 0;
+        font-variant-numeric: tabular-nums;
       }
       .accuracy {
-        color: rgba(0, 0, 0, 0.6);
-        margin: 4px 0 24px;
+        color: var(--mat-sys-on-surface-variant);
+        margin: 4px 0 28px;
       }
       .summary-actions {
         display: flex;
@@ -221,6 +256,7 @@ export class QuizComponent implements OnInit {
   private readonly examService = inject(ExamService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   /** Session id, bound from the `:id` route param. */
   readonly id = input.required<string>();
@@ -329,9 +365,15 @@ export class QuizComponent implements OnInit {
   }
 
   confirmExit(): void {
-    if (confirm('Exit this session? Your answers are saved.')) {
-      this.backToExam(this.session()!);
-    }
+    ConfirmDialogComponent.open(this.dialog, {
+      title: 'Exit session?',
+      message: 'Your answers are saved — you can resume this session later.',
+      confirmLabel: 'Exit',
+    }).subscribe((confirmed) => {
+      if (confirmed) {
+        this.backToExam(this.session()!);
+      }
+    });
   }
 
   backToExam(session: ExamSession): void {

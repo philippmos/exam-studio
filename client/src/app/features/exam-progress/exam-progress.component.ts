@@ -38,12 +38,12 @@ import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
       </button>
 
       @if (stats(); as s) {
-        <header class="header">
+        <header class="page-header">
           <div>
             <h1>{{ s.examName }}</h1>
             <p class="subtitle">Learning progress</p>
           </div>
-          <button mat-flat-button color="primary" [routerLink]="['/exams', id()]">
+          <button mat-flat-button [routerLink]="['/exams', id()]">
             <mat-icon>play_arrow</mat-icon> Start exam mode
           </button>
         </header>
@@ -188,7 +188,7 @@ import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
           </mat-card-content>
         </mat-card>
       } @else if (loading()) {
-        <div class="center"><mat-spinner diameter="48" /></div>
+        <div class="center-state"><mat-spinner diameter="44" /></div>
       } @else {
         <p>No statistics available.</p>
       }
@@ -197,21 +197,7 @@ import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
   styles: [
     `
       .back {
-        margin-bottom: 8px;
-      }
-      .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-        margin-bottom: 20px;
-      }
-      h1 {
-        margin: 0;
-      }
-      .subtitle {
-        margin: 4px 0 0;
-        color: rgba(0, 0, 0, 0.6);
+        margin: 0 0 12px -12px;
       }
       .cta {
         display: flex;
@@ -220,7 +206,10 @@ import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
         gap: 12px;
         padding: 16px;
         margin-bottom: 20px;
-        color: rgba(0, 0, 0, 0.7);
+        color: var(--mat-sys-on-surface-variant);
+      }
+      .cta mat-icon {
+        color: var(--mat-sys-primary);
       }
       .kpis {
         display: grid;
@@ -248,10 +237,10 @@ import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
         transition: width 0.3s ease;
       }
       .seg.mastered {
-        background: #2e7d32;
+        background: var(--app-success);
       }
       .seg.struggling {
-        background: #f9a825;
+        background: var(--app-warning);
       }
       .seg.untouched {
         background: transparent;
@@ -261,7 +250,7 @@ import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
         flex-wrap: wrap;
         gap: 16px;
         margin-top: 12px;
-        color: rgba(0, 0, 0, 0.7);
+        color: var(--mat-sys-on-surface-variant);
         font-size: 14px;
       }
       .dot {
@@ -273,10 +262,10 @@ import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
         vertical-align: middle;
       }
       .dot.mastered {
-        background: #2e7d32;
+        background: var(--app-success);
       }
       .dot.struggling {
-        background: #f9a825;
+        background: var(--app-warning);
       }
       .dot.untouched {
         background: #cfd8dc;
@@ -296,14 +285,9 @@ import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
         font-weight: 500;
       }
       .module-meta {
-        color: rgba(0, 0, 0, 0.6);
+        color: var(--mat-sys-on-surface-variant);
         font-size: 13px;
         text-align: right;
-      }
-      .center {
-        display: flex;
-        justify-content: center;
-        padding: 64px 0;
       }
     `,
   ],

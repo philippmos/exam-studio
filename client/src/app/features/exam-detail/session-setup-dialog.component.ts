@@ -74,12 +74,7 @@ interface DialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="cancel()">Cancel</button>
-      <button
-        mat-flat-button
-        color="primary"
-        [disabled]="!canStart()"
-        (click)="start()"
-      >
+      <button mat-flat-button [disabled]="!canStart()" (click)="start()">
         Start
       </button>
     </mat-dialog-actions>
@@ -87,7 +82,7 @@ interface DialogData {
   styles: [
     `
       .hint {
-        color: rgba(0, 0, 0, 0.6);
+        color: var(--mat-sys-on-surface-variant);
       }
       .modes {
         display: flex;
@@ -102,7 +97,7 @@ interface DialogData {
       .mode-desc {
         display: block;
         font-size: 12px;
-        color: rgba(0, 0, 0, 0.6);
+        color: var(--mat-sys-on-surface-variant);
         white-space: normal;
       }
       .section-select {

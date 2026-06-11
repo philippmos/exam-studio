@@ -50,7 +50,6 @@ import { Exam } from '../../core/models';
       </button>
       <button
         mat-flat-button
-        color="primary"
         [disabled]="!fileContent() || importing()"
         (click)="doImport()"
       >
@@ -61,14 +60,14 @@ import { Exam } from '../../core/models';
   styles: [
     `
       .hint {
-        color: rgba(0, 0, 0, 0.6);
+        color: var(--mat-sys-on-surface-variant);
         margin-bottom: 16px;
       }
       .progress {
         margin-top: 16px;
       }
       .error {
-        color: #b00020;
+        color: var(--mat-sys-error);
         margin-top: 12px;
       }
       mat-dialog-content {
