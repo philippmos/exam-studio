@@ -28,6 +28,8 @@ docker-build:
   variables:
     IMAGE: $API_IMAGE
     BUILD_CONTEXT: api
+  rules:
+    - when: on_success
 
 api-e2e:
   extends: .exam-stack
