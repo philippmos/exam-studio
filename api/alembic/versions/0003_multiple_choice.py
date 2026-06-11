@@ -37,8 +37,6 @@ def upgrade() -> None:
         ),
     )
 
-    op.drop_column("questions", "number")
-
     op.drop_index("uq_answers_one_correct", table_name="answers")
 
     op.create_table(
@@ -119,23 +117,5 @@ def downgrade() -> None:
         unique=True,
         postgresql_where=sa.text("is_correct"),
     )
-
-    # Restore the number column; the original file order is gone, so questions
-    # are renumbered per section.
-    op.add_column(
-        "questions", sa.Column("number", sa.Integer(), nullable=True)
-    )
-    op.execute(
-        """
-        UPDATE questions q
-        SET number = sub.rn
-        FROM (
-            SELECT id, row_number() OVER (PARTITION BY section_id ORDER BY id) AS rn
-            FROM questions
-        ) sub
-        WHERE q.id = sub.id
-        """
-    )
-    op.alter_column("questions", "number", nullable=False)
 
     op.drop_column("questions", "question_type")
