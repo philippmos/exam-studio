@@ -21,12 +21,30 @@ export interface Section {
   questionCount: number;
 }
 
+export type GoalPeriod = 'DAILY' | 'WEEKLY';
+
+/** Per-exam study goal: answer `target` questions per `period`. */
+export interface StudyGoal {
+  period: GoalPeriod;
+  target: number;
+}
+
+/** Progress of one exam's study goal within the current period. */
+export interface StudyGoalProgress {
+  examId: string;
+  period: GoalPeriod;
+  target: number;
+  answered: number;
+  periodStart: string; // ISO date the current period began on
+}
+
 export interface Exam {
   id: string;
   name: string;
   issuer: string | null;
   createdAt: string;
   questionCount: number;
+  studyGoal: StudyGoal | null;
   sections: Section[];
 }
 

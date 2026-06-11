@@ -17,6 +17,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
 import { Exam, SessionSetup } from '../../core/models';
+import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
 import { SessionSetupDialogComponent } from './session-setup-dialog.component';
 
 @Component({
@@ -47,9 +48,17 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
             <p class="meta">
               {{ exam.sections.length }} modules · {{ exam.questionCount }}
               questions
+              @if (exam.studyGoal; as goal) {
+                · Goal: {{ goal.target }} questions per
+                {{ goal.period === 'DAILY' ? 'day' : 'week' }}
+              }
             </p>
           </div>
           <div class="header-actions">
+            <button mat-stroked-button (click)="editGoal(exam)">
+              <mat-icon>flag</mat-icon>
+              {{ exam.studyGoal ? 'Edit study goal' : 'Set study goal' }}
+            </button>
             <button mat-stroked-button [routerLink]="['/exams', exam.id, 'progress']">
               <mat-icon>insights</mat-icon> Learning progress
             </button>
@@ -132,6 +141,30 @@ export class ExamDetailComponent implements OnInit {
         this.loading.set(false);
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
       },
+    });
+  }
+
+  editGoal(exam: Exam): void {
+    StudyGoalDialogComponent.open(this.dialog, exam).subscribe((result) => {
+      if (result === undefined) {
+        return; // cancelled
+      }
+      const request =
+        result === null
+          ? this.examService.clearStudyGoal(exam.id)
+          : this.examService.setStudyGoal(exam.id, result.period, result.target);
+      request.subscribe({
+        next: (updated) => {
+          this.exam.set(updated);
+          this.snackBar.open(
+            result === null ? 'Study goal removed.' : 'Study goal saved.',
+            'OK',
+            { duration: 3000 },
+          );
+        },
+        error: (err: Error) =>
+          this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+      });
     });
   }
 

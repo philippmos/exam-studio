@@ -7,9 +7,11 @@ import {
   Exam,
   ExamSession,
   ExamStats,
+  GoalPeriod,
   SessionMode,
   SessionOverview,
   StudyDayStats,
+  StudyGoalProgress,
 } from './models';
 
 const EXAM_FIELDS = `
@@ -18,6 +20,10 @@ const EXAM_FIELDS = `
   issuer
   createdAt
   questionCount
+  studyGoal {
+    period
+    target
+  }
   sections {
     id
     name
@@ -165,6 +171,55 @@ export class ExamService {
         { examId, tzOffsetMinutes: -new Date().getTimezoneOffset() },
       )
       .pipe(map((data) => data.studyHistory));
+  }
+
+  /** Current-period progress of every exam that has a study goal. */
+  getStudyGoalProgress(
+    examId: string | null = null,
+  ): Observable<StudyGoalProgress[]> {
+    return this.graphql
+      .request<{ studyGoalProgress: StudyGoalProgress[] }>(
+        `query GoalProgress($examId: UUID, $tzOffsetMinutes: Int!) {
+          studyGoalProgress(examId: $examId, tzOffsetMinutes: $tzOffsetMinutes) {
+            examId
+            period
+            target
+            answered
+            periodStart
+          }
+        }`,
+        // Period boundaries (midnight / Monday) are local, not UTC.
+        { examId, tzOffsetMinutes: -new Date().getTimezoneOffset() },
+      )
+      .pipe(map((data) => data.studyGoalProgress));
+  }
+
+  setStudyGoal(
+    examId: string,
+    period: GoalPeriod,
+    target: number,
+  ): Observable<Exam> {
+    return this.graphql
+      .request<{ setStudyGoal: Exam }>(
+        `mutation SetGoal($examId: UUID!, $period: GoalPeriod!, $target: Int!) {
+          setStudyGoal(examId: $examId, period: $period, target: $target) {
+            ${EXAM_FIELDS}
+          }
+        }`,
+        { examId, period, target },
+      )
+      .pipe(map((data) => data.setStudyGoal));
+  }
+
+  clearStudyGoal(examId: string): Observable<Exam> {
+    return this.graphql
+      .request<{ clearStudyGoal: Exam }>(
+        `mutation ClearGoal($examId: UUID!) {
+          clearStudyGoal(examId: $examId) { ${EXAM_FIELDS} }
+        }`,
+        { examId },
+      )
+      .pipe(map((data) => data.clearStudyGoal));
   }
 
   importExam(payload: string): Observable<Exam> {
