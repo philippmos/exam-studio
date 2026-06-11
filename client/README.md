@@ -51,3 +51,13 @@ src/app/
    sessions, last activity), an overall question-breakdown bar and a per-module
    breakdown. Reachable from the dashboard card (chart icon) or the exam detail
    page (**Learning progress**).
+
+## End-to-end tests
+
+`e2e/` contains the Playwright E2E suite. It tests the **production bundle**
+(`npm run build` output) served by a small proxy server, against a real API —
+see [e2e/README.md](e2e/README.md) for local usage and pipeline details.
+
+```bash
+npm run build && cd e2e && npm ci && npm test
+```

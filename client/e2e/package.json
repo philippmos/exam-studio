@@ -1,10 +1,12 @@
 {
-  "name": "exam-studio-api-e2e",
+  "name": "exam-studio-client-e2e",
   "version": "1.0.0",
   "private": true,
-  "description": "Playwright API tests for the Exam Studio GraphQL API",
+  "description": "Playwright end-to-end tests for the Exam Studio Angular client",
   "scripts": {
     "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
     "report": "playwright show-report",
     "typecheck": "tsc --noEmit"
   },

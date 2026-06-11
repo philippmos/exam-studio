@@ -1,0 +1,37 @@
+# Service stack for E2E test jobs: a fresh PostgreSQL and the API image under
+# test run as GitLab CI services next to the job container.
+#
+#   db   PostgreSQL 16 — created empty for every pipeline run; the API
+#        container applies the alembic migrations on boot. Sample data is
+#        seeded by the Playwright global setup through the GraphQL API.
+#   api  the project's API image. Extending pipelines set
+#          API_IMAGE        e.g. $CI_REGISTRY_IMAGE/api
+#          API_SERVICE_TAG  the tag to test (commit SHA or latest)
+#
+# FF_NETWORK_PER_BUILD puts job + services on one per-build network so the
+# API container can reach PostgreSQL via its alias ("db").
+
+.exam-stack:
+  variables:
+    FF_NETWORK_PER_BUILD: "1"
+    API_URL: http://api:8000
+  services:
+    - name: postgres:16
+      alias: db
+      variables:
+        POSTGRES_USER: exam
+        POSTGRES_PASSWORD: exam
+        POSTGRES_DB: examstudio
+    - name: $API_IMAGE:$API_SERVICE_TAG
+      alias: api
+      variables:
+        DATABASE_URL: postgresql+asyncpg://exam:exam@db:5432/examstudio
+      # Services start in parallel, so retry the migrations until PostgreSQL
+      # accepts connections (max 2 min), then hand over to the app server.
+      command:
+        - sh
+        - -c
+        - |
+          timeout 120 sh -c 'until alembic upgrade head; do echo "Waiting for the database..."; sleep 2; done' \
+            || { echo "Database/migrations never became ready, giving up." >&2; exit 1; }
+          exec uvicorn app.main:app --host 0.0.0.0 --port 8000

@@ -2,6 +2,9 @@ node_modules/
 .angular/
 dist/
 
+# Playwright test project (runs outside the image)
+e2e/
+
 *.md
 .git
 .gitignore

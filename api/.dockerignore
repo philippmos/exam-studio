@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 
+# Playwright test project (runs outside the image)
+e2e/
+
 .env
 
 *.md

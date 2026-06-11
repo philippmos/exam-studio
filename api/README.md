@@ -177,3 +177,14 @@ you can import the same file multiple times.
 
 `mode` is one of `ALL_RANDOM`, `BY_SECTION` (requires `sectionId`) or
 `UNANSWERED` (only questions never answered correctly before).
+
+## API tests
+
+`e2e/` contains a Playwright test suite that exercises the GraphQL API of a
+running instance (no browser) — import validation, session modes, answer
+semantics, statistics. See [e2e/README.md](e2e/README.md).
+
+```bash
+docker compose up -d --build db api   # repo root
+cd api/e2e && npm ci && npm test
+```

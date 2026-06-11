@@ -1,16 +1,63 @@
+# Child pipeline for the Python GraphQL API.
+#
+#   build    builds the API image and pushes it as :$CI_COMMIT_SHORT_SHA
+#   test     runs the Playwright API tests against exactly that image:
+#            PostgreSQL + the API run as job services, the API container
+#            applies the alembic migrations on boot and the test suite's
+#            global setup seeds the sample exam data.
+#   release  re-tags the tested image as :latest (default branch only)
+
 include:
   - local: ci/docker-build.gitlab-ci.yml
+  - local: ci/e2e-services.gitlab-ci.yml
 
 stages:
-  # - test
-  - package
+  - build
+  - test
+  - release
 
 default:
   interruptible: true
 
+variables:
+  API_IMAGE: $CI_REGISTRY_IMAGE/api
+
 docker-build:
   extends: .docker-build
-  stage: package
+  stage: build
   variables:
-    IMAGE: $CI_REGISTRY_IMAGE/api
+    IMAGE: $API_IMAGE
     BUILD_CONTEXT: api
+
+api-e2e:
+  extends: .exam-stack
+  stage: test
+  # No browser needed — these tests only use Playwright's HTTP request context.
+  image: node:22
+  needs: [docker-build]
+  variables:
+    # Test the image that was just built in this pipeline.
+    API_SERVICE_TAG: $CI_COMMIT_SHORT_SHA
+  cache:
+    key:
+      files:
+        - api/e2e/package-lock.json
+    paths:
+      - api/e2e/.npm
+  script:
+    - cd api/e2e
+    - npm ci --cache .npm --prefer-offline
+    - npx playwright test
+  artifacts:
+    when: always
+    paths:
+      - api/e2e/playwright-report/
+    reports:
+      junit: api/e2e/test-results/junit.xml
+    expire_in: 1 week
+
+docker-release:
+  extends: .docker-release
+  stage: release
+  variables:
+    IMAGE: $API_IMAGE
