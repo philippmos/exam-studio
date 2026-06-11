@@ -32,11 +32,12 @@ docker-build:
 api-e2e:
   extends: .exam-stack
   stage: test
-  # No browser needed — these tests only use Playwright's HTTP request context.
   image: node:22
   needs: [docker-build]
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   variables:
-    # Test the image that was just built in this pipeline.
     API_SERVICE_TAG: $CI_COMMIT_SHORT_SHA
   cache:
     key:

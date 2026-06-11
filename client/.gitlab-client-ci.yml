@@ -23,8 +23,6 @@ default:
 variables:
   CLIENT_IMAGE: $CI_REGISTRY_IMAGE/client
   API_IMAGE: $CI_REGISTRY_IMAGE/api
-  # The API tag the E2E tests run against: the latest image released by the
-  # api pipeline (i.e. one that passed its own tests). Override to pin a tag.
   API_SERVICE_TAG: latest
 
 build:
@@ -55,10 +53,11 @@ docker-build:
 client-e2e:
   extends: .exam-stack
   stage: test
-  # Keep the version in sync with @playwright/test in client/e2e/package.json.
   image: mcr.microsoft.com/playwright:v1.60.0-noble
-  # Tests run against the production bundle built in this pipeline.
   needs: [build]
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   cache:
     key:
       files:
