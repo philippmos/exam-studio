@@ -24,6 +24,7 @@ independent exams. The question numbers used in error messages refer to the
 position in the file.
 """
 
+import html
 import json
 
 from app.enums import QuestionType
@@ -96,8 +97,9 @@ def build_exam_from_payload(payload: str) -> Exam:
                 )
             is_correct = bool(raw_answer.get("is_correct", False))
             correct_count += int(is_correct)
+
             Answer(
-                text=raw_answer["text"],
+                text=html.unescape(raw_answer["text"]),
                 is_correct=is_correct,
                 position=position,
                 question=question,
