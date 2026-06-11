@@ -1,10 +1,24 @@
-image: node:latest
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
 
-build:
-  script:
-    - cd client
-    - npm install
-    - npm run build
-  artifacts:
-    paths:
-      - client/dist/
+client:
+  trigger:
+    include:
+      - local: client/.gitlab-client-ci.yml
+    strategy: depend
+  rules:
+    - changes:
+        - client/**/*
+
+api:
+  trigger:
+    include:
+      - local: api/.gitlab-api-ci.yml
+    strategy: depend
+  rules:
+    - changes:
+        - api/**/*

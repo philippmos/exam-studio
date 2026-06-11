@@ -1,0 +1,36 @@
+include:
+  - local: ci/docker-build.gitlab-ci.yml
+
+stages:
+  - build
+  # - test
+  - package
+  # - e2e
+
+default:
+  interruptible: true
+
+build:
+  stage: build
+  image: node:20-alpine
+  cache:
+    key:
+      files:
+        - client/package-lock.json
+    paths:
+      - client/.npm
+  script:
+    - cd client
+    - npm ci --cache .npm --prefer-offline
+    - npm run build
+  artifacts:
+    paths:
+      - client/dist/
+    expire_in: 1 week
+
+docker-build:
+  extends: .docker-build
+  stage: package
+  variables:
+    IMAGE: $CI_REGISTRY_IMAGE/client
+    BUILD_CONTEXT: client

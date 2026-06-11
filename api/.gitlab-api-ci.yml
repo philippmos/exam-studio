@@ -1,0 +1,16 @@
+include:
+  - local: ci/docker-build.gitlab-ci.yml
+
+stages:
+  # - test
+  - package
+
+default:
+  interruptible: true
+
+docker-build:
+  extends: .docker-build
+  stage: package
+  variables:
+    IMAGE: $CI_REGISTRY_IMAGE/api
+    BUILD_CONTEXT: api
