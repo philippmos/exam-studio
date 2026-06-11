@@ -149,7 +149,7 @@ mutation Import($payload: String!) {
 ```
 
 …passing the exam document as the `payload` variable (a JSON string; see
-`ceh_questions.schema.json` in the repository root for the expected shape).
+`exam.schema.json` in the repository root for the expected shape).
 The JSON carries no ids — sections are referenced by their `key` and question
 numbers follow the order in the file. Every import generates fresh UUIDs, so
 you can import the same file multiple times.

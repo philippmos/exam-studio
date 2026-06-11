@@ -12,7 +12,7 @@ exam-studio/
 ├── api/                 # Python GraphQL backend  (see api/README.md)
 ├── client/              # Angular frontend        (see client/README.md)
 ├── docker-compose.yml   # PostgreSQL for local dev
-└── ceh_questions.json   # sample exam to import
+└── exam.json   # sample exam to import
 ```
 
 ## Domain model
@@ -85,7 +85,7 @@ App at <http://localhost:4200>.
 
 ### 4. Try it
 
-Open the app, click **Import exam**, choose `ceh_questions.json`, then open the
+Open the app, click **Import exam**, choose `exam.json`, then open the
 exam and **Start exam mode**.
 
 See `api/README.md` for database-migration details and `client/README.md` for

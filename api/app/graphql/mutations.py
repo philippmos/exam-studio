@@ -61,7 +61,7 @@ async def _select_question_ids(
 class Mutation:
     @strawberry.mutation
     async def import_exam(self, info: Info, payload: str) -> ExamType:
-        """Import an exam from the JSON produced in the `ceh_questions.json` format."""
+        """Import an exam from the JSON produced in the `exam.json` format."""
         db: AsyncSession = info.context["db"]
         try:
             exam = build_exam_from_payload(payload)

@@ -36,7 +36,7 @@ src/app/
 ## User flow
 
 1. **Dashboard** (`/`) – lists all exams. **Import exam** uploads a JSON file
-   (e.g. `ceh_questions.json`) and creates a new exam.
+   (e.g. `exam.json`) and creates a new exam.
 2. **Exam detail** (`/exams/:id`) – shows the modules and a **Start exam mode**
    button.
 3. **Start dialog** – choose a mode:

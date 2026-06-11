@@ -21,7 +21,7 @@ import { Exam } from '../../core/models';
     <h2 mat-dialog-title>Import exam</h2>
     <mat-dialog-content>
       <p class="hint">
-        Select an exam JSON file (e.g. <code>ceh_questions.json</code>). A new
+        Select an exam JSON file (e.g. <code>exam.json</code>). A new
         exam will be created from its sections and questions.
       </p>
 

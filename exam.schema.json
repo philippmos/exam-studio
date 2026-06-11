@@ -1,0 +1,36 @@
+{
+  "exam": {
+    "name": "Dummy Exam",
+    "issuer": "Dummy Issuer",
+    "sections": [
+      {
+        "key": "dummy_section",
+        "name": "Dummy Section"
+      }
+    ],
+    "questions": [
+      {
+        "question": "Dummy question text?",
+        "answers": [
+          { "text": "Dummy answer A" },
+          { "text": "Dummy answer B", "is_correct": true },
+          { "text": "Dummy answer C" },
+          { "text": "Dummy answer D" }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "single_choice"
+      },
+      {
+        "question": "Dummy question text?",
+        "answers": [
+          { "text": "Dummy answer A" },
+          { "text": "Dummy answer B", "is_correct": true },
+          { "text": "Dummy answer C", "is_correct": true },
+          { "text": "Dummy answer D" }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "multiple_choice"
+      }
+    ]
+  }
+}
