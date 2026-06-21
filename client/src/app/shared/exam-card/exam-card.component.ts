@@ -10,7 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { Exam } from '../../core/models';
+import { Exam, StudyGoalProgress } from '../../core/models';
 
 @Component({
   selector: 'app-exam-card',
@@ -34,6 +34,20 @@ import { Exam } from '../../core/models';
             {{ exam.questionCount }} questions
           </span>
         </div>
+        @if (goalProgress; as gp) {
+          <div class="goal" [class.done]="gp.answered >= gp.target">
+            <div class="goal-head">
+              <span class="goal-label">
+                <mat-icon>flag</mat-icon>
+                {{ gp.period === 'DAILY' ? 'Today' : 'This week' }}
+              </span>
+              <span class="goal-count">{{ gp.answered }} / {{ gp.target }}</span>
+            </div>
+            <div class="goal-bar">
+              <div class="goal-fill" [style.width.%]="goalPct(gp)"></div>
+            </div>
+          </div>
+        }
       </mat-card-content>
       <mat-card-actions class="actions">
         <button
@@ -43,6 +57,14 @@ import { Exam } from '../../core/models';
           (click)="progress.emit(exam)"
         >
           <mat-icon>insights</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          matTooltip="Study goal"
+          aria-label="Study goal"
+          (click)="goal.emit(exam)"
+        >
+          <mat-icon>flag</mat-icon>
         </button>
         <button
           mat-icon-button
@@ -108,6 +130,48 @@ import { Exam } from '../../core/models';
         width: 17px;
         height: 17px;
       }
+      .goal {
+        margin-top: 14px;
+      }
+      .goal-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+        font-size: 13px;
+        color: var(--mat-sys-on-surface-variant);
+      }
+      .goal-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .goal-label mat-icon {
+        font-size: 17px;
+        width: 17px;
+        height: 17px;
+      }
+      .goal-count {
+        font-weight: 500;
+      }
+      .goal-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: #eceff1;
+        overflow: hidden;
+      }
+      .goal-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--mat-sys-primary);
+        transition: width 0.3s ease;
+      }
+      .goal.done .goal-fill {
+        background: var(--app-success);
+      }
+      .goal.done .goal-count {
+        color: var(--app-success);
+      }
       .actions {
         display: flex;
         align-items: center;
@@ -122,7 +186,14 @@ import { Exam } from '../../core/models';
 })
 export class ExamCardComponent {
   @Input({ required: true }) exam!: Exam;
+  /** Current-period goal progress; hidden when the exam has no goal. */
+  @Input() goalProgress: StudyGoalProgress | null = null;
   @Output() open = new EventEmitter<Exam>();
   @Output() delete = new EventEmitter<Exam>();
   @Output() progress = new EventEmitter<Exam>();
+  @Output() goal = new EventEmitter<Exam>();
+
+  goalPct(gp: StudyGoalProgress): number {
+    return Math.min(100, (gp.answered / gp.target) * 100);
+  }
 }

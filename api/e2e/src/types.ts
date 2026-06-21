@@ -7,13 +7,31 @@ export interface Section {
   questionCount: number;
 }
 
+export type GoalPeriod = 'DAILY' | 'WEEKLY';
+
+/** Per-exam study goal: answer `target` questions per `period`. */
+export interface StudyGoal {
+  period: GoalPeriod;
+  target: number;
+}
+
 export interface Exam {
   id: string;
   name: string;
   issuer: string | null;
   createdAt: string;
   questionCount: number;
+  studyGoal: StudyGoal | null;
   sections: Section[];
+}
+
+/** Progress of one exam's study goal within the current period. */
+export interface StudyGoalProgress {
+  examId: string;
+  period: GoalPeriod;
+  target: number;
+  answered: number;
+  periodStart: string; // ISO date, e.g. "2026-06-11"
 }
 
 export interface Answer {
@@ -73,6 +91,14 @@ export interface AnswerResult {
   sessionItemId: string;
   isCorrect: boolean;
   correctAnswerIds: string[];
+}
+
+/** Questions answered on one calendar day. */
+export interface StudyDayStats {
+  day: string; // ISO date, e.g. "2026-06-11"
+  total: number;
+  correct: number;
+  incorrect: number;
 }
 
 export interface SectionStats {

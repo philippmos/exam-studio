@@ -4,9 +4,12 @@ import {
   Exam,
   ExamSession,
   ExamStats,
+  GoalPeriod,
   SessionItem,
   SessionMode,
   SessionOverview,
+  StudyDayStats,
+  StudyGoalProgress,
 } from './types';
 
 /** Typed wrappers around the GraphQL operations used by the tests. */
@@ -17,6 +20,10 @@ export const EXAM_FIELDS = `
   issuer
   createdAt
   questionCount
+  studyGoal {
+    period
+    target
+  }
   sections {
     id
     name
@@ -214,6 +221,73 @@ export async function getExamStats(
     { examId },
   );
   return data.examStats;
+}
+
+export async function getStudyHistory(
+  gql: GraphqlClient,
+  examId: string | null = null,
+  tzOffsetMinutes = 0,
+): Promise<StudyDayStats[]> {
+  const data = await gql.query<{ studyHistory: StudyDayStats[] }>(
+    `query StudyHistory($examId: UUID, $tzOffsetMinutes: Int!) {
+      studyHistory(examId: $examId, tzOffsetMinutes: $tzOffsetMinutes) {
+        day
+        total
+        correct
+        incorrect
+      }
+    }`,
+    { examId, tzOffsetMinutes },
+  );
+  return data.studyHistory;
+}
+
+export async function setStudyGoal(
+  gql: GraphqlClient,
+  examId: string,
+  period: GoalPeriod,
+  target: number,
+): Promise<Exam> {
+  const data = await gql.query<{ setStudyGoal: Exam }>(
+    `mutation SetGoal($examId: UUID!, $period: GoalPeriod!, $target: Int!) {
+      setStudyGoal(examId: $examId, period: $period, target: $target) { ${EXAM_FIELDS} }
+    }`,
+    { examId, period, target },
+  );
+  return data.setStudyGoal;
+}
+
+export async function clearStudyGoal(
+  gql: GraphqlClient,
+  examId: string,
+): Promise<Exam> {
+  const data = await gql.query<{ clearStudyGoal: Exam }>(
+    `mutation ClearGoal($examId: UUID!) {
+      clearStudyGoal(examId: $examId) { ${EXAM_FIELDS} }
+    }`,
+    { examId },
+  );
+  return data.clearStudyGoal;
+}
+
+export async function getStudyGoalProgress(
+  gql: GraphqlClient,
+  examId: string | null = null,
+  tzOffsetMinutes = 0,
+): Promise<StudyGoalProgress[]> {
+  const data = await gql.query<{ studyGoalProgress: StudyGoalProgress[] }>(
+    `query GoalProgress($examId: UUID, $tzOffsetMinutes: Int!) {
+      studyGoalProgress(examId: $examId, tzOffsetMinutes: $tzOffsetMinutes) {
+        examId
+        period
+        target
+        answered
+        periodStart
+      }
+    }`,
+    { examId, tzOffsetMinutes },
+  );
+  return data.studyGoalProgress;
 }
 
 /** Ids of the answers marked as correct via the text convention (CORRECT_PREFIX). */

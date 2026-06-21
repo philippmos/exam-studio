@@ -2,7 +2,9 @@ import { expect, test } from '../src/fixtures';
 import { DashboardPage } from '../src/pages/dashboard-page';
 
 test.describe('app shell', () => {
-  test('navigates between the exams and sessions areas', async ({ page }) => {
+  test('navigates between the exams, sessions and statistics areas', async ({
+    page,
+  }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
 
@@ -11,6 +13,12 @@ test.describe('app shell', () => {
     await page.getByRole('link', { name: 'Sessions' }).click();
     await expect(page).toHaveURL(/\/sessions$/);
     await expect(page.getByRole('heading', { name: 'Sessions' })).toBeVisible();
+
+    await page.getByRole('link', { name: 'Statistics' }).click();
+    await expect(page).toHaveURL(/\/statistics$/);
+    await expect(
+      page.getByRole('heading', { name: 'Study history' }),
+    ).toBeVisible();
 
     await page.getByRole('link', { name: 'Exams' }).click();
     await expect(page.getByRole('heading', { name: 'Your exams' })).toBeVisible();

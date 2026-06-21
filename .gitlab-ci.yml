@@ -23,13 +23,14 @@ client:
     include:
       - local: client/.gitlab-client-ci.yml
     strategy: depend
-  # The client E2E tests run against the api:latest image, which the api
-  # pipeline releases only after its own tests pass — so when both pipelines
-  # run, let the api child finish first.
   needs:
     - job: api
       optional: true
   rules:
     - changes:
-        - client/**/*
+        - api/**/*
         - ci/**/*
+      variables:
+        API_SERVICE_TAG: $CI_COMMIT_SHORT_SHA
+    - changes:
+        - client/**/*

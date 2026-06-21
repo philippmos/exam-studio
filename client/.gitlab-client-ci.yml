@@ -23,13 +23,13 @@ default:
 variables:
   CLIENT_IMAGE: $CI_REGISTRY_IMAGE/client
   API_IMAGE: $CI_REGISTRY_IMAGE/api
-  # The API tag the E2E tests run against: the latest image released by the
-  # api pipeline (i.e. one that passed its own tests). Override to pin a tag.
   API_SERVICE_TAG: latest
 
 build:
   stage: build
   image: node:20-alpine
+  rules:
+    - when: on_success
   cache:
     key:
       files:
@@ -51,14 +51,19 @@ docker-build:
   variables:
     IMAGE: $CLIENT_IMAGE
     BUILD_CONTEXT: client
+  # Explicit rules so the job also exists in merge request pipelines —
+  # without rules, jobs default to branch/tag pipelines only.
+  rules:
+    - when: on_success
 
 client-e2e:
   extends: .exam-stack
   stage: test
-  # Keep the version in sync with @playwright/test in client/e2e/package.json.
   image: mcr.microsoft.com/playwright:v1.60.0-noble
-  # Tests run against the production bundle built in this pipeline.
   needs: [build]
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   cache:
     key:
       files:

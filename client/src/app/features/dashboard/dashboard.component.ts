@@ -7,9 +7,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
-import { Exam } from '../../core/models';
+import { Exam, StudyGoalProgress } from '../../core/models';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { ExamCardComponent } from '../../shared/exam-card/exam-card.component';
+import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
 import { ImportDialogComponent } from './import-dialog.component';
 
 @Component({
@@ -49,8 +50,10 @@ import { ImportDialogComponent } from './import-dialog.component';
           @for (exam of exams(); track exam.id) {
             <app-exam-card
               [exam]="exam"
+              [goalProgress]="goalFor(exam.id)"
               (open)="openExam($event)"
               (progress)="openProgress($event)"
+              (goal)="editGoal($event)"
               (delete)="deleteExam($event)"
             />
           }
@@ -75,6 +78,7 @@ export class DashboardComponent {
   private readonly snackBar = inject(MatSnackBar);
 
   readonly exams = signal<Exam[]>([]);
+  readonly goalProgress = signal<StudyGoalProgress[]>([]);
   readonly loading = signal(true);
 
   constructor() {
@@ -93,6 +97,19 @@ export class DashboardComponent {
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
       },
     });
+    this.loadGoalProgress();
+  }
+
+  /** The goal bars are supplementary: on error just leave them hidden. */
+  private loadGoalProgress(): void {
+    this.examService.getStudyGoalProgress().subscribe({
+      next: (progress) => this.goalProgress.set(progress),
+      error: () => undefined,
+    });
+  }
+
+  goalFor(examId: string): StudyGoalProgress | null {
+    return this.goalProgress().find((gp) => gp.examId === examId) ?? null;
   }
 
   openImport(): void {
@@ -115,6 +132,33 @@ export class DashboardComponent {
 
   openProgress(exam: Exam): void {
     this.router.navigate(['/exams', exam.id, 'progress']);
+  }
+
+  editGoal(exam: Exam): void {
+    StudyGoalDialogComponent.open(this.dialog, exam).subscribe((result) => {
+      if (result === undefined) {
+        return; // cancelled
+      }
+      const request =
+        result === null
+          ? this.examService.clearStudyGoal(exam.id)
+          : this.examService.setStudyGoal(exam.id, result.period, result.target);
+      request.subscribe({
+        next: (updated) => {
+          this.exams.update((list) =>
+            list.map((e) => (e.id === updated.id ? updated : e)),
+          );
+          this.loadGoalProgress();
+          this.snackBar.open(
+            result === null ? 'Study goal removed.' : 'Study goal saved.',
+            'OK',
+            { duration: 3000 },
+          );
+        },
+        error: (err: Error) =>
+          this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+      });
+    });
   }
 
   deleteExam(exam: Exam): void {

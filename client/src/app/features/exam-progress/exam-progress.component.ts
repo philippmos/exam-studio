@@ -15,8 +15,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
-import { ExamStats } from '../../core/models';
+import { ExamStats, StudyDayStats } from '../../core/models';
 import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
+import { StudyHistoryChartComponent } from '../../shared/study-history-chart/study-history-chart.component';
 
 @Component({
   selector: 'app-exam-progress',
@@ -29,6 +30,7 @@ import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
     MatIconModule,
     MatProgressSpinnerModule,
     StatCardComponent,
+    StudyHistoryChartComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -113,6 +115,19 @@ import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
             "
           />
         </section>
+
+        <!-- Study activity over time -->
+        @if (history().length > 0) {
+          <mat-card class="panel" appearance="outlined">
+            <mat-card-header>
+              <mat-card-title>Study activity</mat-card-title>
+              <mat-card-subtitle>Questions answered per day</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <app-study-history-chart [data]="history()" />
+            </mat-card-content>
+          </mat-card>
+        }
 
         <!-- Overall breakdown bar -->
         <mat-card class="panel" appearance="outlined">
@@ -299,6 +314,7 @@ export class ExamProgressComponent implements OnInit {
   readonly id = input.required<string>();
 
   readonly stats = signal<ExamStats | null>(null);
+  readonly history = signal<StudyDayStats[]>([]);
   readonly loading = signal(true);
 
   ngOnInit(): void {
@@ -311,6 +327,12 @@ export class ExamProgressComponent implements OnInit {
         this.loading.set(false);
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
       },
+    });
+    // The chart is supplementary: on error just leave it hidden instead of
+    // stacking a second snackbar on top of the stats one.
+    this.examService.getStudyHistory(this.id()).subscribe({
+      next: (history) => this.history.set(history),
+      error: () => undefined,
     });
   }
 

@@ -17,6 +17,7 @@ from app.graphql.types import (
     AnswerResult,
     ExamSessionType,
     ExamType,
+    GoalPeriodEnum,
     SessionModeEnum,
 )
 from app.importer import ImportError_, build_exam_from_payload
@@ -82,6 +83,42 @@ class Mutation:
         await db.delete(exam)
         await db.commit()
         return True
+
+    @strawberry.mutation
+    async def set_study_goal(
+        self,
+        info: Info,
+        exam_id: uuid.UUID,
+        period: GoalPeriodEnum,
+        target: int,
+    ) -> ExamType:
+        """Set (or replace) the exam's study goal: `target` questions per `period`."""
+        db: AsyncSession = info.context["db"]
+        exam = await db.get(models.Exam, exam_id)
+        if exam is None:
+            raise ValueError("Exam not found.")
+        if target < 1:
+            raise ValueError("The goal target must be at least 1 question.")
+
+        exam.study_goal_period = period.value
+        exam.study_goal_target = target
+        await db.commit()
+        result = await loaders.load_exams(db, exam_id=exam_id)
+        return result[0]
+
+    @strawberry.mutation
+    async def clear_study_goal(self, info: Info, exam_id: uuid.UUID) -> ExamType:
+        """Remove the exam's study goal, if any."""
+        db: AsyncSession = info.context["db"]
+        exam = await db.get(models.Exam, exam_id)
+        if exam is None:
+            raise ValueError("Exam not found.")
+
+        exam.study_goal_period = None
+        exam.study_goal_target = None
+        await db.commit()
+        result = await loaders.load_exams(db, exam_id=exam_id)
+        return result[0]
 
     @strawberry.mutation
     async def delete_session(self, info: Info, id: uuid.UUID) -> bool:
