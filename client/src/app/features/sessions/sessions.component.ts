@@ -257,6 +257,8 @@ export class SessionsComponent {
         return session.sectionName ?? 'Single module';
       case 'UNANSWERED':
         return 'Not-yet-correct questions';
+      case 'DUE_REVIEW':
+        return 'Due reviews';
       default:
         return 'All questions';
     }

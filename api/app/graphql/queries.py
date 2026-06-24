@@ -5,11 +5,12 @@ import uuid
 import strawberry
 from strawberry.types import Info
 
-from app.graphql import loaders, stats
+from app.graphql import loaders, review, stats
 from app.graphql.types import (
     ExamSessionType,
     ExamStats,
     ExamType,
+    ReviewDueStatus,
     SessionOverviewType,
     StudyDayStats,
     StudyGoalProgress,
@@ -68,3 +69,10 @@ class Query:
         return await stats.compute_study_goal_progress(
             info.context["db"], exam_id, tz_offset_minutes
         )
+
+    @strawberry.field
+    async def review_due(
+        self, info: Info, exam_id: uuid.UUID | None = None
+    ) -> list[ReviewDueStatus]:
+        """Questions currently due for spaced-repetition review, per exam."""
+        return await review.compute_review_due(info.context["db"], exam_id)

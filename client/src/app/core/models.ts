@@ -48,7 +48,17 @@ export interface Exam {
   sections: Section[];
 }
 
-export type SessionMode = 'ALL_RANDOM' | 'BY_SECTION' | 'UNANSWERED';
+export type SessionMode =
+  | 'ALL_RANDOM'
+  | 'BY_SECTION'
+  | 'UNANSWERED'
+  | 'DUE_REVIEW';
+
+/** Questions of one exam currently due for spaced-repetition review. */
+export interface ReviewDue {
+  examId: string;
+  dueCount: number;
+}
 
 export interface SessionItem {
   id: string;
@@ -91,6 +101,10 @@ export interface AnswerResult {
   sessionItemId: string;
   isCorrect: boolean;
   correctAnswerIds: string[];
+  /** Leitner box the question landed in after this answer. */
+  reviewBox: number;
+  /** Days until the question is due for review again. */
+  reviewIntervalDays: number;
 }
 
 /** Result of the session-setup dialog. */

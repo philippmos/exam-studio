@@ -88,6 +88,15 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
             </mat-card-content>
           </mat-card>
 
+          @if (reviewInfo(); as info) {
+            <p class="review-hint">
+              <mat-icon>autorenew</mat-icon>
+              Next review in {{ info.intervalDays }}
+              {{ info.intervalDays === 1 ? 'day' : 'days' }} · Box
+              {{ info.box }}/5
+            </p>
+          }
+
           <!-- Feedback + navigation -->
           <div class="nav">
             <button
@@ -182,6 +191,19 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
       .question-card .mat-mdc-card-content {
         padding: 24px;
       }
+      .review-hint {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0 0 16px;
+        font-size: 13px;
+        color: var(--mat-sys-on-surface-variant);
+      }
+      .review-hint mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
       .nav {
         display: flex;
         align-items: center;
@@ -267,7 +289,17 @@ export class QuizComponent implements OnInit {
   readonly loading = signal(true);
   readonly finished = signal(false);
 
+  /** Per-item Leitner outcome from this run's answers (item id -> schedule). */
+  readonly reviewByItem = signal<
+    Record<string, { box: number; intervalDays: number }>
+  >({});
+
   readonly current = computed(() => this.items()[this.index()] ?? null);
+  /** Review schedule for the current question, once answered this run. */
+  readonly reviewInfo = computed(() => {
+    const item = this.current();
+    return item ? (this.reviewByItem()[item.id] ?? null) : null;
+  });
   readonly correctCount = computed(
     () => this.items().filter((i) => i.isCorrect).length,
   );
@@ -339,6 +371,13 @@ export class QuizComponent implements OnInit {
               : it,
           ),
         );
+        this.reviewByItem.update((map) => ({
+          ...map,
+          [item.id]: {
+            box: result.reviewBox,
+            intervalDays: result.reviewIntervalDays,
+          },
+        }));
       },
       error: (err: Error) =>
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),

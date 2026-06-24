@@ -14,6 +14,8 @@ import { Exam, SessionMode, SessionSetup } from '../../core/models';
 
 interface DialogData {
   exam: Exam;
+  /** Questions currently due for spaced-repetition review. */
+  dueCount: number;
 }
 
 @Component({
@@ -52,6 +54,18 @@ interface DialogData {
           <span class="mode-title">Only not-yet-correct</span>
           <span class="mode-desc">
             Questions you have never answered correctly before.
+          </span>
+        </mat-radio-button>
+
+        <mat-radio-button value="DUE_REVIEW" [disabled]="data.dueCount === 0">
+          <span class="mode-title">
+            Due for review
+            @if (data.dueCount > 0) {
+              <span class="badge">{{ data.dueCount }}</span>
+            }
+          </span>
+          <span class="mode-desc">
+            Spaced repetition — questions scheduled to come back today.
           </span>
         </mat-radio-button>
       </mat-radio-group>
@@ -100,6 +114,18 @@ interface DialogData {
         color: var(--mat-sys-on-surface-variant);
         white-space: normal;
       }
+      .badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 7px;
+        border-radius: 999px;
+        background: var(--mat-sys-primary);
+        color: var(--mat-sys-on-primary);
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 18px;
+        vertical-align: middle;
+      }
       .section-select {
         width: 100%;
         margin-top: 8px;
@@ -116,7 +142,11 @@ export class SessionSetupDialogComponent {
     MatDialogRef<SessionSetupDialogComponent, SessionSetup>,
   );
 
-  readonly mode = signal<SessionMode>('ALL_RANDOM');
+  // Default to reviewing when something is due, so spaced repetition is the
+  // obvious next step; otherwise fall back to practising all questions.
+  readonly mode = signal<SessionMode>(
+    this.data.dueCount > 0 ? 'DUE_REVIEW' : 'ALL_RANDOM',
+  );
   readonly sectionId = signal<string | null>(null);
 
   canStart(): boolean {

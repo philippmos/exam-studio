@@ -15,6 +15,7 @@ instance, exactly like the Angular client does.
 | `submit-answer.spec.ts`     | `submitAnswer` correctness semantics + validation              |
 | `session-lifecycle.spec.ts` | `finishSession`, `sessions` overview, `deleteSession`, cascades |
 | `exam-stats.spec.ts`        | `examStats` aggregation (coverage, mastery, accuracy, sections) |
+| `study-review.spec.ts`      | spaced-repetition Leitner scheduling + `DUE_REVIEW` mode        |
 
 Test design:
 

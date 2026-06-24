@@ -58,7 +58,11 @@ export interface SessionItem {
   question: Question;
 }
 
-export type SessionMode = 'ALL_RANDOM' | 'BY_SECTION' | 'UNANSWERED';
+export type SessionMode =
+  | 'ALL_RANDOM'
+  | 'BY_SECTION'
+  | 'UNANSWERED'
+  | 'DUE_REVIEW';
 
 export interface ExamSession {
   id: string;
@@ -91,6 +95,14 @@ export interface AnswerResult {
   sessionItemId: string;
   isCorrect: boolean;
   correctAnswerIds: string[];
+  reviewBox: number;
+  reviewIntervalDays: number;
+}
+
+/** Questions of one exam currently due for spaced-repetition review. */
+export interface ReviewDue {
+  examId: string;
+  dueCount: number;
 }
 
 /** Questions answered on one calendar day. */

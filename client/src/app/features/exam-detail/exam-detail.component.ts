@@ -52,9 +52,17 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
                 · Goal: {{ goal.target }} questions per
                 {{ goal.period === 'DAILY' ? 'day' : 'week' }}
               }
+              @if (dueCount() > 0) {
+                · {{ dueCount() }} due for review
+              }
             </p>
           </div>
           <div class="header-actions">
+            @if (dueCount() > 0) {
+              <button mat-stroked-button (click)="startReview(exam)">
+                <mat-icon>autorenew</mat-icon> Review due ({{ dueCount() }})
+              </button>
+            }
             <button mat-stroked-button (click)="editGoal(exam)">
               <mat-icon>flag</mat-icon>
               {{ exam.studyGoal ? 'Edit study goal' : 'Set study goal' }}
@@ -125,6 +133,7 @@ export class ExamDetailComponent implements OnInit {
   readonly id = input.required<string>();
 
   readonly exam = signal<Exam | null>(null);
+  readonly dueCount = signal(0);
   readonly loading = signal(true);
 
   ngOnInit(): void {
@@ -141,6 +150,11 @@ export class ExamDetailComponent implements OnInit {
         this.loading.set(false);
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
       },
+    });
+    // The review badge is supplementary: on error just leave it at zero.
+    this.examService.getReviewDue(this.id()).subscribe({
+      next: (due) => this.dueCount.set(due[0]?.dueCount ?? 0),
+      error: () => undefined,
     });
   }
 
@@ -170,13 +184,21 @@ export class ExamDetailComponent implements OnInit {
 
   openSetup(exam: Exam): void {
     this.dialog
-      .open(SessionSetupDialogComponent, { data: { exam }, width: '460px' })
+      .open(SessionSetupDialogComponent, {
+        data: { exam, dueCount: this.dueCount() },
+        width: '460px',
+      })
       .afterClosed()
       .subscribe((setup: SessionSetup | undefined) => {
         if (setup) {
           this.startSession(exam, setup);
         }
       });
+  }
+
+  /** Shortcut from the header button: jump straight into a due-review session. */
+  startReview(exam: Exam): void {
+    this.startSession(exam, { mode: 'DUE_REVIEW', sectionId: null });
   }
 
   private startSession(exam: Exam, setup: SessionSetup): void {

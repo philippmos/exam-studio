@@ -48,6 +48,17 @@ import { Exam, StudyGoalProgress } from '../../core/models';
             </div>
           </div>
         }
+        @if (dueCount > 0) {
+          <button
+            type="button"
+            class="due-chip"
+            matTooltip="Start a spaced-repetition review"
+            (click)="review.emit(exam)"
+          >
+            <mat-icon>autorenew</mat-icon>
+            {{ dueCount }} due for review
+          </button>
+        }
       </mat-card-content>
       <mat-card-actions class="actions">
         <button
@@ -172,6 +183,30 @@ import { Exam, StudyGoalProgress } from '../../core/models';
       .goal.done .goal-count {
         color: var(--app-success);
       }
+      .due-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 14px;
+        padding: 5px 12px 5px 10px;
+        border: none;
+        border-radius: 999px;
+        background: var(--mat-sys-secondary-container);
+        color: var(--mat-sys-on-secondary-container);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: filter 0.15s;
+      }
+      .due-chip:hover {
+        filter: brightness(0.96);
+      }
+      .due-chip mat-icon {
+        font-size: 17px;
+        width: 17px;
+        height: 17px;
+      }
       .actions {
         display: flex;
         align-items: center;
@@ -188,10 +223,13 @@ export class ExamCardComponent {
   @Input({ required: true }) exam!: Exam;
   /** Current-period goal progress; hidden when the exam has no goal. */
   @Input() goalProgress: StudyGoalProgress | null = null;
+  /** Questions due for spaced-repetition review; hides the chip when zero. */
+  @Input() dueCount = 0;
   @Output() open = new EventEmitter<Exam>();
   @Output() delete = new EventEmitter<Exam>();
   @Output() progress = new EventEmitter<Exam>();
   @Output() goal = new EventEmitter<Exam>();
+  @Output() review = new EventEmitter<Exam>();
 
   goalPct(gp: StudyGoalProgress): number {
     return Math.min(100, (gp.answered / gp.target) * 100);

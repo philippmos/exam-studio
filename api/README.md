@@ -164,6 +164,7 @@ you can import the same file multiple times.
 | `exam(id)`            | A single exam with its sections and counts.          |
 | `session(id)`         | A session with its ordered questions.                |
 | `examStats(examId)`   | Aggregated learning-progress statistics for an exam. |
+| `reviewDue(examId)`   | Questions due for spaced-repetition review, per exam.|
 
 **Mutations**
 
@@ -172,11 +173,17 @@ you can import the same file multiple times.
 | `importExam(payload)`                              | Import an exam from a JSON string.       |
 | `deleteExam(id)`                                   | Delete an exam (cascades).               |
 | `startSession(examId, mode, sectionId)`            | Start a run; snapshots the questions.    |
-| `submitAnswer(sessionItemId, selectedAnswerIds)`   | Persist the answer(s), returns correctness. |
+| `submitAnswer(sessionItemId, selectedAnswerIds, tzOffsetMinutes)` | Persist the answer(s); returns correctness and the question's updated review schedule. |
 | `finishSession(id)`                                | Mark a session finished.                 |
 
-`mode` is one of `ALL_RANDOM`, `BY_SECTION` (requires `sectionId`) or
-`UNANSWERED` (only questions never answered correctly before).
+`mode` is one of `ALL_RANDOM`, `BY_SECTION` (requires `sectionId`),
+`UNANSWERED` (only questions never answered correctly before) or `DUE_REVIEW`
+(only questions whose spaced-repetition review is due).
+
+Every `submitAnswer` advances the question's Leitner review box: a correct
+answer promotes it (longer interval), a wrong answer resets it to box 1.
+`tzOffsetMinutes` aligns the next due date to the caller's local day; the
+mutation returns `reviewBox` and `reviewIntervalDays` for immediate feedback.
 
 ## API tests
 

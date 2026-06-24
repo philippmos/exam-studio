@@ -122,6 +122,18 @@ class AnswerResult:
     session_item_id: uuid.UUID
     is_correct: bool
     correct_answer_ids: list[uuid.UUID]
+    # Spaced-repetition outcome: the Leitner box the question landed in and how
+    # many days until it is due again. Lets the UI confirm the review schedule.
+    review_box: int
+    review_interval_days: int
+
+
+@strawberry.type
+class ReviewDueStatus:
+    """How many of an exam's questions are due for spaced-repetition review."""
+
+    exam_id: uuid.UUID
+    due_count: int
 
 
 @strawberry.type

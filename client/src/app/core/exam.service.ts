@@ -8,6 +8,7 @@ import {
   ExamSession,
   ExamStats,
   GoalPeriod,
+  ReviewDue,
   SessionMode,
   SessionOverview,
   StudyDayStats,
@@ -173,6 +174,21 @@ export class ExamService {
       .pipe(map((data) => data.studyHistory));
   }
 
+  /** Questions due for spaced-repetition review, per exam (all or one). */
+  getReviewDue(examId: string | null = null): Observable<ReviewDue[]> {
+    return this.graphql
+      .request<{ reviewDue: ReviewDue[] }>(
+        `query ReviewDue($examId: UUID) {
+          reviewDue(examId: $examId) {
+            examId
+            dueCount
+          }
+        }`,
+        { examId },
+      )
+      .pipe(map((data) => data.reviewDue));
+  }
+
   /** Current-period progress of every exam that has a study goal. */
   getStudyGoalProgress(
     examId: string | null = null,
@@ -265,17 +281,29 @@ export class ExamService {
   ): Observable<AnswerResult> {
     return this.graphql
       .request<{ submitAnswer: AnswerResult }>(
-        `mutation Submit($sessionItemId: UUID!, $selectedAnswerIds: [UUID!]!) {
+        `mutation Submit(
+          $sessionItemId: UUID!
+          $selectedAnswerIds: [UUID!]!
+          $tzOffsetMinutes: Int!
+        ) {
           submitAnswer(
             sessionItemId: $sessionItemId
             selectedAnswerIds: $selectedAnswerIds
+            tzOffsetMinutes: $tzOffsetMinutes
           ) {
             sessionItemId
             isCorrect
             correctAnswerIds
+            reviewBox
+            reviewIntervalDays
           }
         }`,
-        { sessionItemId, selectedAnswerIds },
+        // The next review date is pinned to the user's local day, not UTC.
+        {
+          sessionItemId,
+          selectedAnswerIds,
+          tzOffsetMinutes: -new Date().getTimezoneOffset(),
+        },
       )
       .pipe(map((data) => data.submitAnswer));
   }

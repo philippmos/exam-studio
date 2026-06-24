@@ -7,7 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
-import { Exam, StudyGoalProgress } from '../../core/models';
+import { Exam, ReviewDue, StudyGoalProgress } from '../../core/models';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { ExamCardComponent } from '../../shared/exam-card/exam-card.component';
 import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
@@ -51,9 +51,11 @@ import { ImportDialogComponent } from './import-dialog.component';
             <app-exam-card
               [exam]="exam"
               [goalProgress]="goalFor(exam.id)"
+              [dueCount]="dueFor(exam.id)"
               (open)="openExam($event)"
               (progress)="openProgress($event)"
               (goal)="editGoal($event)"
+              (review)="startReview($event)"
               (delete)="deleteExam($event)"
             />
           }
@@ -79,6 +81,7 @@ export class DashboardComponent {
 
   readonly exams = signal<Exam[]>([]);
   readonly goalProgress = signal<StudyGoalProgress[]>([]);
+  readonly reviewDue = signal<ReviewDue[]>([]);
   readonly loading = signal(true);
 
   constructor() {
@@ -98,6 +101,7 @@ export class DashboardComponent {
       },
     });
     this.loadGoalProgress();
+    this.loadReviewDue();
   }
 
   /** The goal bars are supplementary: on error just leave them hidden. */
@@ -108,8 +112,20 @@ export class DashboardComponent {
     });
   }
 
+  /** The review chips are supplementary: on error just leave them hidden. */
+  private loadReviewDue(): void {
+    this.examService.getReviewDue().subscribe({
+      next: (due) => this.reviewDue.set(due),
+      error: () => undefined,
+    });
+  }
+
   goalFor(examId: string): StudyGoalProgress | null {
     return this.goalProgress().find((gp) => gp.examId === examId) ?? null;
+  }
+
+  dueFor(examId: string): number {
+    return this.reviewDue().find((d) => d.examId === examId)?.dueCount ?? 0;
   }
 
   openImport(): void {
@@ -128,6 +144,26 @@ export class DashboardComponent {
 
   openExam(exam: Exam): void {
     this.router.navigate(['/exams', exam.id]);
+  }
+
+  /** Start a spaced-repetition session straight from the dashboard chip. */
+  startReview(exam: Exam): void {
+    this.examService.startSession(exam.id, 'DUE_REVIEW', null).subscribe({
+      next: (session) => {
+        if (session.total === 0) {
+          this.snackBar.open('Nothing is due for review right now.', 'OK', {
+            duration: 4000,
+          });
+          this.reviewDue.update((list) =>
+            list.filter((d) => d.examId !== exam.id),
+          );
+          return;
+        }
+        this.router.navigate(['/sessions', session.id]);
+      },
+      error: (err: Error) =>
+        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+    });
   }
 
   openProgress(exam: Exam): void {

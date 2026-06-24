@@ -12,7 +12,7 @@ from strawberry.types import Info
 
 from app import models
 from app.enums import QuestionType, SessionMode
-from app.graphql import loaders
+from app.graphql import loaders, review
 from app.graphql.types import (
     AnswerResult,
     ExamSessionType,
@@ -52,6 +52,11 @@ async def _select_question_ids(
             )
         )
         base = base.where(models.Question.id.not_in(answered_correctly))
+    elif mode is SessionMode.DUE_REVIEW:
+        base = base.join(
+            models.QuestionReviewState,
+            models.QuestionReviewState.question_id == models.Question.id,
+        ).where(models.QuestionReviewState.due_at <= datetime.now(timezone.utc))
 
     ids = list((await db.scalars(base)).all())
     random.shuffle(ids)
@@ -166,11 +171,14 @@ class Mutation:
         info: Info,
         session_item_id: uuid.UUID,
         selected_answer_ids: list[uuid.UUID],
+        tz_offset_minutes: int = 0,
     ) -> AnswerResult:
         """Persist the chosen answer(s) for a question and report correctness.
 
         A multiple-choice question only counts as correct when exactly the set
-        of correct answers was selected.
+        of correct answers was selected. Every answer also advances the
+        question's spaced-repetition schedule (``tz_offset_minutes`` aligns the
+        next due date to the caller's local day).
         """
         db: AsyncSession = info.context["db"]
 
@@ -218,12 +226,17 @@ class Mutation:
         ]
         item.is_correct = selected_ids == correct_ids
         item.answered_at = datetime.now(timezone.utc)
+        outcome = await review.record_answer(
+            db, item.question_id, item.is_correct, tz_offset_minutes
+        )
         await db.commit()
 
         return AnswerResult(
             session_item_id=item.id,
             is_correct=bool(item.is_correct),
             correct_answer_ids=sorted(correct_ids, key=str),
+            review_box=outcome.box,
+            review_interval_days=outcome.interval_days,
         )
 
     @strawberry.mutation

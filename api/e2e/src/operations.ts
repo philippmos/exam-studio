@@ -5,6 +5,7 @@ import {
   ExamSession,
   ExamStats,
   GoalPeriod,
+  ReviewDue,
   SessionItem,
   SessionMode,
   SessionOverview,
@@ -179,18 +180,42 @@ export async function submitAnswer(
   gql: GraphqlClient,
   sessionItemId: string,
   selectedAnswerIds: string[],
+  tzOffsetMinutes = 0,
 ): Promise<AnswerResult> {
   const data = await gql.query<{ submitAnswer: AnswerResult }>(
-    `mutation Submit($sessionItemId: UUID!, $selectedAnswerIds: [UUID!]!) {
-      submitAnswer(sessionItemId: $sessionItemId, selectedAnswerIds: $selectedAnswerIds) {
+    `mutation Submit(
+      $sessionItemId: UUID!
+      $selectedAnswerIds: [UUID!]!
+      $tzOffsetMinutes: Int!
+    ) {
+      submitAnswer(
+        sessionItemId: $sessionItemId
+        selectedAnswerIds: $selectedAnswerIds
+        tzOffsetMinutes: $tzOffsetMinutes
+      ) {
         sessionItemId
         isCorrect
         correctAnswerIds
+        reviewBox
+        reviewIntervalDays
       }
     }`,
-    { sessionItemId, selectedAnswerIds },
+    { sessionItemId, selectedAnswerIds, tzOffsetMinutes },
   );
   return data.submitAnswer;
+}
+
+export async function getReviewDue(
+  gql: GraphqlClient,
+  examId: string | null = null,
+): Promise<ReviewDue[]> {
+  const data = await gql.query<{ reviewDue: ReviewDue[] }>(
+    `query ReviewDue($examId: UUID) {
+      reviewDue(examId: $examId) { examId dueCount }
+    }`,
+    { examId },
+  );
+  return data.reviewDue;
 }
 
 export async function finishSession(
