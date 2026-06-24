@@ -1,4 +1,5 @@
 import {
+  allocationExamSpec,
   buildPayload,
   defaultExamSpec,
   SECTION_CRYPTOGRAPHY,
@@ -150,5 +151,42 @@ test.describe('importExam', () => {
       `query { exams { name } }`,
     );
     expect(data.exams.map((e) => e.name)).not.toContain(name);
+  });
+
+  test('imports an allocation question', async ({ examFactory }) => {
+    const exam = await examFactory.create(allocationExamSpec(uniqueName()));
+
+    expect(exam.questionCount).toBe(1);
+    expect(exam.sections.map((s) => s.questionCount)).toEqual([1]);
+  });
+
+  test('rejects an allocation question without categories', async ({ gql }) => {
+    const spec = allocationExamSpec(uniqueName());
+    delete spec.questions[0].categories;
+
+    const message = await gql.expectError(IMPORT_MUTATION, {
+      payload: buildPayload(spec),
+    });
+    expect(message).toContain("needs a non-empty 'categories' list");
+  });
+
+  test('rejects an allocation question without items', async ({ gql }) => {
+    const spec = allocationExamSpec(uniqueName());
+    spec.questions[0].items = [];
+
+    const message = await gql.expectError(IMPORT_MUTATION, {
+      payload: buildPayload(spec),
+    });
+    expect(message).toContain("needs a non-empty 'items' list");
+  });
+
+  test('rejects an item referencing an unknown category', async ({ gql }) => {
+    const spec = allocationExamSpec(uniqueName());
+    spec.questions[0].items![0].correct_category = 'does-not-exist';
+
+    const message = await gql.expectError(IMPORT_MUTATION, {
+      payload: buildPayload(spec),
+    });
+    expect(message).toContain("references unknown category 'does-not-exist'");
   });
 });

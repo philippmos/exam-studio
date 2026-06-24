@@ -61,6 +61,21 @@
         ],
         "section_key": "security",
         "question_type": "multiple_choice"
+      },
+      {
+        "question": "Sort each protocol by the transport layer it runs on.",
+        "categories": [
+          { "key": "tcp", "label": "TCP" },
+          { "key": "udp", "label": "UDP" }
+        ],
+        "items": [
+          { "text": "HTTP", "correct_category": "tcp" },
+          { "text": "SSH", "correct_category": "tcp" },
+          { "text": "DHCP", "correct_category": "udp" },
+          { "text": "TFTP", "correct_category": "udp" }
+        ],
+        "section_key": "basics",
+        "question_type": "allocation"
       }
     ]
   }

@@ -1,5 +1,6 @@
 import { GraphqlClient } from './graphql-client';
 import {
+  Allocation,
   AnswerResult,
   Exam,
   ExamSession,
@@ -47,7 +48,15 @@ export const SESSION_FIELDS = `
     id
     position
     selectedAnswerIds
+    selectedAllocations {
+      answerId
+      categoryId
+    }
     correctAnswerIds
+    correctAllocations {
+      answerId
+      categoryId
+    }
     isCorrect
     answeredAt
     question {
@@ -58,6 +67,12 @@ export const SESSION_FIELDS = `
       answers {
         id
         text
+        position
+      }
+      categories {
+        id
+        key
+        label
         position
       }
     }
@@ -176,6 +191,18 @@ export async function getSessions(
   return data.sessions;
 }
 
+const SUBMIT_RESULT_FIELDS = `
+  sessionItemId
+  isCorrect
+  correctAnswerIds
+  correctAllocations {
+    answerId
+    categoryId
+  }
+  reviewBox
+  reviewIntervalDays
+`;
+
 export async function submitAnswer(
   gql: GraphqlClient,
   sessionItemId: string,
@@ -185,22 +212,39 @@ export async function submitAnswer(
   const data = await gql.query<{ submitAnswer: AnswerResult }>(
     `mutation Submit(
       $sessionItemId: UUID!
-      $selectedAnswerIds: [UUID!]!
+      $selectedAnswerIds: [UUID!]
       $tzOffsetMinutes: Int!
     ) {
       submitAnswer(
         sessionItemId: $sessionItemId
         selectedAnswerIds: $selectedAnswerIds
         tzOffsetMinutes: $tzOffsetMinutes
-      ) {
-        sessionItemId
-        isCorrect
-        correctAnswerIds
-        reviewBox
-        reviewIntervalDays
-      }
+      ) { ${SUBMIT_RESULT_FIELDS} }
     }`,
     { sessionItemId, selectedAnswerIds, tzOffsetMinutes },
+  );
+  return data.submitAnswer;
+}
+
+export async function submitAllocation(
+  gql: GraphqlClient,
+  sessionItemId: string,
+  allocations: Allocation[],
+  tzOffsetMinutes = 0,
+): Promise<AnswerResult> {
+  const data = await gql.query<{ submitAnswer: AnswerResult }>(
+    `mutation Submit(
+      $sessionItemId: UUID!
+      $allocations: [AllocationInput!]
+      $tzOffsetMinutes: Int!
+    ) {
+      submitAnswer(
+        sessionItemId: $sessionItemId
+        allocations: $allocations
+        tzOffsetMinutes: $tzOffsetMinutes
+      ) { ${SUBMIT_RESULT_FIELDS} }
+    }`,
+    { sessionItemId, allocations, tzOffsetMinutes },
   );
   return data.submitAnswer;
 }
@@ -331,4 +375,40 @@ export function wrongAnswerIdOf(item: SessionItem): string {
     throw new Error(`Question "${item.question.text}" has no wrong answer.`);
   }
   return wrongAnswer.id;
+}
+
+function categoryIdByKey(item: SessionItem): Map<string, string> {
+  return new Map(item.question.categories.map((c) => [c.key, c.id]));
+}
+
+/**
+ * The fully correct placement of an allocation item, reconstructed from a
+ * "item text -> category key" solution (the API hides the solution itself).
+ */
+export function correctAllocationsOf(
+  item: SessionItem,
+  solution: Record<string, string>,
+): Allocation[] {
+  const byKey = categoryIdByKey(item);
+  return item.question.answers.map((answer) => ({
+    answerId: answer.id,
+    categoryId: byKey.get(solution[answer.text])!,
+  }));
+}
+
+/** The correct placement, but with the first item moved into a wrong basket. */
+export function withOneMisplaced(
+  item: SessionItem,
+  solution: Record<string, string>,
+): Allocation[] {
+  const allocations = correctAllocationsOf(item, solution);
+  const firstItem = item.question.answers[0];
+  const wrongCategory = item.question.categories.find(
+    (c) => c.key !== solution[firstItem.text],
+  )!;
+  return allocations.map((alloc) =>
+    alloc.answerId === firstItem.id
+      ? { ...alloc, categoryId: wrongCategory.id }
+      : alloc,
+  );
 }

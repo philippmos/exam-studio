@@ -1,14 +1,22 @@
 import { randomUUID } from 'node:crypto';
 
+import {
+  ALLOCATION_SOLUTION,
+  allocationExamSpec,
+  uniqueName,
+} from '../src/exam-payload';
 import { expect, test } from '../src/fixtures';
 import {
+  correctAllocationsOf,
   correctAnswerIdsOf,
   getSession,
   startSession,
+  submitAllocation,
   submitAnswer,
+  withOneMisplaced,
   wrongAnswerIdOf,
 } from '../src/operations';
-import { ExamSession, SessionItem } from '../src/types';
+import { Allocation, ExamSession, SessionItem } from '../src/types';
 
 const SUBMIT_MUTATION = `
   mutation Submit($sessionItemId: UUID!, $selectedAnswerIds: [UUID!]!) {
@@ -203,5 +211,155 @@ test.describe('submitAnswer', () => {
       selectedAnswerIds: [randomUUID()],
     });
     expect(message).toContain('Session item not found');
+  });
+});
+
+const SUBMIT_ALLOC_MUTATION = `
+  mutation Submit($sessionItemId: UUID!, $allocations: [AllocationInput!]) {
+    submitAnswer(sessionItemId: $sessionItemId, allocations: $allocations) {
+      sessionItemId
+      isCorrect
+    }
+  }
+`;
+
+/** item.answerId -> chosen category id, for order-independent comparison. */
+function placementMap(allocations: Allocation[]): Record<string, string> {
+  return Object.fromEntries(allocations.map((a) => [a.answerId, a.categoryId]));
+}
+
+test.describe('submitAnswer (allocation)', () => {
+  test('accepts a fully correct placement', async ({ gql, examFactory }) => {
+    const exam = await examFactory.create(allocationExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+
+    expect(item.question.questionType).toBe('ALLOCATION');
+    expect(item.question.categories.map((c) => c.key)).toEqual([
+      'contained',
+      'avoided',
+    ]);
+    expect(item.question.answers).toHaveLength(4);
+
+    const result = await submitAllocation(
+      gql,
+      item.id,
+      correctAllocationsOf(item, ALLOCATION_SOLUTION),
+    );
+
+    expect(result.isCorrect).toBe(true);
+    // The full solution (item -> basket) is returned for the feedback view.
+    expect(result.correctAllocations).toHaveLength(4);
+  });
+
+  test('one misplaced item fails the whole question', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(allocationExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+
+    const result = await submitAllocation(
+      gql,
+      item.id,
+      withOneMisplaced(item, ALLOCATION_SOLUTION),
+    );
+
+    expect(result.isCorrect).toBe(false);
+    expect(result.correctAllocations).toHaveLength(4);
+  });
+
+  test('persists the placement for review and resume', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(allocationExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const allocations = correctAllocationsOf(item, ALLOCATION_SOLUTION);
+
+    await submitAllocation(gql, item.id, allocations);
+
+    const reloaded = (await getSession(gql, session.id))!;
+    expect(reloaded.answered).toBe(1);
+    expect(reloaded.correct).toBe(1);
+
+    const ri = reloaded.items.find((i) => i.id === item.id)!;
+    expect(ri.isCorrect).toBe(true);
+    expect(ri.answeredAt).not.toBeNull();
+    expect(ri.selectedAllocations).toHaveLength(4);
+    expect(placementMap(ri.selectedAllocations)).toEqual(
+      placementMap(allocations),
+    );
+    // Once answered, the solution may be shown.
+    expect(ri.correctAllocations).toHaveLength(4);
+    expect(placementMap(ri.correctAllocations!)).toEqual(
+      placementMap(allocations),
+    );
+  });
+
+  test('re-answering replaces the previous placement', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(allocationExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+
+    const first = await submitAllocation(
+      gql,
+      item.id,
+      withOneMisplaced(item, ALLOCATION_SOLUTION),
+    );
+    expect(first.isCorrect).toBe(false);
+
+    const second = await submitAllocation(
+      gql,
+      item.id,
+      correctAllocationsOf(item, ALLOCATION_SOLUTION),
+    );
+    expect(second.isCorrect).toBe(true);
+
+    const reloaded = (await getSession(gql, session.id))!;
+    expect(reloaded.answered).toBe(1);
+    const ri = reloaded.items.find((i) => i.id === item.id)!;
+    expect(ri.isCorrect).toBe(true);
+    expect(ri.selectedAllocations).toHaveLength(4);
+  });
+
+  test('rejects a placement that leaves an item unsorted', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(allocationExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const partial = correctAllocationsOf(item, ALLOCATION_SOLUTION).slice(0, 2);
+
+    const message = await gql.expectError(SUBMIT_ALLOC_MUTATION, {
+      sessionItemId: item.id,
+      allocations: partial,
+    });
+    expect(message).toContain('Every item must be sorted into a category');
+  });
+
+  test('rejects a category that belongs to no question', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(allocationExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const bogus = item.question.answers.map((a) => ({
+      answerId: a.id,
+      categoryId: randomUUID(),
+    }));
+
+    const message = await gql.expectError(SUBMIT_ALLOC_MUTATION, {
+      sessionItemId: item.id,
+      allocations: bogus,
+    });
+    expect(message).toContain('Selected categories do not belong to this question');
   });
 });

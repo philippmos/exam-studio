@@ -58,6 +58,45 @@ export class QuizPage {
     await expect(feedback).toContainText(correct ? 'Correct' : 'Incorrect');
   }
 
+  /**
+   * Answers an allocation question by dragging each item into its basket and
+   * submitting. `solution` maps item text -> basket label.
+   */
+  async answerAllocation(solution: Record<string, string>): Promise<void> {
+    for (const [itemText, basketLabel] of Object.entries(solution)) {
+      await this.dragItemToBasket(itemText, basketLabel);
+    }
+    await this.checkAnswerButton.click();
+  }
+
+  private async dragItemToBasket(
+    itemText: string,
+    basketLabel: string,
+  ): Promise<void> {
+    const item = this.page.locator('.chip', { hasText: itemText });
+    const basket = this.page
+      .locator('.basket', {
+        has: this.page.locator('.basket-title', { hasText: basketLabel }),
+      })
+      .locator('.dropzone');
+
+    // CDK drag-drop needs an explicit pointer sequence: press, move past the
+    // start threshold into the target container, settle, then release.
+    await item.scrollIntoViewIfNeeded();
+    const from = await item.boundingBox();
+    const to = await basket.boundingBox();
+    if (!from || !to) {
+      throw new Error(`Cannot drag "${itemText}" -> "${basketLabel}" (not visible).`);
+    }
+    await this.page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await this.page.mouse.down();
+    const targetX = to.x + to.width / 2;
+    const targetY = to.y + to.height / 2;
+    await this.page.mouse.move(targetX, targetY, { steps: 12 });
+    await this.page.mouse.move(targetX, targetY);
+    await this.page.mouse.up();
+  }
+
   /** The correct answer is highlighted after answering (review mode). */
   async expectSolutionHighlighted(): Promise<void> {
     await expect(

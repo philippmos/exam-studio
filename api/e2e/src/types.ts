@@ -40,19 +40,34 @@ export interface Answer {
   position: number;
 }
 
+export interface Category {
+  id: string;
+  key: string;
+  label: string;
+  position: number;
+}
+
+export interface Allocation {
+  answerId: string;
+  categoryId: string;
+}
+
 export interface Question {
   id: string;
   text: string;
   sectionId: string;
-  questionType: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
+  questionType: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'ALLOCATION';
   answers: Answer[];
+  categories: Category[];
 }
 
 export interface SessionItem {
   id: string;
   position: number;
   selectedAnswerIds: string[];
+  selectedAllocations: Allocation[];
   correctAnswerIds: string[] | null;
+  correctAllocations: Allocation[] | null;
   isCorrect: boolean | null;
   answeredAt: string | null;
   question: Question;
@@ -95,6 +110,7 @@ export interface AnswerResult {
   sessionItemId: string;
   isCorrect: boolean;
   correctAnswerIds: string[];
+  correctAllocations: Allocation[];
   reviewBox: number;
   reviewIntervalDays: number;
 }

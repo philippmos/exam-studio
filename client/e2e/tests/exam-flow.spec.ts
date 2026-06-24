@@ -1,4 +1,6 @@
 import {
+  ALLOCATION_SOLUTION,
+  allocationExamSpec,
   SECTION_CRYPTOGRAPHY,
   smallExamSpec,
   twoSectionExamSpec,
@@ -92,5 +94,28 @@ test.describe('exam mode', () => {
 
     await quiz.exitSession();
     await detail.expectLoaded(name);
+  });
+
+  test('sorts an allocation question into baskets via drag and drop', async ({
+    page,
+    examFactory,
+  }) => {
+    const name = uniqueName();
+    await examFactory.create(allocationExamSpec(name));
+
+    const dashboard = new DashboardPage(page);
+    const detail = new ExamDetailPage(page);
+    const quiz = new QuizPage(page);
+
+    await dashboard.goto();
+    await dashboard.openExam(name);
+    await detail.startExamMode('all');
+
+    await quiz.expectQuestion(1, 1);
+    await quiz.answerAllocation(ALLOCATION_SOLUTION);
+    await quiz.expectFeedback(true);
+
+    await quiz.finish();
+    await quiz.expectSummary(1, 1);
   });
 });

@@ -29,8 +29,10 @@ ExamSession ──< SessionItem ──< SessionItemAnswer (the chosen answers)
 * An **Exam** is a certification (e.g. *Certified Ethical Hacker*).
 * It is split into **Section**s (modules), each holding **Question**s.
 * Each question has several **Answer**s; correct ones carry a boolean flag.
-  A question is either `single_choice` (exactly one correct answer) or
-  `multiple_choice` (one or more correct answers).
+  A question is `single_choice` (exactly one correct answer),
+  `multiple_choice` (one or more correct answers) or `allocation` (sort every
+  item into one of the question's **categories** / baskets — the items are
+  stored as answer rows that point at their correct category).
 * Starting an exam snapshots an ordered **ExamSession** of **SessionItem**s.
   Every answer you give is persisted on its item.
 
@@ -147,8 +149,11 @@ reports (incl. traces/screenshots of failures) are job artifacts.
 Create a json file with your desired exam content. The file carries no ids:
 sections are referenced by their `key`, question numbers follow the order in
 the file, and the database generates fresh UUIDs on import. `question_type`
-is either `single_choice` (exactly one answer with `is_correct: true`) or
-`multiple_choice` (one or more correct answers).
+is `single_choice` (exactly one answer with `is_correct: true`),
+`multiple_choice` (one or more correct answers) or `allocation`. An allocation
+question replaces `answers` with `categories` (the baskets, `{key, label}`) and
+`items` (`{text, correct_category}`, the `correct_category` referencing a
+category `key`); see the third question below and `exam.schema.json`.
 
 ```json
 {
@@ -183,6 +188,19 @@ is either `single_choice` (exactly one answer with `is_correct: true`) or
         ],
         "section_key": "dummy_section",
         "question_type": "multiple_choice"
+      },
+      {
+        "question": "Which information belongs in a black-box description?",
+        "categories": [
+          { "key": "contained", "label": "Contained" },
+          { "key": "avoided", "label": "Avoided" }
+        ],
+        "items": [
+          { "text": "Interfaces.", "correct_category": "contained" },
+          { "text": "Internal structure.", "correct_category": "avoided" }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "allocation"
       }
     ]
   }

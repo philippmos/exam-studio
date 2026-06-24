@@ -16,24 +16,32 @@ FastAPI + Strawberry (GraphQL) + SQLAlchemy (async) + Alembic + PostgreSQL.
 
 ```
 Exam ──< Section ──< Question ──< Answer
-                        │            └─ is_correct flag
-                        └─ question_type (SINGLE_CHOICE / MULTIPLE_CHOICE)
+                        │            ├─ is_correct flag        (choice)
+                        │            └─ correct_category_id     (allocation item)
+                        ├─ question_type (SINGLE_CHOICE / MULTIPLE_CHOICE / ALLOCATION)
+                        └─< QuestionCategory  (allocation baskets: key + label)
 
 ExamSession ──< SessionItem ──< SessionItemAnswer  (the persisted selection)
+                     │              └─ category_id  (basket, allocation only)
                      └─ is_correct + answered_at
 ```
 
 * An **Exam** (a certification) is divided into **Section**s (modules).
 * Each **Section** contains **Question**s, each with several **Answer** rows.
-  Correct options are stored as a boolean flag on the answer row rather than
-  as duplicated ids on the question (proper normalisation). A question's
-  `question_type` decides how many answers are expected: `SINGLE_CHOICE`
-  (exactly one correct answer) or `MULTIPLE_CHOICE` (one or more).
+  A question's `question_type` decides what is expected: `SINGLE_CHOICE`
+  (exactly one correct answer), `MULTIPLE_CHOICE` (one or more) or `ALLOCATION`.
+  For choice questions, correct options are stored as a boolean flag on the
+  answer row (proper normalisation). For an **ALLOCATION** question the answers
+  are the items to sort and each points at the **QuestionCategory** (basket) it
+  belongs to via `correct_category_id`; the baskets themselves are
+  `QuestionCategory` rows (`key` + `label`).
 * An **ExamSession** is one run. When it starts, an ordered list of
   **SessionItem**s is snapshotted. Answering a question writes the chosen
   answers (one **SessionItemAnswer** row each) and whether the selection was
   correct onto its item. A multiple-choice selection only counts as correct
-  when it matches the set of correct answers exactly.
+  when it matches the set of correct answers exactly; an allocation answer
+  records the chosen basket per item (`SessionItemAnswer.category_id`) and is
+  correct only when every item sits in its correct category.
 
 ### Learning-progress statistics
 
@@ -51,7 +59,9 @@ Migration `0002` adds the integrity constraints these numbers rely on: unique
 constraints so a question appears **at most once per session**. Migration
 `0003` adds multiple-choice support: the `questions.question_type` column, the
 `session_item_answers` table (replacing `session_items.selected_answer_id`)
-and it drops the former one-correct-answer-per-question index.
+and it drops the former one-correct-answer-per-question index. Migration `0007`
+adds allocation support: the `question_categories` table plus the
+`answers.correct_category_id` and `session_item_answers.category_id` columns.
 
 ## Getting started
 
@@ -173,7 +183,7 @@ you can import the same file multiple times.
 | `importExam(payload)`                              | Import an exam from a JSON string.       |
 | `deleteExam(id)`                                   | Delete an exam (cascades).               |
 | `startSession(examId, mode, sectionId)`            | Start a run; snapshots the questions.    |
-| `submitAnswer(sessionItemId, selectedAnswerIds, tzOffsetMinutes)` | Persist the answer(s); returns correctness and the question's updated review schedule. |
+| `submitAnswer(sessionItemId, selectedAnswerIds, allocations, tzOffsetMinutes)` | Persist the answer; returns correctness and the question's updated review schedule. Choice questions pass `selectedAnswerIds`, allocation questions pass `allocations` (`{answerId, categoryId}` per item). |
 | `finishSession(id)`                                | Mark a session finished.                 |
 
 `mode` is one of `ALL_RANDOM`, `BY_SECTION` (requires `sectionId`),

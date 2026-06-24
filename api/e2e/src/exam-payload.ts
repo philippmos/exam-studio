@@ -17,11 +17,24 @@ export interface AnswerSpec {
   is_correct?: boolean;
 }
 
+export interface CategorySpec {
+  key: string;
+  label: string;
+}
+
+export interface ItemSpec {
+  text: string;
+  correct_category: string;
+}
+
 export interface QuestionSpec {
   question: string;
-  answers: AnswerSpec[];
   section_key: string;
-  question_type?: 'single_choice' | 'multiple_choice';
+  question_type?: 'single_choice' | 'multiple_choice' | 'allocation';
+  // Choice questions carry answers; allocation questions carry categories + items.
+  answers?: AnswerSpec[];
+  categories?: CategorySpec[];
+  items?: ItemSpec[];
 }
 
 export interface SectionSpec {
@@ -111,6 +124,43 @@ export function defaultExamSpec(name: string): ExamSpec {
           wrong('MD5'),
           wrong('Base64'),
         ],
+      },
+    ],
+  };
+}
+
+/**
+ * The intended placement of the allocation question's items: item text ->
+ * the category key it belongs to. The API never reveals the solution, so the
+ * tests reconstruct the correct (and a deliberately wrong) placement from this.
+ */
+export const ALLOCATION_SOLUTION: Record<string, string> = {
+  'Interfaces.': 'contained',
+  'Responsibility.': 'contained',
+  'Internal structure.': 'avoided',
+  'Hints for the implementation.': 'avoided',
+};
+
+/** 1 section, 1 allocation question (sort 4 items into 2 baskets). */
+export function allocationExamSpec(name: string): ExamSpec {
+  return {
+    name,
+    issuer: 'Playwright Test Suite',
+    sections: [{ key: 'architecture', name: 'Architecture' }],
+    questions: [
+      {
+        question:
+          'Which information should be contained in a black-box description ' +
+          'and which should be avoided?',
+        section_key: 'architecture',
+        question_type: 'allocation',
+        categories: [
+          { key: 'contained', label: 'Contained' },
+          { key: 'avoided', label: 'Avoided' },
+        ],
+        items: Object.entries(ALLOCATION_SOLUTION).map(
+          ([text, correct_category]) => ({ text, correct_category }),
+        ),
       },
     ],
   };

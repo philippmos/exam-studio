@@ -18,11 +18,24 @@ export interface AnswerSpec {
   is_correct?: boolean;
 }
 
+export interface CategorySpec {
+  key: string;
+  label: string;
+}
+
+export interface ItemSpec {
+  text: string;
+  correct_category: string;
+}
+
 export interface QuestionSpec {
   question: string;
-  answers: AnswerSpec[];
   section_key: string;
-  question_type?: 'single_choice' | 'multiple_choice';
+  question_type?: 'single_choice' | 'multiple_choice' | 'allocation';
+  // Choice questions carry answers; allocation questions carry categories + items.
+  answers?: AnswerSpec[];
+  categories?: CategorySpec[];
+  items?: ItemSpec[];
 }
 
 export interface ExamSpec {
@@ -120,6 +133,46 @@ export function twoSectionExamSpec(name: string): ExamSpec {
         section_key: 'cryptography',
         question_type: 'multiple_choice',
         answers: [correct('AES'), correct('ChaCha20'), wrong('MD5'), wrong('Base64')],
+      },
+    ],
+  };
+}
+
+/**
+ * The intended placement of the allocation question's items: item text ->
+ * the category label it belongs to. The quiz page object drives the drag &
+ * drop from this and asserts the result.
+ */
+export const ALLOCATION_SOLUTION: Record<string, string> = {
+  'Interfaces.': 'Contained',
+  'Responsibility.': 'Contained',
+  'Internal structure.': 'Avoided',
+  'Hints for the implementation.': 'Avoided',
+};
+
+/** 1 section, 1 allocation question (sort 4 items into 2 baskets). */
+export function allocationExamSpec(name: string): ExamSpec {
+  return {
+    name,
+    issuer: 'Playwright UI Suite',
+    sections: [{ key: 'architecture', name: 'Architecture' }],
+    questions: [
+      {
+        question:
+          'Which information should be contained in a black-box description ' +
+          'and which should be avoided?',
+        section_key: 'architecture',
+        question_type: 'allocation',
+        categories: [
+          { key: 'contained', label: 'Contained' },
+          { key: 'avoided', label: 'Avoided' },
+        ],
+        items: [
+          { text: 'Interfaces.', correct_category: 'contained' },
+          { text: 'Responsibility.', correct_category: 'contained' },
+          { text: 'Internal structure.', correct_category: 'avoided' },
+          { text: 'Hints for the implementation.', correct_category: 'avoided' },
+        ],
       },
     ],
   };
