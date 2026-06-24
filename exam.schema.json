@@ -30,6 +30,21 @@
         ],
         "section_key": "dummy_section",
         "question_type": "multiple_choice"
+      },
+      {
+        "question": "You document a component of your software architecture. Which information should be contained in the black box description and which should be avoided?",
+        "categories": [
+          { "key": "contained", "label": "Contained" },
+          { "key": "avoided",   "label": "Avoided" }
+        ],
+        "items": [
+          { "text": "Interfaces.",                  "correct_category": "contained" },
+          { "text": "Responsibility.",              "correct_category": "contained" },
+          { "text": "Internal structure.",          "correct_category": "avoided" },
+          { "text": "Hints for the implementation.","correct_category": "avoided" }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "allocation"
       }
     ]
   }

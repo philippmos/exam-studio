@@ -11,10 +11,12 @@ class SessionMode(str, enum.Enum):
 
 
 class QuestionType(str, enum.Enum):
-    """How many answers a question expects."""
+    """What kind of answer a question expects."""
 
     SINGLE_CHOICE = "SINGLE_CHOICE"
     MULTIPLE_CHOICE = "MULTIPLE_CHOICE"
+    # Sort each item (an answer row) into one of the question's categories.
+    ALLOCATION = "ALLOCATION"
 
 
 class GoalPeriod(str, enum.Enum):

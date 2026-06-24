@@ -9,6 +9,13 @@ from app.database import Base
 
 
 class Answer(Base):
+    """An option of a choice question, or an item of an allocation question.
+
+    Choice questions flag the right options with ``is_correct``. Allocation
+    questions instead point each item at the category it belongs to via
+    ``correct_category_id`` (``is_correct`` is unused and stays ``False``).
+    """
+
     __tablename__ = "answers"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -18,5 +25,10 @@ class Answer(Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Allocation items only: the category this item should be sorted into.
+    correct_category_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("question_categories.id", ondelete="SET NULL"), nullable=True
+    )
 
     question: Mapped["Question"] = relationship(back_populates="answers")
+    correct_category: Mapped["QuestionCategory | None"] = relationship()

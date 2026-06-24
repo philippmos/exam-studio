@@ -14,6 +14,8 @@ from app import models
 from app.enums import QuestionType, SessionMode
 from app.graphql import loaders, review
 from app.graphql.types import (
+    AllocationInput,
+    AllocationType,
     AnswerResult,
     ExamSessionType,
     ExamType,
@@ -61,6 +63,80 @@ async def _select_question_ids(
     ids = list((await db.scalars(base)).all())
     random.shuffle(ids)
     return ids
+
+
+def _grade_choice(
+    question: models.Question,
+    answers: list[models.Answer],
+    selected_answer_ids: list[uuid.UUID] | None,
+) -> tuple[list[models.SessionItemAnswer], bool, list[uuid.UUID]]:
+    """Validate and grade a single/multiple-choice selection.
+
+    Returns the selection rows to persist, whether it was correct, and the
+    (sorted) ids of the correct answers for the feedback.
+    """
+    selected_ids = set(selected_answer_ids or [])
+    if not selected_ids:
+        raise ValueError("At least one answer must be selected.")
+    if (
+        question.question_type == QuestionType.SINGLE_CHOICE.value
+        and len(selected_ids) != 1
+    ):
+        raise ValueError(
+            "Exactly one answer must be selected for a single-choice question."
+        )
+
+    answer_ids = {a.id for a in answers}
+    if not selected_ids <= answer_ids:
+        raise ValueError("Selected answers do not belong to this question.")
+
+    correct_ids = {a.id for a in answers if a.is_correct}
+    if not correct_ids:
+        raise ValueError("This question has no correct answer configured.")
+
+    selection = [models.SessionItemAnswer(answer_id=aid) for aid in selected_ids]
+    return selection, selected_ids == correct_ids, sorted(correct_ids, key=str)
+
+
+def _grade_allocation(
+    answers: list[models.Answer],
+    categories: list[models.QuestionCategory],
+    allocations: list[AllocationInput] | None,
+) -> tuple[list[models.SessionItemAnswer], bool, list[AllocationType]]:
+    """Validate and grade an allocation (every item sorted into a basket).
+
+    The answer counts as correct only when every item sits in its own correct
+    category. Returns the selection rows to persist, the correctness, and the
+    full correct mapping (item -> basket) for the feedback.
+    """
+    answer_ids = {a.id for a in answers}
+    category_ids = {c.id for c in categories}
+
+    chosen: dict[uuid.UUID, uuid.UUID] = {}
+    for placement in allocations or []:
+        if placement.answer_id in chosen:
+            raise ValueError("Each item may be sorted into only one category.")
+        chosen[placement.answer_id] = placement.category_id
+
+    if not set(chosen) <= answer_ids:
+        raise ValueError("Selected answers do not belong to this question.")
+    if not set(chosen.values()) <= category_ids:
+        raise ValueError("Selected categories do not belong to this question.")
+    if set(chosen) != answer_ids:
+        raise ValueError("Every item must be sorted into a category.")
+
+    selection = [
+        models.SessionItemAnswer(answer_id=aid, category_id=cid)
+        for aid, cid in chosen.items()
+    ]
+    correct_by_answer = {a.id: a.correct_category_id for a in answers}
+    is_correct = all(chosen[aid] == correct_by_answer[aid] for aid in answer_ids)
+    correct_allocations = [
+        AllocationType(answer_id=a.id, category_id=a.correct_category_id)
+        for a in answers
+        if a.correct_category_id is not None
+    ]
+    return selection, is_correct, correct_allocations
 
 
 @strawberry.type
@@ -170,15 +246,18 @@ class Mutation:
         self,
         info: Info,
         session_item_id: uuid.UUID,
-        selected_answer_ids: list[uuid.UUID],
+        selected_answer_ids: list[uuid.UUID] | None = None,
+        allocations: list[AllocationInput] | None = None,
         tz_offset_minutes: int = 0,
     ) -> AnswerResult:
-        """Persist the chosen answer(s) for a question and report correctness.
+        """Persist the answer for a question and report correctness.
 
-        A multiple-choice question only counts as correct when exactly the set
-        of correct answers was selected. Every answer also advances the
-        question's spaced-repetition schedule (``tz_offset_minutes`` aligns the
-        next due date to the caller's local day).
+        Choice questions pass ``selected_answer_ids`` (a multiple-choice answer
+        only counts as correct when exactly the set of correct answers was
+        chosen); allocation questions pass ``allocations`` and are correct only
+        when every item sits in its correct basket. Every answer also advances
+        the question's spaced-repetition schedule (``tz_offset_minutes`` aligns
+        the next due date to the caller's local day).
         """
         db: AsyncSession = info.context["db"]
 
@@ -191,17 +270,6 @@ class Mutation:
             raise ValueError("Session item not found.")
 
         question = await db.get(models.Question, item.question_id)
-        selected_ids = set(selected_answer_ids)
-        if not selected_ids:
-            raise ValueError("At least one answer must be selected.")
-        if (
-            question.question_type == QuestionType.SINGLE_CHOICE.value
-            and len(selected_ids) != 1
-        ):
-            raise ValueError(
-                "Exactly one answer must be selected for a single-choice question."
-            )
-
         answers = list(
             (
                 await db.scalars(
@@ -211,30 +279,45 @@ class Mutation:
                 )
             ).all()
         )
-        answer_ids = {a.id for a in answers}
-        if not selected_ids <= answer_ids:
-            raise ValueError("Selected answers do not belong to this question.")
 
-        correct_ids = {a.id for a in answers if a.is_correct}
-        if not correct_ids:
-            raise ValueError("This question has no correct answer configured.")
+        if question.question_type == QuestionType.ALLOCATION.value:
+            categories = list(
+                (
+                    await db.scalars(
+                        select(models.QuestionCategory).where(
+                            models.QuestionCategory.question_id == item.question_id
+                        )
+                    )
+                ).all()
+            )
+            selection, is_correct, correct_allocations = _grade_allocation(
+                answers, categories, allocations
+            )
+            correct_answer_ids: list[uuid.UUID] = []
+        else:
+            selection, is_correct, correct_answer_ids = _grade_choice(
+                question, answers, selected_answer_ids
+            )
+            correct_allocations = []
 
-        # Replacing the collection also clears any previous selection rows.
-        item.selected_answers = [
-            models.SessionItemAnswer(answer_id=answer_id)
-            for answer_id in selected_ids
-        ]
-        item.is_correct = selected_ids == correct_ids
+        # Clear the previous selection and flush the deletes before inserting
+        # the new rows: re-answering reuses the same (item, answer) pairs, which
+        # would otherwise trip the session_item_answers uniqueness constraint.
+        item.selected_answers = []
+        await db.flush()
+        item.selected_answers = selection
+        item.is_correct = is_correct
         item.answered_at = datetime.now(timezone.utc)
         outcome = await review.record_answer(
-            db, item.question_id, item.is_correct, tz_offset_minutes
+            db, item.question_id, is_correct, tz_offset_minutes
         )
         await db.commit()
 
         return AnswerResult(
             session_item_id=item.id,
-            is_correct=bool(item.is_correct),
-            correct_answer_ids=sorted(correct_ids, key=str),
+            is_correct=is_correct,
+            correct_answer_ids=correct_answer_ids,
+            correct_allocations=correct_allocations,
             review_box=outcome.box,
             review_interval_days=outcome.interval_days,
         )

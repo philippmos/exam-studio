@@ -36,12 +36,42 @@ class AnswerType:
 
 
 @strawberry.type
+class CategoryType:
+    """A basket of an allocation question (empty for choice questions)."""
+
+    id: uuid.UUID
+    key: str
+    label: str
+    position: int
+
+
+@strawberry.type
+class AllocationType:
+    """An item (answer) sorted into a category — one drag-and-drop placement."""
+
+    answer_id: uuid.UUID
+    category_id: uuid.UUID
+
+
+@strawberry.input
+class AllocationInput:
+    """One placement submitted for an allocation question."""
+
+    answer_id: uuid.UUID
+    category_id: uuid.UUID
+
+
+@strawberry.type
 class QuestionType:
     id: uuid.UUID
     text: str
     section_id: uuid.UUID
     question_type: QuestionTypeEnum
+    # For allocation questions these are the items to sort; for choice
+    # questions they are the options. ``categories`` holds the baskets an
+    # allocation question's items go into and is empty for choice questions.
     answers: list[AnswerType]
+    categories: list[CategoryType]
 
 
 @strawberry.type
@@ -77,9 +107,15 @@ class SessionItemType:
     position: int
     question: QuestionType
     selected_answer_ids: list[uuid.UUID]
+    # The user's allocation placements (item -> basket); empty for choice
+    # questions.
+    selected_allocations: list[AllocationType]
     # Only revealed once the question has been answered, so the solution can be
     # shown when reviewing/resuming without leaking it beforehand.
     correct_answer_ids: list[uuid.UUID] | None
+    # The solution of an allocation question (item -> correct basket); empty for
+    # choice questions, null until answered.
+    correct_allocations: list[AllocationType] | None
     is_correct: bool | None
     answered_at: datetime | None
 
@@ -122,6 +158,9 @@ class AnswerResult:
     session_item_id: uuid.UUID
     is_correct: bool
     correct_answer_ids: list[uuid.UUID]
+    # The solution of an allocation question (item -> correct basket); empty for
+    # choice questions.
+    correct_allocations: list[AllocationType]
     # Spaced-repetition outcome: the Leitner box the question landed in and how
     # many days until it is due again. Lets the UI confirm the review schedule.
     review_box: int
@@ -204,6 +243,15 @@ def to_answer(answer: models.Answer) -> AnswerType:
     return AnswerType(id=answer.id, text=answer.text, position=answer.position)
 
 
+def to_category(category: models.QuestionCategory) -> CategoryType:
+    return CategoryType(
+        id=category.id,
+        key=category.key,
+        label=category.label,
+        position=category.position,
+    )
+
+
 def to_question(question: models.Question) -> QuestionType:
     return QuestionType(
         id=question.id,
@@ -211,6 +259,7 @@ def to_question(question: models.Question) -> QuestionType:
         section_id=question.section_id,
         question_type=QuestionTypeValue(question.question_type),
         answers=[to_answer(a) for a in question.answers],
+        categories=[to_category(c) for c in question.categories],
     )
 
 
@@ -247,14 +296,26 @@ def to_exam(exam: models.Exam, counts_by_section: dict[uuid.UUID, int]) -> ExamT
 def to_session_item(item: models.SessionItem) -> SessionItemType:
     answered = item.answered_at is not None
     correct_answer_ids = None
+    correct_allocations = None
     if answered:
         correct_answer_ids = [a.id for a in item.question.answers if a.is_correct]
+        correct_allocations = [
+            AllocationType(answer_id=a.id, category_id=a.correct_category_id)
+            for a in item.question.answers
+            if a.correct_category_id is not None
+        ]
     return SessionItemType(
         id=item.id,
         position=item.position,
         question=to_question(item.question),
         selected_answer_ids=[sa.answer_id for sa in item.selected_answers],
+        selected_allocations=[
+            AllocationType(answer_id=sa.answer_id, category_id=sa.category_id)
+            for sa in item.selected_answers
+            if sa.category_id is not None
+        ],
         correct_answer_ids=correct_answer_ids,
+        correct_allocations=correct_allocations,
         is_correct=item.is_correct,
         answered_at=item.answered_at,
     )

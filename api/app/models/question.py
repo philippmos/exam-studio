@@ -23,8 +23,16 @@ class Question(Base):
     )
 
     section: Mapped["Section"] = relationship(back_populates="questions")
+    # For allocation questions the answers are the items to be sorted; for
+    # choice questions they are the options. Their order is the import order.
     answers: Mapped[list["Answer"]] = relationship(
         back_populates="question",
         cascade="all, delete-orphan",
         order_by="Answer.position",
+    )
+    # The target baskets of an allocation question (empty for choice questions).
+    categories: Mapped[list["QuestionCategory"]] = relationship(
+        back_populates="question",
+        cascade="all, delete-orphan",
+        order_by="QuestionCategory.position",
     )
