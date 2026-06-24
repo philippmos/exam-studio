@@ -3,6 +3,7 @@ import { Observable, map } from 'rxjs';
 
 import { GraphqlService } from './graphql.service';
 import {
+  Allocation,
   AnswerResult,
   Exam,
   ExamSession,
@@ -47,7 +48,15 @@ const SESSION_FIELDS = `
     id
     position
     selectedAnswerIds
+    selectedAllocations {
+      answerId
+      categoryId
+    }
     correctAnswerIds
+    correctAllocations {
+      answerId
+      categoryId
+    }
     isCorrect
     answeredAt
     question {
@@ -58,6 +67,12 @@ const SESSION_FIELDS = `
       answers {
         id
         text
+        position
+      }
+      categories {
+        id
+        key
+        label
         position
       }
     }
@@ -275,25 +290,47 @@ export class ExamService {
       .pipe(map((data) => data.startSession));
   }
 
+  /** Submit a single/multiple-choice selection. */
   submitAnswer(
     sessionItemId: string,
     selectedAnswerIds: string[],
+  ): Observable<AnswerResult> {
+    return this.submit(sessionItemId, { selectedAnswerIds });
+  }
+
+  /** Submit an allocation: every item sorted into a basket. */
+  submitAllocation(
+    sessionItemId: string,
+    allocations: Allocation[],
+  ): Observable<AnswerResult> {
+    return this.submit(sessionItemId, { allocations });
+  }
+
+  private submit(
+    sessionItemId: string,
+    answer: { selectedAnswerIds?: string[]; allocations?: Allocation[] },
   ): Observable<AnswerResult> {
     return this.graphql
       .request<{ submitAnswer: AnswerResult }>(
         `mutation Submit(
           $sessionItemId: UUID!
-          $selectedAnswerIds: [UUID!]!
+          $selectedAnswerIds: [UUID!]
+          $allocations: [AllocationInput!]
           $tzOffsetMinutes: Int!
         ) {
           submitAnswer(
             sessionItemId: $sessionItemId
             selectedAnswerIds: $selectedAnswerIds
+            allocations: $allocations
             tzOffsetMinutes: $tzOffsetMinutes
           ) {
             sessionItemId
             isCorrect
             correctAnswerIds
+            correctAllocations {
+              answerId
+              categoryId
+            }
             reviewBox
             reviewIntervalDays
           }
@@ -301,7 +338,8 @@ export class ExamService {
         // The next review date is pinned to the user's local day, not UTC.
         {
           sessionItemId,
-          selectedAnswerIds,
+          selectedAnswerIds: answer.selectedAnswerIds ?? [],
+          allocations: answer.allocations ?? [],
           tzOffsetMinutes: -new Date().getTimezoneOffset(),
         },
       )

@@ -4,14 +4,31 @@ export interface Answer {
   position: number;
 }
 
-export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
+/** A target basket of an allocation question. */
+export interface Category {
+  id: string;
+  key: string;
+  label: string;
+  position: number;
+}
+
+/** One item (answer) sorted into a category — a single drag-and-drop placement. */
+export interface Allocation {
+  answerId: string;
+  categoryId: string;
+}
+
+export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'ALLOCATION';
 
 export interface Question {
   id: string;
   text: string;
   sectionId: string;
   questionType: QuestionType;
+  /** Choice options, or the items to sort for an allocation question. */
   answers: Answer[];
+  /** Baskets for an allocation question; empty for choice questions. */
+  categories: Category[];
 }
 
 export interface Section {
@@ -65,7 +82,11 @@ export interface SessionItem {
   position: number;
   question: Question;
   selectedAnswerIds: string[];
+  /** The user's allocation placements (item -> basket); empty for choice. */
+  selectedAllocations: Allocation[];
   correctAnswerIds: string[] | null;
+  /** Solution of an allocation question; empty for choice, null until answered. */
+  correctAllocations: Allocation[] | null;
   isCorrect: boolean | null;
   answeredAt: string | null;
 }
@@ -101,6 +122,8 @@ export interface AnswerResult {
   sessionItemId: string;
   isCorrect: boolean;
   correctAnswerIds: string[];
+  /** Solution of an allocation question (item -> basket); empty for choice. */
+  correctAllocations: Allocation[];
   /** Leitner box the question landed in after this answer. */
   reviewBox: number;
   /** Days until the question is due for review again. */

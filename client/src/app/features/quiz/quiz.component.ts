@@ -17,7 +17,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
-import { ExamSession, SessionItem } from '../../core/models';
+import {
+  Allocation,
+  AnswerResult,
+  ExamSession,
+  SessionItem,
+} from '../../core/models';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { QuestionViewComponent } from '../../shared/question-view/question-view.component';
 
@@ -83,7 +88,10 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
                 [answered]="isAnswered(item)"
                 [selectedAnswerIds]="item.selectedAnswerIds"
                 [correctAnswerIds]="item.correctAnswerIds"
+                [selectedAllocations]="item.selectedAllocations"
+                [correctAllocations]="item.correctAllocations"
                 (submitAnswers)="answer(item, $event)"
+                (submitAllocations)="answerAllocation(item, $event)"
               />
             </mat-card-content>
           </mat-card>
@@ -119,11 +127,7 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
                 {{ item.isCorrect ? 'Correct' : 'Incorrect' }}
               </span>
             } @else {
-              <span class="hint">{{
-                item.question.questionType === 'MULTIPLE_CHOICE'
-                  ? 'Select all answers that apply'
-                  : 'Select an answer'
-              }}</span>
+              <span class="hint">{{ hintFor(item) }}</span>
             }
 
             @if (isLast()) {
@@ -358,30 +362,62 @@ export class QuizComponent implements OnInit {
       return;
     }
     this.examService.submitAnswer(item.id, answerIds).subscribe({
-      next: (result) => {
-        this.items.update((list) =>
-          list.map((it) =>
-            it.id === item.id
-              ? {
-                  ...it,
-                  selectedAnswerIds: answerIds,
-                  correctAnswerIds: result.correctAnswerIds,
-                  isCorrect: result.isCorrect,
-                }
-              : it,
-          ),
-        );
-        this.reviewByItem.update((map) => ({
-          ...map,
-          [item.id]: {
-            box: result.reviewBox,
-            intervalDays: result.reviewIntervalDays,
-          },
-        }));
-      },
+      next: (result) =>
+        this.applyResult(item.id, result, {
+          selectedAnswerIds: answerIds,
+          correctAnswerIds: result.correctAnswerIds,
+        }),
       error: (err: Error) =>
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
     });
+  }
+
+  answerAllocation(item: SessionItem, allocations: Allocation[]): void {
+    if (this.isAnswered(item)) {
+      return;
+    }
+    this.examService.submitAllocation(item.id, allocations).subscribe({
+      next: (result) =>
+        this.applyResult(item.id, result, {
+          // Mark the item answered (isAnswered checks selectedAnswerIds).
+          selectedAnswerIds: allocations.map((a) => a.answerId),
+          selectedAllocations: allocations,
+          correctAllocations: result.correctAllocations,
+        }),
+      error: (err: Error) =>
+        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+    });
+  }
+
+  /** Merge a submit result onto the item and record its review schedule. */
+  private applyResult(
+    itemId: string,
+    result: AnswerResult,
+    patch: Partial<SessionItem>,
+  ): void {
+    this.items.update((list) =>
+      list.map((it) =>
+        it.id === itemId ? { ...it, ...patch, isCorrect: result.isCorrect } : it,
+      ),
+    );
+    this.reviewByItem.update((map) => ({
+      ...map,
+      [itemId]: {
+        box: result.reviewBox,
+        intervalDays: result.reviewIntervalDays,
+      },
+    }));
+  }
+
+  hintFor(item: SessionItem): string {
+    switch (item.question.questionType) {
+      case 'MULTIPLE_CHOICE':
+        return 'Select all answers that apply';
+      case 'ALLOCATION':
+        return 'Sort every item into a basket';
+      default:
+        return 'Select an answer';
+    }
   }
 
   next(): void {
