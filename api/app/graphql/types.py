@@ -65,6 +65,8 @@ class AllocationInput:
 class QuestionType:
     id: uuid.UUID
     text: str
+    # Description of the question/answer, shown once answered (null if none).
+    explanation: str | None
     section_id: uuid.UUID
     question_type: QuestionTypeEnum
     # For allocation questions these are the items to sort; for choice
@@ -256,6 +258,7 @@ def to_question(question: models.Question) -> QuestionType:
     return QuestionType(
         id=question.id,
         text=question.text,
+        explanation=question.explanation,
         section_id=question.section_id,
         question_type=QuestionTypeValue(question.question_type),
         answers=[to_answer(a) for a in question.answers],

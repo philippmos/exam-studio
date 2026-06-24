@@ -55,6 +55,7 @@ export interface Allocation {
 export interface Question {
   id: string;
   text: string;
+  explanation: string | null;
   sectionId: string;
   questionType: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'ALLOCATION';
   answers: Answer[];

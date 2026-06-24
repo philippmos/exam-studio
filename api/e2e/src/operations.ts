@@ -62,6 +62,7 @@ export const SESSION_FIELDS = `
     question {
       id
       text
+      explanation
       sectionId
       questionType
       answers {

@@ -16,7 +16,8 @@
           { "text": "Linked Application Net" }
         ],
         "section_key": "basics",
-        "question_type": "single_choice"
+        "question_type": "single_choice",
+        "explanation": "LAN stands for Local Area Network — a network covering a small area such as a home or office."
       },
       {
         "question": "Which protocol is used to assign IP addresses automatically?",
@@ -27,7 +28,8 @@
           { "text": "SNMP" }
         ],
         "section_key": "basics",
-        "question_type": "single_choice"
+        "question_type": "single_choice",
+        "explanation": "DHCP (Dynamic Host Configuration Protocol) leases IP addresses to clients automatically. DNS resolves names, FTP transfers files, SNMP monitors devices."
       },
       {
         "question": "Which of the following are transport layer protocols?",
@@ -38,7 +40,8 @@
           { "text": "HTTP" }
         ],
         "section_key": "basics",
-        "question_type": "multiple_choice"
+        "question_type": "multiple_choice",
+        "explanation": "TCP and UDP are layer-4 transport protocols. IP is a network-layer protocol and HTTP is an application-layer protocol."
       },
       {
         "question": "What kind of attack floods a service with traffic to make it unavailable?",
@@ -49,7 +52,8 @@
           { "text": "Cross-Site Scripting" }
         ],
         "section_key": "security",
-        "question_type": "single_choice"
+        "question_type": "single_choice",
+        "explanation": "A Denial of Service (DoS) attack overwhelms a service with traffic so legitimate users cannot reach it."
       },
       {
         "question": "Which measures help to secure a Wi-Fi network?",
@@ -60,7 +64,8 @@
           { "text": "Disabling all encryption" }
         ],
         "section_key": "security",
-        "question_type": "multiple_choice"
+        "question_type": "multiple_choice",
+        "explanation": "WPA3 encryption and a strong pre-shared key protect a Wi-Fi network. Broadcasting the admin password or disabling encryption do the opposite."
       },
       {
         "question": "Sort each protocol by the transport layer it runs on.",
@@ -75,7 +80,8 @@
           { "text": "TFTP", "correct_category": "udp" }
         ],
         "section_key": "basics",
-        "question_type": "allocation"
+        "question_type": "allocation",
+        "explanation": "HTTP and SSH need the reliable, connection-oriented delivery of TCP. DHCP and TFTP use the lightweight, connectionless UDP."
       }
     ]
   }

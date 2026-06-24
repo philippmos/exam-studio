@@ -35,6 +35,8 @@ export interface QuestionSpec {
   answers?: AnswerSpec[];
   categories?: CategorySpec[];
   items?: ItemSpec[];
+  // Optional description of the question/answer, revealed once answered.
+  explanation?: string;
 }
 
 export interface SectionSpec {

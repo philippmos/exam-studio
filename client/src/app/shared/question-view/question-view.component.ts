@@ -168,6 +168,17 @@ import { Allocation, Answer, Question } from '../../core/models';
         </div>
       }
     }
+
+    @if (answered && question.explanation) {
+      <div class="explanation">
+        <div class="explanation-head">
+          <mat-icon>lightbulb</mat-icon>
+          <span>Explanation</span>
+        </div>
+        <!-- Imported, trusted content; Angular sanitises innerHTML. -->
+        <div class="explanation-body" [innerHTML]="question.explanation"></div>
+      </div>
+    }
   `,
   styles: [
     `
@@ -291,6 +302,50 @@ import { Allocation, Answer, Question } from '../../core/models';
         display: flex;
         justify-content: flex-end;
         margin-top: 16px;
+      }
+
+      /* ---- Explanation (revealed once answered) ---- */
+      .explanation {
+        margin-top: 24px;
+        padding: 16px 18px;
+        border-radius: 12px;
+        background: var(--mat-sys-surface-container-low);
+        border: 1px solid
+          color-mix(in srgb, var(--mat-sys-outline-variant) 55%, transparent);
+        border-left: 3px solid var(--mat-sys-primary);
+      }
+      .explanation-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        color: var(--mat-sys-primary);
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .explanation-head mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+      .explanation-body {
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--mat-sys-on-surface);
+      }
+      .explanation-body ::ng-deep p:first-child {
+        margin-top: 0;
+      }
+      .explanation-body ::ng-deep p:last-child {
+        margin-bottom: 0;
+      }
+      .explanation-body ::ng-deep pre {
+        background: #1f2430;
+        color: #f8f8f2;
+        padding: 12px 16px;
+        border-radius: 10px;
+        overflow-x: auto;
+        font-size: 14px;
       }
 
       /* ---- Allocation (drag & drop into baskets) ---- */

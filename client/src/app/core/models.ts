@@ -23,6 +23,8 @@ export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'ALLOCATION';
 export interface Question {
   id: string;
   text: string;
+  /** Description of the question/answer, shown once answered; null if none. */
+  explanation: string | null;
   sectionId: string;
   questionType: QuestionType;
   /** Choice options, or the items to sort for an allocation question. */

@@ -36,6 +36,8 @@ export interface QuestionSpec {
   answers?: AnswerSpec[];
   categories?: CategorySpec[];
   items?: ItemSpec[];
+  // Optional description of the question/answer, revealed once answered.
+  explanation?: string;
 }
 
 export interface ExamSpec {
@@ -62,6 +64,12 @@ function wrong(text: string): AnswerSpec {
   return { text: `${WRONG_PREFIX} ${text}` };
 }
 
+/**
+ * Marker shared by every smallExamSpec explanation, so the quiz page object can
+ * assert the explanation panel shows imported content regardless of the shuffle.
+ */
+export const EXPLANATION_MARKER = 'Explanation:';
+
 /** 1 section, 3 questions (2 single-choice + 1 multiple-choice). */
 export function smallExamSpec(name: string): ExamSpec {
   return {
@@ -74,18 +82,21 @@ export function smallExamSpec(name: string): ExamSpec {
         section_key: 'core',
         question_type: 'single_choice',
         answers: [correct('404'), wrong('200'), wrong('500')],
+        explanation: `${EXPLANATION_MARKER} 404 is the standard "Not Found" status code.`,
       },
       {
         question: 'Which data format does the exam import use?',
         section_key: 'core',
         question_type: 'single_choice',
         answers: [wrong('XML'), correct('JSON'), wrong('CSV')],
+        explanation: `${EXPLANATION_MARKER} Exams are imported as JSON documents.`,
       },
       {
         question: 'Which of the following are HTTP methods? (multiple answers)',
         section_key: 'core',
         question_type: 'multiple_choice',
         answers: [correct('GET'), correct('POST'), wrong('FETCH'), wrong('SEND')],
+        explanation: `${EXPLANATION_MARKER} GET and POST are HTTP methods; FETCH and SEND are not.`,
       },
     ],
   };

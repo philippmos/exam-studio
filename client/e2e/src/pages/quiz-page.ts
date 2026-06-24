@@ -58,6 +58,23 @@ export class QuizPage {
     await expect(feedback).toContainText(correct ? 'Correct' : 'Incorrect');
   }
 
+  private get explanation(): Locator {
+    return this.page.locator('.explanation');
+  }
+
+  /** The explanation panel is revealed once the question is answered. */
+  async expectExplanation(text?: string): Promise<void> {
+    await expect(this.explanation).toBeVisible();
+    if (text !== undefined) {
+      await expect(this.explanation).toContainText(text);
+    }
+  }
+
+  /** No explanation is shown before answering. */
+  async expectNoExplanation(): Promise<void> {
+    await expect(this.explanation).toHaveCount(0);
+  }
+
   /**
    * Answers an allocation question by dragging each item into its basket and
    * submitting. `solution` maps item text -> basket label.

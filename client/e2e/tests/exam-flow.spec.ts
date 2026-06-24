@@ -1,6 +1,7 @@
 import {
   ALLOCATION_SOLUTION,
   allocationExamSpec,
+  EXPLANATION_MARKER,
   SECTION_CRYPTOGRAPHY,
   smallExamSpec,
   twoSectionExamSpec,
@@ -72,6 +73,28 @@ test.describe('exam mode', () => {
     await expect(page.getByText('3 / 3 questions seen')).toBeVisible();
     await expect(page.getByText('2 / 3 answered correctly')).toBeVisible();
     await expect(page.getByText('2 / 3 attempts correct')).toBeVisible();
+  });
+
+  test('reveals the question explanation only after answering', async ({
+    page,
+    examFactory,
+  }) => {
+    const name = uniqueName();
+    await examFactory.create(smallExamSpec(name));
+
+    const dashboard = new DashboardPage(page);
+    const detail = new ExamDetailPage(page);
+    const quiz = new QuizPage(page);
+
+    await dashboard.goto();
+    await dashboard.openExam(name);
+    await detail.startExamMode('all');
+
+    // Hidden while the question is unanswered, shown once it is answered.
+    await quiz.expectQuestion(1, 3);
+    await quiz.expectNoExplanation();
+    await quiz.answerCurrentQuestion(true);
+    await quiz.expectExplanation(EXPLANATION_MARKER);
   });
 
   test('practises a single module via the session setup dialog', async ({

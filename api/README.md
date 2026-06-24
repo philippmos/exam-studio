@@ -19,6 +19,7 @@ Exam ──< Section ──< Question ──< Answer
                         │            ├─ is_correct flag        (choice)
                         │            └─ correct_category_id     (allocation item)
                         ├─ question_type (SINGLE_CHOICE / MULTIPLE_CHOICE / ALLOCATION)
+                        ├─ explanation (optional; revealed after answering)
                         └─< QuestionCategory  (allocation baskets: key + label)
 
 ExamSession ──< SessionItem ──< SessionItemAnswer  (the persisted selection)
@@ -62,6 +63,7 @@ constraints so a question appears **at most once per session**. Migration
 and it drops the former one-correct-answer-per-question index. Migration `0007`
 adds allocation support: the `question_categories` table plus the
 `answers.correct_category_id` and `session_item_answers.category_id` columns.
+Migration `0008` adds the optional `questions.explanation` column.
 
 ## Getting started
 

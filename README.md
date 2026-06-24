@@ -153,7 +153,9 @@ is `single_choice` (exactly one answer with `is_correct: true`),
 `multiple_choice` (one or more correct answers) or `allocation`. An allocation
 question replaces `answers` with `categories` (the baskets, `{key, label}`) and
 `items` (`{text, correct_category}`, the `correct_category` referencing a
-category `key`); see the third question below and `exam.schema.json`.
+category `key`); see the third question below and `exam.schema.json`. Every
+question may carry an optional `explanation` — a description of the question or
+answer that the app reveals once the question has been answered.
 
 ```json
 {
@@ -176,7 +178,8 @@ category `key`); see the third question below and `exam.schema.json`.
           { "text": "Dummy answer D" }
         ],
         "section_key": "dummy_section",
-        "question_type": "single_choice"
+        "question_type": "single_choice",
+        "explanation": "Why answer B is correct."
       },
       {
         "question": "Dummy question text?",

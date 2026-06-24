@@ -25,7 +25,7 @@ src/app/
 ├── shared/                   # reusable, presentational components
 │   ├── exam-card/            # one exam tile on the dashboard
 │   ├── stat-card/            # a reusable KPI tile
-│   └── question-view/        # a question + its answer options (with feedback)
+│   └── question-view/        # a question + its options (feedback + explanation)
 └── features/                 # routed pages + their dialogs
     ├── dashboard/            # exam list + import dialog
     ├── exam-detail/          # exam overview + start-mode dialog

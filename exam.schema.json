@@ -18,7 +18,8 @@
           { "text": "Dummy answer D" }
         ],
         "section_key": "dummy_section",
-        "question_type": "single_choice"
+        "question_type": "single_choice",
+        "explanation": "Dummy explanation text."
       },
       {
         "question": "Dummy question text?",
@@ -29,7 +30,8 @@
           { "text": "Dummy answer D" }
         ],
         "section_key": "dummy_section",
-        "question_type": "multiple_choice"
+        "question_type": "multiple_choice",
+        "explanation": "Dummy explanation text."
       },
       {
         "question": "You document a component of your software architecture. Which information should be contained in the black box description and which should be avoided?",
@@ -44,7 +46,8 @@
           { "text": "Hints for the implementation.","correct_category": "avoided" }
         ],
         "section_key": "dummy_section",
-        "question_type": "allocation"
+        "question_type": "allocation",
+        "explanation": "Dummy explanation text."
       }
     ]
   }

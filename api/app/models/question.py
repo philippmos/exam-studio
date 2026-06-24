@@ -17,6 +17,9 @@ class Question(Base):
         ForeignKey("sections.id", ondelete="CASCADE"), nullable=False, index=True
     )
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    # Optional description of the question/answer, revealed once the question
+    # has been answered. Stored raw like ``text`` and rendered as HTML.
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Stores a QuestionType value (kept as a plain string, like ExamSession.mode).
     question_type: Mapped[str] = mapped_column(
         String(32), nullable=False, default=QuestionType.SINGLE_CHOICE.value

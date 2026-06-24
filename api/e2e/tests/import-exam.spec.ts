@@ -7,6 +7,7 @@ import {
   uniqueName,
 } from '../src/exam-payload';
 import { expect, test } from '../src/fixtures';
+import { startSession } from '../src/operations';
 
 const IMPORT_MUTATION = `
   mutation Import($payload: String!) {
@@ -151,6 +152,31 @@ test.describe('importExam', () => {
       `query { exams { name } }`,
     );
     expect(data.exams.map((e) => e.name)).not.toContain(name);
+  });
+
+  test('imports and exposes an optional question explanation', async ({
+    examFactory,
+    gql,
+  }) => {
+    const spec = defaultExamSpec(uniqueName());
+    const explained = spec.questions[0];
+    explained.explanation =
+      'A router operates at layer 3 and forwards packets between networks.';
+
+    const exam = await examFactory.create(spec);
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+
+    // Questions are shuffled, so match them by text rather than position.
+    const explainedItem = session.items.find(
+      (i) => i.question.text === explained.question,
+    )!;
+    expect(explainedItem.question.explanation).toBe(explained.explanation);
+
+    // A question imported without an explanation exposes null.
+    const plainItem = session.items.find(
+      (i) => i.question.text === spec.questions[1].question,
+    )!;
+    expect(plainItem.question.explanation).toBeNull();
   });
 
   test('imports an allocation question', async ({ examFactory }) => {

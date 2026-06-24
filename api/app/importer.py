@@ -12,7 +12,8 @@ Expected document shape:
             "question": "...",
             "section_key": "...",
             "question_type": "single_choice" | "multiple_choice",
-            "answers": [{"text": "...", "is_correct": true}, {"text": "..."}]
+            "answers": [{"text": "...", "is_correct": true}, {"text": "..."}],
+            "explanation": "..."
           },
           {
             "question": "...",
@@ -29,6 +30,9 @@ Choice questions carry an ``answers`` list (correct options flagged with
 ``is_correct``). Allocation questions instead carry ``categories`` (the baskets)
 and ``items`` (each pointing at the ``correct_category`` it belongs to); the
 items are stored as answer rows.
+
+Every question may carry an optional ``explanation`` (a description of the
+question/answer) that the UI reveals once the question has been answered.
 
 The JSON carries no ids: sections are referenced by their ``key``. Fresh UUIDs
 are generated for every row, so the same file can be imported more than once as
@@ -186,6 +190,7 @@ def build_exam_from_payload(payload: str) -> Exam:
         question_type = _parse_question_type(raw_question, number)
         question = Question(
             text=raw_question["question"],
+            explanation=raw_question.get("explanation"),
             question_type=question_type.value,
             section=section,
         )
