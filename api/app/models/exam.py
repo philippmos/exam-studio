@@ -36,6 +36,11 @@ class Exam(Base):
     study_goal_period: Mapped[str | None] = mapped_column(String(16))
     study_goal_target: Mapped[int | None] = mapped_column(Integer)
 
+    # Optional date and time the user sits the real certification exam.
+    certification_exam_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+
     sections: Mapped[list["Section"]] = relationship(
         back_populates="exam",
         cascade="all, delete-orphan",

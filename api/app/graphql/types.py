@@ -100,6 +100,8 @@ class ExamType:
     created_at: datetime
     question_count: int
     study_goal: StudyGoalType | None
+    # When the user sits the real certification exam (null if not scheduled).
+    certification_exam_at: datetime | None
     sections: list[SectionType]
 
 
@@ -292,6 +294,7 @@ def to_exam(exam: models.Exam, counts_by_section: dict[uuid.UUID, int]) -> ExamT
         created_at=exam.created_at,
         question_count=sum(counts_by_section.get(s.id, 0) for s in exam.sections),
         study_goal=to_study_goal(exam),
+        certification_exam_at=exam.certification_exam_at,
         sections=sections,
     )
 

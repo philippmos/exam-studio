@@ -11,6 +11,7 @@ import { Exam, ReviewDue, StudyGoalProgress } from '../../core/models';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { ExamCardComponent } from '../../shared/exam-card/exam-card.component';
 import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
+import { ExamDateDialogComponent } from '../../shared/exam-date-dialog/exam-date-dialog.component';
 import { ImportDialogComponent } from './import-dialog.component';
 
 @Component({
@@ -55,6 +56,7 @@ import { ImportDialogComponent } from './import-dialog.component';
               (open)="openExam($event)"
               (progress)="openProgress($event)"
               (goal)="editGoal($event)"
+              (examDate)="editExamDate($event)"
               (review)="startReview($event)"
               (delete)="deleteExam($event)"
             />
@@ -187,6 +189,32 @@ export class DashboardComponent {
           this.loadGoalProgress();
           this.snackBar.open(
             result === null ? 'Study goal removed.' : 'Study goal saved.',
+            'OK',
+            { duration: 3000 },
+          );
+        },
+        error: (err: Error) =>
+          this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+      });
+    });
+  }
+
+  editExamDate(exam: Exam): void {
+    ExamDateDialogComponent.open(this.dialog, exam).subscribe((result) => {
+      if (result === undefined) {
+        return; // cancelled
+      }
+      const request =
+        result === null
+          ? this.examService.clearCertificationExamDate(exam.id)
+          : this.examService.setCertificationExamDate(exam.id, result);
+      request.subscribe({
+        next: (updated) => {
+          this.exams.update((list) =>
+            list.map((e) => (e.id === updated.id ? updated : e)),
+          );
+          this.snackBar.open(
+            result === null ? 'Exam date removed.' : 'Exam date saved.',
             'OK',
             { duration: 3000 },
           );

@@ -26,6 +26,7 @@ const EXAM_FIELDS = `
     period
     target
   }
+  certificationExamAt
   sections {
     id
     name
@@ -252,6 +253,31 @@ export class ExamService {
         { examId },
       )
       .pipe(map((data) => data.clearStudyGoal));
+  }
+
+  /** Schedule the certification exam; `examAt` is an ISO 8601 datetime. */
+  setCertificationExamDate(examId: string, examAt: string): Observable<Exam> {
+    return this.graphql
+      .request<{ setCertificationExamDate: Exam }>(
+        `mutation SetExamDate($examId: UUID!, $examAt: DateTime!) {
+          setCertificationExamDate(examId: $examId, examAt: $examAt) {
+            ${EXAM_FIELDS}
+          }
+        }`,
+        { examId, examAt },
+      )
+      .pipe(map((data) => data.setCertificationExamDate));
+  }
+
+  clearCertificationExamDate(examId: string): Observable<Exam> {
+    return this.graphql
+      .request<{ clearCertificationExamDate: Exam }>(
+        `mutation ClearExamDate($examId: UUID!) {
+          clearCertificationExamDate(examId: $examId) { ${EXAM_FIELDS} }
+        }`,
+        { examId },
+      )
+      .pipe(map((data) => data.clearCertificationExamDate));
   }
 
   importExam(payload: string): Observable<Exam> {

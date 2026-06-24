@@ -202,6 +202,36 @@ class Mutation:
         return result[0]
 
     @strawberry.mutation
+    async def set_certification_exam_date(
+        self, info: Info, exam_id: uuid.UUID, exam_at: datetime
+    ) -> ExamType:
+        """Set (or replace) the date and time of the real certification exam."""
+        db: AsyncSession = info.context["db"]
+        exam = await db.get(models.Exam, exam_id)
+        if exam is None:
+            raise ValueError("Exam not found.")
+
+        exam.certification_exam_at = exam_at
+        await db.commit()
+        result = await loaders.load_exams(db, exam_id=exam_id)
+        return result[0]
+
+    @strawberry.mutation
+    async def clear_certification_exam_date(
+        self, info: Info, exam_id: uuid.UUID
+    ) -> ExamType:
+        """Remove the exam's certification exam date, if any."""
+        db: AsyncSession = info.context["db"]
+        exam = await db.get(models.Exam, exam_id)
+        if exam is None:
+            raise ValueError("Exam not found.")
+
+        exam.certification_exam_at = None
+        await db.commit()
+        result = await loaders.load_exams(db, exam_id=exam_id)
+        return result[0]
+
+    @strawberry.mutation
     async def delete_session(self, info: Info, id: uuid.UUID) -> bool:
         db: AsyncSession = info.context["db"]
         session = await db.get(models.ExamSession, id)

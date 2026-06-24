@@ -5,6 +5,7 @@ import {
   Input,
   Output,
 } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,7 +16,13 @@ import { Exam, StudyGoalProgress } from '../../core/models';
 @Component({
   selector: 'app-exam-card',
   standalone: true,
-  imports: [MatCardModule, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [
+    DatePipe,
+    MatCardModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <mat-card class="exam-card" appearance="outlined">
@@ -34,6 +41,18 @@ import { Exam, StudyGoalProgress } from '../../core/models';
             {{ exam.questionCount }} questions
           </span>
         </div>
+        <p
+          class="exam-date"
+          [class.unset]="!exam.certificationExamAt"
+          matTooltip="Certification exam date"
+        >
+          <mat-icon>event</mat-icon>
+          @if (exam.certificationExamAt; as examAt) {
+            <span>Exam on {{ examAt | date: 'MMM d, y, h:mm a' }}</span>
+          } @else {
+            <span>No exam date scheduled yet</span>
+          }
+        </p>
         @if (goalProgress; as gp) {
           <div class="goal" [class.done]="gp.answered >= gp.target">
             <div class="goal-head">
@@ -76,6 +95,14 @@ import { Exam, StudyGoalProgress } from '../../core/models';
           (click)="goal.emit(exam)"
         >
           <mat-icon>flag</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          matTooltip="Certification exam date"
+          aria-label="Certification exam date"
+          (click)="examDate.emit(exam)"
+        >
+          <mat-icon>event</mat-icon>
         </button>
         <button
           mat-icon-button
@@ -140,6 +167,24 @@ import { Exam, StudyGoalProgress } from '../../core/models';
         font-size: 17px;
         width: 17px;
         height: 17px;
+      }
+      .exam-date {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 12px 0 0;
+        font-size: 13px;
+        color: var(--mat-sys-on-surface-variant);
+      }
+      .exam-date mat-icon {
+        font-size: 17px;
+        width: 17px;
+        height: 17px;
+        flex: none;
+      }
+      .exam-date.unset {
+        font-style: italic;
+        opacity: 0.8;
       }
       .goal {
         margin-top: 14px;
@@ -229,6 +274,7 @@ export class ExamCardComponent {
   @Output() delete = new EventEmitter<Exam>();
   @Output() progress = new EventEmitter<Exam>();
   @Output() goal = new EventEmitter<Exam>();
+  @Output() examDate = new EventEmitter<Exam>();
   @Output() review = new EventEmitter<Exam>();
 
   goalPct(gp: StudyGoalProgress): number {

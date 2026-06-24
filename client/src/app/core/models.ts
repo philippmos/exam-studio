@@ -64,6 +64,8 @@ export interface Exam {
   createdAt: string;
   questionCount: number;
   studyGoal: StudyGoal | null;
+  /** When the user sits the real certification exam; null if not scheduled. */
+  certificationExamAt: string | null;
   sections: Section[];
 }
 
