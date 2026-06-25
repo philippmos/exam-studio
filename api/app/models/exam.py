@@ -22,6 +22,11 @@ class Exam(Base):
             "study_goal_target IS NULL OR study_goal_target > 0",
             name="ck_exams_study_goal_target_positive",
         ),
+        # The source is recorded exactly when a goal exists.
+        CheckConstraint(
+            "(study_goal_period IS NULL) = (study_goal_source IS NULL)",
+            name="ck_exams_study_goal_source_paired",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -35,6 +40,10 @@ class Exam(Base):
     # `study_goal_period` (a GoalPeriod value).
     study_goal_period: Mapped[str | None] = mapped_column(String(16))
     study_goal_target: Mapped[int | None] = mapped_column(Integer)
+    # How the goal was set: a StudyGoalSource value ("MANUAL" / "AUTO"). "AUTO"
+    # goals are recomputed from the certification date; "MANUAL" ones are left
+    # alone. Set exactly when a goal exists (see the check constraint above).
+    study_goal_source: Mapped[str | None] = mapped_column(String(16))
 
     # Optional date and time the user sits the real certification exam.
     certification_exam_at: Mapped[datetime | None] = mapped_column(

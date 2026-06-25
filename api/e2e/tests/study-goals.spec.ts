@@ -44,15 +44,27 @@ test.describe('study goals', () => {
     const exam = await examFactory.createDefault();
 
     const daily = await setStudyGoal(gql, exam.id, 'DAILY', 10);
-    expect(daily.studyGoal).toEqual({ period: 'DAILY', target: 10 });
+    expect(daily.studyGoal).toEqual({
+      period: 'DAILY',
+      target: 10,
+      source: 'MANUAL',
+    });
 
     // The goal is persisted, not just echoed by the mutation.
     const reloaded = await getExam(gql, exam.id);
-    expect(reloaded!.studyGoal).toEqual({ period: 'DAILY', target: 10 });
+    expect(reloaded!.studyGoal).toEqual({
+      period: 'DAILY',
+      target: 10,
+      source: 'MANUAL',
+    });
 
     // Setting again replaces the previous goal.
     const weekly = await setStudyGoal(gql, exam.id, 'WEEKLY', 100);
-    expect(weekly.studyGoal).toEqual({ period: 'WEEKLY', target: 100 });
+    expect(weekly.studyGoal).toEqual({
+      period: 'WEEKLY',
+      target: 100,
+      source: 'MANUAL',
+    });
   });
 
   test('rejects invalid targets and unknown exams', async ({

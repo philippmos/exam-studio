@@ -59,6 +59,14 @@ import { Exam, StudyGoalProgress } from '../../core/models';
               <span class="goal-label">
                 <mat-icon>flag</mat-icon>
                 {{ gp.period === 'DAILY' ? 'Today' : 'This week' }}
+                @if (exam.studyGoal?.source === 'AUTO') {
+                  <span
+                    class="auto-tag"
+                    matTooltip="Calculated from your exam date"
+                  >
+                    Auto
+                  </span>
+                }
               </span>
               <span class="goal-count">{{ gp.answered }} / {{ gp.target }}</span>
             </div>
@@ -206,6 +214,15 @@ import { Exam, StudyGoalProgress } from '../../core/models';
         font-size: 17px;
         width: 17px;
         height: 17px;
+      }
+      .auto-tag {
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: var(--mat-sys-surface-container-highest);
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
       }
       .goal-count {
         font-weight: 500;

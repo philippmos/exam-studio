@@ -12,6 +12,8 @@ import {
   SessionOverview,
   StudyDayStats,
   StudyGoalProgress,
+  StudyGoalSource,
+  SuggestedStudyGoal,
 } from './types';
 
 /** Typed wrappers around the GraphQL operations used by the tests. */
@@ -25,6 +27,7 @@ export const EXAM_FIELDS = `
   studyGoal {
     period
     target
+    source
   }
   sections {
     id
@@ -317,14 +320,74 @@ export async function setStudyGoal(
   examId: string,
   period: GoalPeriod,
   target: number,
+  source: StudyGoalSource = 'MANUAL',
 ): Promise<Exam> {
   const data = await gql.query<{ setStudyGoal: Exam }>(
-    `mutation SetGoal($examId: UUID!, $period: GoalPeriod!, $target: Int!) {
-      setStudyGoal(examId: $examId, period: $period, target: $target) { ${EXAM_FIELDS} }
+    `mutation SetGoal(
+      $examId: UUID!
+      $period: GoalPeriod!
+      $target: Int!
+      $source: StudyGoalSource!
+    ) {
+      setStudyGoal(
+        examId: $examId
+        period: $period
+        target: $target
+        source: $source
+      ) { ${EXAM_FIELDS} }
     }`,
-    { examId, period, target },
+    { examId, period, target, source },
   );
   return data.setStudyGoal;
+}
+
+export async function setCertificationExamDate(
+  gql: GraphqlClient,
+  examId: string,
+  examAt: string,
+): Promise<Exam> {
+  const data = await gql.query<{ setCertificationExamDate: Exam }>(
+    `mutation SetExamDate($examId: UUID!, $examAt: DateTime!) {
+      setCertificationExamDate(examId: $examId, examAt: $examAt) { ${EXAM_FIELDS} }
+    }`,
+    { examId, examAt },
+  );
+  return data.setCertificationExamDate;
+}
+
+export async function clearCertificationExamDate(
+  gql: GraphqlClient,
+  examId: string,
+): Promise<Exam> {
+  const data = await gql.query<{ clearCertificationExamDate: Exam }>(
+    `mutation ClearExamDate($examId: UUID!) {
+      clearCertificationExamDate(examId: $examId) { ${EXAM_FIELDS} }
+    }`,
+    { examId },
+  );
+  return data.clearCertificationExamDate;
+}
+
+export async function getSuggestedStudyGoal(
+  gql: GraphqlClient,
+  examId: string,
+  period: GoalPeriod = 'DAILY',
+  examAt: string | null = null,
+): Promise<SuggestedStudyGoal | null> {
+  const data = await gql.query<{ suggestedStudyGoal: SuggestedStudyGoal | null }>(
+    `query Suggest($examId: UUID!, $period: GoalPeriod!, $examAt: DateTime) {
+      suggestedStudyGoal(examId: $examId, period: $period, examAt: $examAt) {
+        period
+        target
+        questionCount
+        repetitionFactor
+        daysUntilExam
+        usableDays
+      }
+    }`,
+    { examId, period, examAt },
+  );
+  return data.suggestedStudyGoal;
 }
 
 export async function clearStudyGoal(

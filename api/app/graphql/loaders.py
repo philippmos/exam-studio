@@ -31,6 +31,16 @@ async def _question_counts(
     return {section_id: count for section_id, count in result.all()}
 
 
+async def count_questions(db: AsyncSession, exam_id: uuid.UUID) -> int:
+    """Total number of questions in one exam (across all its sections)."""
+    total = await db.scalar(
+        select(func.count(models.Question.id))
+        .join(models.Section, models.Question.section_id == models.Section.id)
+        .where(models.Section.exam_id == exam_id)
+    )
+    return total or 0
+
+
 async def load_exams(
     db: AsyncSession, exam_id: uuid.UUID | None = None
 ) -> list[types.ExamType]:

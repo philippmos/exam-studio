@@ -1,19 +1,24 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 import strawberry
 from strawberry.types import Info
 
-from app.graphql import loaders, review, stats
+from app import models
+from app.enums import GoalPeriod
+from app.graphql import loaders, planning, review, stats
 from app.graphql.types import (
     ExamSessionType,
     ExamStats,
     ExamType,
+    GoalPeriodEnum,
     ReviewDueStatus,
     SessionOverviewType,
     StudyDayStats,
     StudyGoalProgress,
+    SuggestedStudyGoal,
 )
 
 
@@ -76,3 +81,39 @@ class Query:
     ) -> list[ReviewDueStatus]:
         """Questions currently due for spaced-repetition review, per exam."""
         return await review.compute_review_due(info.context["db"], exam_id)
+
+    @strawberry.field
+    async def suggested_study_goal(
+        self,
+        info: Info,
+        exam_id: uuid.UUID,
+        period: GoalPeriodEnum = GoalPeriod.DAILY,
+        exam_at: datetime | None = None,
+    ) -> SuggestedStudyGoal | None:
+        """A study goal derived from the certification exam date.
+
+        Uses ``exam_at`` when given (to preview a date before it is saved),
+        otherwise the exam's stored certification date. Returns ``None`` when no
+        date is known or the exam cannot be sensibly planned (see
+        :func:`app.graphql.planning.suggest`).
+        """
+        db = info.context["db"]
+        exam = await db.get(models.Exam, exam_id)
+        if exam is None:
+            return None
+        when = exam_at or exam.certification_exam_at
+        if when is None:
+            return None
+
+        count = await loaders.count_questions(db, exam_id)
+        suggestion = planning.suggest(count, when, GoalPeriod(period.value))
+        if suggestion is None:
+            return None
+        return SuggestedStudyGoal(
+            period=suggestion.period,
+            target=suggestion.target,
+            question_count=suggestion.question_count,
+            repetition_factor=suggestion.repetition_factor,
+            days_until_exam=suggestion.days_until_exam,
+            usable_days=suggestion.usable_days,
+        )

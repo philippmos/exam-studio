@@ -19,10 +19,11 @@ import strawberry
 from app import models
 from app.enums import GoalPeriod
 from app.enums import QuestionType as QuestionTypeValue
-from app.enums import SessionMode
+from app.enums import SessionMode, StudyGoalSource
 
 SessionModeEnum = strawberry.enum(SessionMode)
 GoalPeriodEnum = strawberry.enum(GoalPeriod)
+StudyGoalSourceEnum = strawberry.enum(StudyGoalSource)
 # The GraphQL object type below is already called "QuestionType", so the enum
 # gets a distinct schema name.
 QuestionTypeEnum = strawberry.enum(QuestionTypeValue, name="QuestionKind")
@@ -90,6 +91,24 @@ class StudyGoalType:
 
     period: GoalPeriodEnum
     target: int
+    # Whether the target was entered by hand or derived from the exam date.
+    source: StudyGoalSourceEnum
+
+
+@strawberry.type
+class SuggestedStudyGoal:
+    """A study goal proposed from the certification exam date.
+
+    ``target`` is the per-``period`` number to aim for; the remaining fields
+    expose the inputs so the UI can explain how the number came about.
+    """
+
+    period: GoalPeriodEnum
+    target: int
+    question_count: int
+    repetition_factor: int  # how often each question is answered on average
+    days_until_exam: int
+    usable_days: int  # days left after reserving a pre-exam buffer
 
 
 @strawberry.type
@@ -278,10 +297,16 @@ def to_section(section: models.Section, question_count: int) -> SectionType:
 
 
 def to_study_goal(exam: models.Exam) -> StudyGoalType | None:
-    if exam.study_goal_period is None or exam.study_goal_target is None:
+    if (
+        exam.study_goal_period is None
+        or exam.study_goal_target is None
+        or exam.study_goal_source is None
+    ):
         return None
     return StudyGoalType(
-        period=GoalPeriod(exam.study_goal_period), target=exam.study_goal_target
+        period=GoalPeriod(exam.study_goal_period),
+        target=exam.study_goal_target,
+        source=StudyGoalSource(exam.study_goal_source),
     )
 
 

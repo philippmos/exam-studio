@@ -24,3 +24,10 @@ class GoalPeriod(str, enum.Enum):
 
     DAILY = "DAILY"  # current local calendar day
     WEEKLY = "WEEKLY"  # current ISO week (Monday to Sunday, local time)
+
+
+class StudyGoalSource(str, enum.Enum):
+    """Where an exam's study goal came from."""
+
+    MANUAL = "MANUAL"  # the user entered the target by hand
+    AUTO = "AUTO"  # derived from the certification exam date (recomputed on change)

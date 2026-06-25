@@ -9,10 +9,24 @@ export interface Section {
 
 export type GoalPeriod = 'DAILY' | 'WEEKLY';
 
+/** Whether a study goal was typed by hand or derived from the exam date. */
+export type StudyGoalSource = 'MANUAL' | 'AUTO';
+
 /** Per-exam study goal: answer `target` questions per `period`. */
 export interface StudyGoal {
   period: GoalPeriod;
   target: number;
+  source: StudyGoalSource;
+}
+
+/** A study goal proposed from the certification exam date. */
+export interface SuggestedStudyGoal {
+  period: GoalPeriod;
+  target: number;
+  questionCount: number;
+  repetitionFactor: number;
+  daysUntilExam: number;
+  usableDays: number;
 }
 
 export interface Exam {

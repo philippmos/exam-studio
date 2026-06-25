@@ -180,7 +180,12 @@ export class DashboardComponent {
       const request =
         result === null
           ? this.examService.clearStudyGoal(exam.id)
-          : this.examService.setStudyGoal(exam.id, result.period, result.target);
+          : this.examService.setStudyGoal(
+              exam.id,
+              result.period,
+              result.target,
+              result.source,
+            );
       request.subscribe({
         next: (updated) => {
           this.exams.update((list) =>
@@ -213,16 +218,30 @@ export class DashboardComponent {
           this.exams.update((list) =>
             list.map((e) => (e.id === updated.id ? updated : e)),
           );
-          this.snackBar.open(
-            result === null ? 'Exam date removed.' : 'Exam date saved.',
-            'OK',
-            { duration: 3000 },
-          );
+          // Setting/clearing the date may have (re)computed an automatic goal
+          // server-side, so refresh the progress bars to match.
+          this.loadGoalProgress();
+          this.snackBar.open(this.examDateMessage(result, updated), 'OK', {
+            duration: 4000,
+          });
         },
         error: (err: Error) =>
           this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
       });
     });
+  }
+
+  /** Snackbar text after setting/clearing an exam date, noting an auto goal. */
+  private examDateMessage(result: string | null, updated: Exam): string {
+    if (result === null) {
+      return 'Exam date removed.';
+    }
+    const goal = updated.studyGoal;
+    if (goal?.source === 'AUTO') {
+      const unit = goal.period === 'DAILY' ? 'day' : 'week';
+      return `Exam date saved. Study goal set to ${goal.target} / ${unit}.`;
+    }
+    return 'Exam date saved.';
   }
 
   deleteExam(exam: Exam): void {

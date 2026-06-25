@@ -14,6 +14,8 @@ import {
   SessionOverview,
   StudyDayStats,
   StudyGoalProgress,
+  StudyGoalSource,
+  SuggestedStudyGoal,
 } from './models';
 
 const EXAM_FIELDS = `
@@ -25,6 +27,7 @@ const EXAM_FIELDS = `
   studyGoal {
     period
     target
+    source
   }
   certificationExamAt
   sections {
@@ -231,17 +234,55 @@ export class ExamService {
     examId: string,
     period: GoalPeriod,
     target: number,
+    source: StudyGoalSource = 'MANUAL',
   ): Observable<Exam> {
     return this.graphql
       .request<{ setStudyGoal: Exam }>(
-        `mutation SetGoal($examId: UUID!, $period: GoalPeriod!, $target: Int!) {
-          setStudyGoal(examId: $examId, period: $period, target: $target) {
+        `mutation SetGoal(
+          $examId: UUID!
+          $period: GoalPeriod!
+          $target: Int!
+          $source: StudyGoalSource!
+        ) {
+          setStudyGoal(
+            examId: $examId
+            period: $period
+            target: $target
+            source: $source
+          ) {
             ${EXAM_FIELDS}
           }
         }`,
-        { examId, period, target },
+        { examId, period, target, source },
       )
       .pipe(map((data) => data.setStudyGoal));
+  }
+
+  /**
+   * Study goal suggested from a certification date: the exam's stored date, or
+   * `examAt` to preview one before saving. Resolves to `null` when no date is
+   * known or the exam can't be sensibly planned (e.g. the date is too close).
+   */
+  getSuggestedStudyGoal(
+    examId: string,
+    period: GoalPeriod,
+    examAt: string | null = null,
+  ): Observable<SuggestedStudyGoal | null> {
+    return this.graphql
+      .request<{ suggestedStudyGoal: SuggestedStudyGoal | null }>(
+        `query Suggest($examId: UUID!, $period: GoalPeriod!, $examAt: DateTime) {
+          suggestedStudyGoal(examId: $examId, period: $period, examAt: $examAt) {
+            period
+            target
+            questionCount
+            repetitionFactor
+            daysUntilExam
+            usableDays
+          }
+        }`,
+        { examId, period, examAt },
+      )
+      .pipe(map((data) => data.suggestedStudyGoal));
   }
 
   clearStudyGoal(examId: string): Observable<Exam> {

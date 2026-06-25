@@ -11,8 +11,8 @@ from sqlalchemy.orm import selectinload
 from strawberry.types import Info
 
 from app import models
-from app.enums import QuestionType, SessionMode
-from app.graphql import loaders, review
+from app.enums import GoalPeriod, QuestionType, SessionMode, StudyGoalSource
+from app.graphql import loaders, planning, review
 from app.graphql.types import (
     AllocationInput,
     AllocationType,
@@ -21,6 +21,7 @@ from app.graphql.types import (
     ExamType,
     GoalPeriodEnum,
     SessionModeEnum,
+    StudyGoalSourceEnum,
 )
 from app.importer import ImportError_, build_exam_from_payload
 
@@ -139,6 +140,37 @@ def _grade_allocation(
     return selection, is_correct, correct_allocations
 
 
+async def _apply_auto_goal(db: AsyncSession, exam: models.Exam) -> None:
+    """Recompute the exam's automatic study goal from its date (no commit).
+
+    A manually set goal is left untouched. An automatic goal is recomputed from
+    the current certification date, or cleared when there is no date or the exam
+    can no longer be sensibly planned. Call this whenever the date changes.
+    """
+    if exam.study_goal_source == StudyGoalSource.MANUAL.value:
+        return
+
+    # Keep an existing automatic goal's period; default to daily otherwise.
+    period = (
+        GoalPeriod(exam.study_goal_period)
+        if exam.study_goal_period is not None
+        else GoalPeriod.DAILY
+    )
+    suggestion = None
+    if exam.certification_exam_at is not None:
+        count = await loaders.count_questions(db, exam.id)
+        suggestion = planning.suggest(count, exam.certification_exam_at, period)
+
+    if suggestion is None:
+        exam.study_goal_period = None
+        exam.study_goal_target = None
+        exam.study_goal_source = None
+    else:
+        exam.study_goal_period = suggestion.period.value
+        exam.study_goal_target = suggestion.target
+        exam.study_goal_source = StudyGoalSource.AUTO.value
+
+
 @strawberry.type
 class Mutation:
     @strawberry.mutation
@@ -172,8 +204,14 @@ class Mutation:
         exam_id: uuid.UUID,
         period: GoalPeriodEnum,
         target: int,
+        source: StudyGoalSourceEnum = StudyGoalSource.MANUAL,
     ) -> ExamType:
-        """Set (or replace) the exam's study goal: `target` questions per `period`."""
+        """Set (or replace) the exam's study goal: `target` questions per `period`.
+
+        ``source`` records whether the target was entered by hand (``MANUAL``,
+        the default) or accepted from the exam-date suggestion (``AUTO``); only
+        ``AUTO`` goals are later recomputed when the exam date changes.
+        """
         db: AsyncSession = info.context["db"]
         exam = await db.get(models.Exam, exam_id)
         if exam is None:
@@ -183,6 +221,7 @@ class Mutation:
 
         exam.study_goal_period = period.value
         exam.study_goal_target = target
+        exam.study_goal_source = source.value
         await db.commit()
         result = await loaders.load_exams(db, exam_id=exam_id)
         return result[0]
@@ -197,6 +236,7 @@ class Mutation:
 
         exam.study_goal_period = None
         exam.study_goal_target = None
+        exam.study_goal_source = None
         await db.commit()
         result = await loaders.load_exams(db, exam_id=exam_id)
         return result[0]
@@ -205,13 +245,18 @@ class Mutation:
     async def set_certification_exam_date(
         self, info: Info, exam_id: uuid.UUID, exam_at: datetime
     ) -> ExamType:
-        """Set (or replace) the date and time of the real certification exam."""
+        """Set (or replace) the date and time of the real certification exam.
+
+        Recomputes the automatic study goal from the new date; a manual goal is
+        kept as-is.
+        """
         db: AsyncSession = info.context["db"]
         exam = await db.get(models.Exam, exam_id)
         if exam is None:
             raise ValueError("Exam not found.")
 
         exam.certification_exam_at = exam_at
+        await _apply_auto_goal(db, exam)
         await db.commit()
         result = await loaders.load_exams(db, exam_id=exam_id)
         return result[0]
@@ -220,13 +265,18 @@ class Mutation:
     async def clear_certification_exam_date(
         self, info: Info, exam_id: uuid.UUID
     ) -> ExamType:
-        """Remove the exam's certification exam date, if any."""
+        """Remove the exam's certification exam date, if any.
+
+        An automatic study goal loses its basis and is removed too; a manual
+        goal is kept.
+        """
         db: AsyncSession = info.context["db"]
         exam = await db.get(models.Exam, exam_id)
         if exam is None:
             raise ValueError("Exam not found.")
 
         exam.certification_exam_at = None
+        await _apply_auto_goal(db, exam)
         await db.commit()
         result = await loaders.load_exams(db, exam_id=exam_id)
         return result[0]
