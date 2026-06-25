@@ -236,6 +236,33 @@ class StudyGoalProgress:
 
 
 @strawberry.type
+class StreakDay:
+    """One day of the recent-activity strip: did the user study that day?"""
+
+    day: date
+    active: bool
+
+
+@strawberry.type
+class StudyStreak:
+    """Consecutive-day study streak across all exams (a habit metric).
+
+    A streak counts calendar days with at least one answered question. It stays
+    alive as long as the chain reaches yesterday: ``current`` includes today once
+    something has been answered, and otherwise still counts the run through
+    yesterday so the day is not yet "lost". ``studied_today`` lets the UI tell an
+    already-secured streak from one that is still at risk today.
+    """
+
+    current: int  # length of the running streak (0 if broken)
+    longest: int  # best run ever, for a personal-best target
+    studied_today: bool  # whether today already has activity
+    # The last seven local days, oldest first (the last entry is today), for a
+    # compact week strip.
+    recent_days: list[StreakDay]
+
+
+@strawberry.type
 class ExamStats:
     """Aggregated learning progress for a whole exam (dashboard data)."""
 

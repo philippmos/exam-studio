@@ -15,6 +15,7 @@ import {
   StudyDayStats,
   StudyGoalProgress,
   StudyGoalSource,
+  StudyStreak,
   SuggestedStudyGoal,
 } from './models';
 
@@ -192,6 +193,27 @@ export class ExamService {
         { examId, tzOffsetMinutes: -new Date().getTimezoneOffset() },
       )
       .pipe(map((data) => data.studyHistory));
+  }
+
+  /** Consecutive-day study streak across all exams (current, best, last 7 days). */
+  getStudyStreak(): Observable<StudyStreak> {
+    return this.graphql
+      .request<{ studyStreak: StudyStreak }>(
+        `query Streak($tzOffsetMinutes: Int!) {
+          studyStreak(tzOffsetMinutes: $tzOffsetMinutes) {
+            current
+            longest
+            studiedToday
+            recentDays {
+              day
+              active
+            }
+          }
+        }`,
+        // "Today" and the day buckets are local, not UTC.
+        { tzOffsetMinutes: -new Date().getTimezoneOffset() },
+      )
+      .pipe(map((data) => data.studyStreak));
   }
 
   /** Questions due for spaced-repetition review, per exam (all or one). */

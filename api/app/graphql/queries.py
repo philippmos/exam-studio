@@ -18,6 +18,7 @@ from app.graphql.types import (
     SessionOverviewType,
     StudyDayStats,
     StudyGoalProgress,
+    StudyStreak,
     SuggestedStudyGoal,
 )
 
@@ -81,6 +82,15 @@ class Query:
     ) -> list[ReviewDueStatus]:
         """Questions currently due for spaced-repetition review, per exam."""
         return await review.compute_review_due(info.context["db"], exam_id)
+
+    @strawberry.field
+    async def study_streak(
+        self, info: Info, tz_offset_minutes: int = 0
+    ) -> StudyStreak:
+        """Consecutive-day study streak across all exams (habit/gamification)."""
+        return await stats.compute_study_streak(
+            info.context["db"], tz_offset_minutes
+        )
 
     @strawberry.field
     async def suggested_study_goal(

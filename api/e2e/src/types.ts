@@ -48,6 +48,20 @@ export interface StudyGoalProgress {
   periodStart: string; // ISO date, e.g. "2026-06-11"
 }
 
+/** One day of the streak's recent-activity strip. */
+export interface StreakDay {
+  day: string; // ISO date, e.g. "2026-06-25"
+  active: boolean;
+}
+
+/** Consecutive-day study streak across all exams. */
+export interface StudyStreak {
+  current: number;
+  longest: number;
+  studiedToday: boolean;
+  recentDays: StreakDay[];
+}
+
 export interface Answer {
   id: string;
   text: string;

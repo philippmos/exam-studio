@@ -14,8 +14,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
-import { StudyDayStats } from '../../core/models';
+import { StudyDayStats, StudyStreak } from '../../core/models';
 import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
+import { StreakCardComponent } from '../../shared/streak-card/streak-card.component';
 import { StudyHistoryChartComponent } from '../../shared/study-history-chart/study-history-chart.component';
 
 @Component({
@@ -29,6 +30,7 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
     MatIconModule,
     MatProgressSpinnerModule,
     StatCardComponent,
+    StreakCardComponent,
     StudyHistoryChartComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -55,6 +57,10 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
           </button>
         </div>
       } @else {
+        @if (streak(); as s) {
+          <app-streak-card class="streak" [streak]="s" />
+        }
+
         <!-- KPI tiles -->
         <section class="kpis">
           <app-stat-card
@@ -107,6 +113,10 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
   `,
   styles: [
     `
+      .streak {
+        display: block;
+        margin-bottom: 20px;
+      }
       .kpis {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -124,6 +134,7 @@ export class StatisticsComponent {
   private readonly snackBar = inject(MatSnackBar);
 
   readonly history = signal<StudyDayStats[]>([]);
+  readonly streak = signal<StudyStreak | null>(null);
   readonly loading = signal(true);
 
   readonly summary = computed(() => {
@@ -150,6 +161,11 @@ export class StatisticsComponent {
         this.loading.set(false);
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
       },
+    });
+    // The streak banner is supplementary: on error just leave it hidden.
+    this.examService.getStudyStreak().subscribe({
+      next: (streak) => this.streak.set(streak),
+      error: () => undefined,
     });
   }
 }

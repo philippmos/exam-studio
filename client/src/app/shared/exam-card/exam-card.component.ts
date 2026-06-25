@@ -73,6 +73,10 @@ import { Exam, StudyGoalProgress } from '../../core/models';
             <div class="goal-bar">
               <div class="goal-fill" [style.width.%]="goalPct(gp)"></div>
             </div>
+            <p class="goal-target">
+              {{ gp.target }} questions /
+              {{ gp.period === 'DAILY' ? 'day' : 'week' }}
+            </p>
           </div>
         }
         @if (dueCount > 0) {
@@ -244,6 +248,11 @@ import { Exam, StudyGoalProgress } from '../../core/models';
       }
       .goal.done .goal-count {
         color: var(--app-success);
+      }
+      .goal-target {
+        margin: 6px 0 0;
+        font-size: 12px;
+        color: var(--mat-sys-on-surface-variant);
       }
       .due-chip {
         display: inline-flex;

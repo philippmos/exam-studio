@@ -13,6 +13,7 @@ import {
   StudyDayStats,
   StudyGoalProgress,
   StudyGoalSource,
+  StudyStreak,
   SuggestedStudyGoal,
 } from './types';
 
@@ -251,6 +252,24 @@ export async function submitAllocation(
     { sessionItemId, allocations, tzOffsetMinutes },
   );
   return data.submitAnswer;
+}
+
+export async function getStudyStreak(
+  gql: GraphqlClient,
+  tzOffsetMinutes = 0,
+): Promise<StudyStreak> {
+  const data = await gql.query<{ studyStreak: StudyStreak }>(
+    `query Streak($tzOffsetMinutes: Int!) {
+      studyStreak(tzOffsetMinutes: $tzOffsetMinutes) {
+        current
+        longest
+        studiedToday
+        recentDays { day active }
+      }
+    }`,
+    { tzOffsetMinutes },
+  );
+  return data.studyStreak;
 }
 
 export async function getReviewDue(

@@ -7,9 +7,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
-import { Exam, ReviewDue, StudyGoalProgress } from '../../core/models';
+import { Exam, ReviewDue, StudyGoalProgress, StudyStreak } from '../../core/models';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { ExamCardComponent } from '../../shared/exam-card/exam-card.component';
+import { StreakCardComponent } from '../../shared/streak-card/streak-card.component';
 import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
 import { ExamDateDialogComponent } from '../../shared/exam-date-dialog/exam-date-dialog.component';
 import { ImportDialogComponent } from './import-dialog.component';
@@ -22,6 +23,7 @@ import { ImportDialogComponent } from './import-dialog.component';
     MatIconModule,
     MatProgressSpinnerModule,
     ExamCardComponent,
+    StreakCardComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -47,6 +49,9 @@ import { ImportDialogComponent } from './import-dialog.component';
           </button>
         </div>
       } @else {
+        @if (streak(); as s) {
+          <app-streak-card class="streak" [streak]="s" />
+        }
         <div class="grid">
           @for (exam of exams(); track exam.id) {
             <app-exam-card
@@ -67,6 +72,10 @@ import { ImportDialogComponent } from './import-dialog.component';
   `,
   styles: [
     `
+      .streak {
+        display: block;
+        margin-bottom: 24px;
+      }
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -84,6 +93,7 @@ export class DashboardComponent {
   readonly exams = signal<Exam[]>([]);
   readonly goalProgress = signal<StudyGoalProgress[]>([]);
   readonly reviewDue = signal<ReviewDue[]>([]);
+  readonly streak = signal<StudyStreak | null>(null);
   readonly loading = signal(true);
 
   constructor() {
@@ -104,6 +114,15 @@ export class DashboardComponent {
     });
     this.loadGoalProgress();
     this.loadReviewDue();
+    this.loadStreak();
+  }
+
+  /** The streak banner is supplementary: on error just leave it hidden. */
+  private loadStreak(): void {
+    this.examService.getStudyStreak().subscribe({
+      next: (streak) => this.streak.set(streak),
+      error: () => undefined,
+    });
   }
 
   /** The goal bars are supplementary: on error just leave them hidden. */

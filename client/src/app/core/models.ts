@@ -74,6 +74,24 @@ export interface StudyGoalProgress {
   periodStart: string; // ISO date the current period began on
 }
 
+/** One day of the streak's recent-activity strip. */
+export interface StreakDay {
+  day: string; // ISO date, e.g. "2026-06-25"
+  active: boolean;
+}
+
+/** Consecutive-day study streak across all exams (a habit metric). */
+export interface StudyStreak {
+  /** Length of the running streak; 0 when it is broken. */
+  current: number;
+  /** Best run ever, shown as a personal-best target. */
+  longest: number;
+  /** Whether today already has activity (an at-risk streak if not). */
+  studiedToday: boolean;
+  /** Last seven local days, oldest first; the last entry is today. */
+  recentDays: StreakDay[];
+}
+
 export interface Exam {
   id: string;
   name: string;
