@@ -186,8 +186,8 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
         border-radius: 99px;
         overflow: hidden;
         margin-bottom: 20px;
-        --mdc-linear-progress-track-height: 8px;
-        --mdc-linear-progress-active-indicator-height: 8px;
+        --mat-progress-bar-track-height: 8px;
+        --mat-progress-bar-active-indicator-height: 8px;
       }
       .question-card {
         margin-bottom: 16px;

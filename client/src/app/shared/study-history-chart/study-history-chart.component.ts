@@ -98,7 +98,7 @@ const DAY_MS = 86_400_000;
         margin-bottom: 16px;
       }
       .head mat-button-toggle-group {
-        --mat-standard-button-toggle-height: 32px;
+        --mat-button-toggle-height: 32px;
         font-size: 13px;
       }
       .chart {

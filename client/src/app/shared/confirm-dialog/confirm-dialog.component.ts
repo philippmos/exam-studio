@@ -45,8 +45,8 @@ export interface ConfirmDialogData {
         line-height: 1.5;
       }
       .destructive {
-        --mdc-filled-button-container-color: var(--mat-sys-error);
-        --mdc-filled-button-label-text-color: var(--mat-sys-on-error);
+        --mat-button-filled-container-color: var(--mat-sys-error);
+        --mat-button-filled-label-text-color: var(--mat-sys-on-error);
       }
     `,
   ],
