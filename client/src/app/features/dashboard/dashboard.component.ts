@@ -63,6 +63,7 @@ import { ImportDialogComponent } from './import-dialog.component';
               (goal)="editGoal($event)"
               (examDate)="editExamDate($event)"
               (review)="startReview($event)"
+              (archive)="archiveExam($event)"
               (delete)="deleteExam($event)"
             />
           }
@@ -261,6 +262,30 @@ export class DashboardComponent {
       return `Exam date saved. Study goal set to ${goal.target} / ${unit}.`;
     }
     return 'Exam date saved.';
+  }
+
+  /** Archive an exam: it leaves the dashboard but its history is kept. */
+  archiveExam(exam: Exam): void {
+    this.examService.setExamArchived(exam.id, true).subscribe({
+      next: () => {
+        this.exams.update((list) => list.filter((e) => e.id !== exam.id));
+        this.snackBar
+          .open(`"${exam.name}" archived.`, 'Undo', { duration: 5000 })
+          .onAction()
+          .subscribe(() => this.restoreExam(exam));
+      },
+      error: (err: Error) =>
+        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+    });
+  }
+
+  /** Undo an archive: restore the exam and bring it back to the dashboard. */
+  private restoreExam(exam: Exam): void {
+    this.examService.setExamArchived(exam.id, false).subscribe({
+      next: () => this.load(),
+      error: (err: Error) =>
+        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+    });
   }
 
   deleteExam(exam: Exam): void {

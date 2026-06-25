@@ -30,6 +30,7 @@ export const EXAM_FIELDS = `
     target
     source
   }
+  archived
   sections {
     id
     name
@@ -157,6 +158,27 @@ export async function getExam(gql: GraphqlClient, id: string): Promise<Exam | nu
     { id },
   );
   return data.exam;
+}
+
+export async function getArchivedExams(gql: GraphqlClient): Promise<Exam[]> {
+  const data = await gql.query<{ archivedExams: Exam[] }>(
+    `query ArchivedExams { archivedExams { ${EXAM_FIELDS} } }`,
+  );
+  return data.archivedExams;
+}
+
+export async function setExamArchived(
+  gql: GraphqlClient,
+  examId: string,
+  archived: boolean,
+): Promise<Exam> {
+  const data = await gql.query<{ setExamArchived: Exam }>(
+    `mutation SetArchived($examId: UUID!, $archived: Boolean!) {
+      setExamArchived(examId: $examId, archived: $archived) { ${EXAM_FIELDS} }
+    }`,
+    { examId, archived },
+  );
+  return data.setExamArchived;
 }
 
 export async function startSession(

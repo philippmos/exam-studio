@@ -198,6 +198,27 @@ class Mutation:
         return True
 
     @strawberry.mutation
+    async def set_exam_archived(
+        self, info: Info, exam_id: uuid.UUID, archived: bool
+    ) -> ExamType:
+        """Archive or restore an exam.
+
+        Archiving hides it from the dashboard and stops new sessions from being
+        started for it; restoring (``archived = false``) makes it active again.
+        The exam's history is untouched either way, so statistics and the study
+        streak keep accounting for it.
+        """
+        db: AsyncSession = info.context["db"]
+        exam = await db.get(models.Exam, exam_id)
+        if exam is None:
+            raise ValueError("Exam not found.")
+
+        exam.archived = archived
+        await db.commit()
+        result = await loaders.load_exams(db, exam_id=exam_id)
+        return result[0]
+
+    @strawberry.mutation
     async def set_study_goal(
         self,
         info: Info,
@@ -304,6 +325,8 @@ class Mutation:
         exam = await db.get(models.Exam, exam_id)
         if exam is None:
             raise ValueError("Exam not found.")
+        if exam.archived:
+            raise ValueError("Cannot start a session for an archived exam.")
 
         question_ids = await _select_question_ids(db, exam_id, mode, section_id)
 

@@ -41,5 +41,12 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/quiz/quiz.component').then((m) => m.QuizComponent),
   },
+  {
+    path: 'archive',
+    loadComponent: () =>
+      import('./features/archive/archive.component').then(
+        (m) => m.ArchiveComponent,
+      ),
+  },
   { path: '**', redirectTo: '' },
 ];

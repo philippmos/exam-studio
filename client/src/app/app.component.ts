@@ -37,6 +37,14 @@ import { MatIconModule } from '@angular/material/icon';
           <mat-icon>monitoring</mat-icon>
           <span>Statistics</span>
         </a>
+        <a
+          routerLink="/archive"
+          class="nav-link"
+          [class.active]="section() === 'archive'"
+        >
+          <mat-icon>inventory_2</mat-icon>
+          <span>Archive</span>
+        </a>
       </nav>
     </header>
     <main>
@@ -121,7 +129,9 @@ import { MatIconModule } from '@angular/material/icon';
 })
 export class AppComponent {
   /** Current top-level area, used to highlight the active nav pill. */
-  readonly section = signal<'exams' | 'sessions' | 'statistics'>('exams');
+  readonly section = signal<'exams' | 'sessions' | 'statistics' | 'archive'>(
+    'exams',
+  );
 
   constructor() {
     const router = inject(Router);
@@ -137,7 +147,9 @@ export class AppComponent {
             ? 'sessions'
             : url.startsWith('/statistics')
               ? 'statistics'
-              : 'exams',
+              : url.startsWith('/archive')
+                ? 'archive'
+                : 'exams',
         );
       });
   }

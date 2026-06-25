@@ -143,6 +143,13 @@ export class ExamDetailComponent implements OnInit {
   private load(): void {
     this.examService.getExam(this.id()).subscribe({
       next: (exam) => {
+        // Archived exams can't be practised: send the user back to the
+        // dashboard even when the detail URL is opened directly.
+        if (exam?.archived) {
+          this.snackBar.open('This exam is archived.', 'OK', { duration: 4000 });
+          this.router.navigate(['/']);
+          return;
+        }
         this.exam.set(exam);
         this.loading.set(false);
       },

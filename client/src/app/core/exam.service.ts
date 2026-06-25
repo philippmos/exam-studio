@@ -31,6 +31,7 @@ const EXAM_FIELDS = `
     source
   }
   certificationExamAt
+  archived
   sections {
     id
     name
@@ -137,6 +138,15 @@ export class ExamService {
     return this.graphql
       .request<{ exams: Exam[] }>(`query { exams { ${EXAM_FIELDS} } }`)
       .pipe(map((data) => data.exams));
+  }
+
+  /** Archived exams, for the archive page. */
+  getArchivedExams(): Observable<Exam[]> {
+    return this.graphql
+      .request<{ archivedExams: Exam[] }>(
+        `query { archivedExams { ${EXAM_FIELDS} } }`,
+      )
+      .pipe(map((data) => data.archivedExams));
   }
 
   getExam(id: string): Observable<Exam | null> {
@@ -361,6 +371,18 @@ export class ExamService {
         { id },
       )
       .pipe(map((data) => data.deleteExam));
+  }
+
+  /** Archive (`archived = true`) or restore (`false`) an exam. */
+  setExamArchived(id: string, archived: boolean): Observable<Exam> {
+    return this.graphql
+      .request<{ setExamArchived: Exam }>(
+        `mutation SetArchived($id: UUID!, $archived: Boolean!) {
+          setExamArchived(examId: $id, archived: $archived) { ${EXAM_FIELDS} }
+        }`,
+        { id, archived },
+      )
+      .pipe(map((data) => data.setExamArchived));
   }
 
   startSession(

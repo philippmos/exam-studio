@@ -27,11 +27,17 @@ from app.graphql.types import (
 class Query:
     @strawberry.field
     async def exams(self, info: Info) -> list[ExamType]:
-        """All exams for the dashboard."""
-        return await loaders.load_exams(info.context["db"])
+        """Active (non-archived) exams for the dashboard."""
+        return await loaders.load_exams(info.context["db"], archived=False)
+
+    @strawberry.field
+    async def archived_exams(self, info: Info) -> list[ExamType]:
+        """Archived exams, for the archive page."""
+        return await loaders.load_exams(info.context["db"], archived=True)
 
     @strawberry.field
     async def exam(self, info: Info, id: uuid.UUID) -> ExamType | None:
+        """A single exam by id (archived or not), e.g. for its progress page."""
         result = await loaders.load_exams(info.context["db"], exam_id=id)
         return result[0] if result else None
 

@@ -36,6 +36,8 @@ export interface Exam {
   createdAt: string;
   questionCount: number;
   studyGoal: StudyGoal | null;
+  /** Archived exams are hidden from the dashboard and cannot start sessions. */
+  archived: boolean;
   sections: Section[];
 }
 

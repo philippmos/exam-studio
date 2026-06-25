@@ -24,6 +24,13 @@ export class DashboardPage {
       .click();
   }
 
+  /** Archives the exam straight from its card (no confirm dialog). */
+  async archiveExam(examName: string): Promise<void> {
+    await this.examCard(examName)
+      .getByRole('button', { name: 'Archive exam' })
+      .click();
+  }
+
   /** Clicks the delete icon on the card; the confirm dialog is left open. */
   async requestDeleteExam(examName: string): Promise<void> {
     await this.examCard(examName)

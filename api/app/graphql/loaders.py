@@ -42,11 +42,21 @@ async def count_questions(db: AsyncSession, exam_id: uuid.UUID) -> int:
 
 
 async def load_exams(
-    db: AsyncSession, exam_id: uuid.UUID | None = None
+    db: AsyncSession,
+    exam_id: uuid.UUID | None = None,
+    archived: bool | None = None,
 ) -> list[types.ExamType]:
+    """Load exams as GraphQL types, newest first.
+
+    ``archived`` narrows the result to active (``False``) or archived (``True``)
+    exams; ``None`` (the default) leaves both in, which is what loading a single
+    exam by id needs so an archived exam is still returned.
+    """
     stmt = select(models.Exam).options(selectinload(models.Exam.sections))
     if exam_id is not None:
         stmt = stmt.where(models.Exam.id == exam_id)
+    if archived is not None:
+        stmt = stmt.where(models.Exam.archived.is_(archived))
     stmt = stmt.order_by(models.Exam.created_at.desc())
 
     exams = list((await db.scalars(stmt)).all())

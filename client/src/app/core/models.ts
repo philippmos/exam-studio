@@ -101,6 +101,8 @@ export interface Exam {
   studyGoal: StudyGoal | null;
   /** When the user sits the real certification exam; null if not scheduled. */
   certificationExamAt: string | null;
+  /** Archived exams are hidden from the dashboard and cannot start sessions. */
+  archived: boolean;
   sections: Section[];
 }
 

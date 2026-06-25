@@ -118,6 +118,14 @@ import { Exam, StudyGoalProgress } from '../../core/models';
         </button>
         <button
           mat-icon-button
+          matTooltip="Archive exam"
+          aria-label="Archive exam"
+          (click)="archive.emit(exam)"
+        >
+          <mat-icon>archive</mat-icon>
+        </button>
+        <button
+          mat-icon-button
           matTooltip="Delete exam"
           aria-label="Delete exam"
           class="delete"
@@ -298,6 +306,7 @@ export class ExamCardComponent {
   @Input() dueCount = 0;
   @Output() open = new EventEmitter<Exam>();
   @Output() delete = new EventEmitter<Exam>();
+  @Output() archive = new EventEmitter<Exam>();
   @Output() progress = new EventEmitter<Exam>();
   @Output() goal = new EventEmitter<Exam>();
   @Output() examDate = new EventEmitter<Exam>();

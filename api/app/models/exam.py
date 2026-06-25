@@ -3,7 +3,16 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String, Uuid, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Integer,
+    String,
+    Uuid,
+    false,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -48,6 +57,13 @@ class Exam(Base):
     # Optional date and time the user sits the real certification exam.
     certification_exam_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True)
+    )
+
+    # Archived exams are hidden from the dashboard and can no longer start new
+    # sessions, but their history stays in the database so streaks, statistics
+    # and past sessions still account for them.
+    archived: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
     )
 
     sections: Mapped[list["Section"]] = relationship(

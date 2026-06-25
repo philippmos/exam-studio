@@ -56,6 +56,16 @@ export class ApiClient {
     return data.importExam;
   }
 
+  /** Archive or restore an exam directly, to arrange archive-flow tests. */
+  async setExamArchived(id: string, archived: boolean): Promise<void> {
+    await this.gql(
+      `mutation SetArchived($id: UUID!, $archived: Boolean!) {
+        setExamArchived(examId: $id, archived: $archived) { id }
+      }`,
+      { id, archived },
+    );
+  }
+
   /** Cleanup for exams created through the UI (their id is not known upfront). */
   async deleteExamsByName(name: string): Promise<void> {
     const data = await this.gql<{ exams: { id: string; name: string }[] }>(
