@@ -7,6 +7,55 @@ answers tracked in the database.
 * **API** – FastAPI + GraphQL (Strawberry) + SQLAlchemy (async) + Alembic + PostgreSQL
 * **Client** – Angular 19 (standalone, signals) + Angular Material
 
+## Screenshots
+
+A quick visual tour of the app. The screenshots use the bundled sample exam —
+import `exam.json` (Dashboard → **Import exam**) to reproduce it.
+
+### Dashboard
+
+Every certification at a glance: modules, question counts, the scheduled
+certification exam date, daily/weekly study-goal progress and spaced-repetition
+"due for review" badges.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Exam overview & practice modes
+
+| Exam detail — the modules and the launcher | Start exam mode — pick how to practise |
+| --- | --- |
+| ![Exam detail](docs/screenshots/exam-detail.png) | ![Start exam mode dialog](docs/screenshots/start-dialog.png) |
+
+Practise **all questions shuffled**, a **single module**, **only not-yet-correct**
+questions, or the questions whose **spaced-repetition review** is due today.
+
+### Question types
+
+Clicking an option submits it (and persists it in the database), then the answer
+is graded instantly and the explanation plus the Leitner review schedule are
+revealed.
+
+| Single choice | Multiple choice — select all that apply |
+| --- | --- |
+| ![Single-choice question](docs/screenshots/quiz-single-choice.png) | ![Multiple-choice question](docs/screenshots/quiz-multiple-choice.png) |
+
+| Allocation — drag each item into a basket | Allocation — per-item feedback after checking |
+| --- | --- |
+| ![Allocation question](docs/screenshots/quiz-allocation.png) | ![Allocation question, graded](docs/screenshots/quiz-allocation-result.png) |
+
+### Session summary & learning progress
+
+When you finish a run you get a score summary, and each exam has a
+learning-progress dashboard: coverage, mastery and accuracy, the
+mastered / needs-review / not-started breakdown, a study-activity chart and a
+per-module breakdown.
+
+<p align="center">
+  <img src="docs/screenshots/quiz-summary.png" alt="Session summary" width="520">
+</p>
+
+![Learning progress dashboard](docs/screenshots/learning-progress.png)
+
 ```
 exam-studio/
 ├── api/                 # Python GraphQL backend  (see api/README.md)
