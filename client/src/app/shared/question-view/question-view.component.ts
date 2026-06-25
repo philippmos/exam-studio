@@ -1,11 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  EventEmitter,
-  Input,
-  OnChanges,
-  Output,
-  SimpleChanges,
+  computed,
+  input,
+  linkedSignal,
+  output,
 } from '@angular/core';
 import {
   CdkDragDrop,
@@ -25,10 +24,10 @@ import { Allocation, Answer, Question } from '../../core/models';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Question text is imported, trusted content; Angular sanitises innerHTML. -->
-    <div class="question-text" [innerHTML]="question.text"></div>
+    <div class="question-text" [innerHTML]="question().text"></div>
 
-    @if (isAllocation) {
-      @if (!answered) {
+    @if (isAllocation()) {
+      @if (!answered()) {
         <p class="multi-hint">
           <mat-icon>drag_indicator</mat-icon> Drag each item into the basket it
           belongs to.
@@ -39,37 +38,37 @@ import { Allocation, Answer, Question } from '../../core/models';
             <div
               class="dropzone"
               cdkDropList
-              [cdkDropListData]="tray"
+              [cdkDropListData]="tray()"
               (cdkDropListDropped)="drop($event)"
             >
-              @for (item of tray; track item.id) {
+              @for (item of tray(); track item.id) {
                 <div class="chip" cdkDrag>
                   <mat-icon class="grip">drag_indicator</mat-icon>
                   <span class="chip-label">{{ item.text }}</span>
                 </div>
               }
-              @if (tray.length === 0) {
+              @if (tray().length === 0) {
                 <p class="empty-hint">All items placed</p>
               }
             </div>
           </div>
           <div class="baskets">
-            @for (cat of question.categories; track cat.id) {
+            @for (cat of question().categories; track cat.id) {
               <div class="basket">
                 <h4 class="basket-title">{{ cat.label }}</h4>
                 <div
                   class="dropzone"
                   cdkDropList
-                  [cdkDropListData]="basketItems[cat.id]"
+                  [cdkDropListData]="basketItems()[cat.id]"
                   (cdkDropListDropped)="drop($event)"
                 >
-                  @for (item of basketItems[cat.id]; track item.id) {
+                  @for (item of basketItems()[cat.id]; track item.id) {
                     <div class="chip" cdkDrag>
                       <mat-icon class="grip">drag_indicator</mat-icon>
                       <span class="chip-label">{{ item.text }}</span>
                     </div>
                   }
-                  @if (basketItems[cat.id].length === 0) {
+                  @if (basketItems()[cat.id].length === 0) {
                     <p class="empty-hint">Drop items here</p>
                   }
                 </div>
@@ -80,7 +79,7 @@ import { Allocation, Answer, Question } from '../../core/models';
         <div class="submit-row">
           <button
             mat-flat-button
-            [disabled]="tray.length > 0"
+            [disabled]="tray().length > 0"
             (click)="submitAllocation()"
           >
             Check answer
@@ -90,7 +89,7 @@ import { Allocation, Answer, Question } from '../../core/models';
         <!-- Answered: show each placement with right/wrong feedback. -->
         <div class="alloc">
           <div class="baskets">
-            @for (cat of question.categories; track cat.id) {
+            @for (cat of question().categories; track cat.id) {
               <div class="basket">
                 <h4 class="basket-title">{{ cat.label }}</h4>
                 <div class="dropzone static">
@@ -123,46 +122,46 @@ import { Allocation, Answer, Question } from '../../core/models';
         </div>
       }
     } @else {
-      @if (isMultiple && !answered) {
+      @if (isMultiple() && !answered()) {
         <p class="multi-hint">
           <mat-icon>checklist</mat-icon> Select all answers that apply.
         </p>
       }
 
       <div class="options">
-        @for (answer of question.answers; track answer.id; let i = $index) {
+        @for (answer of question().answers; track answer.id; let i = $index) {
           <button
             type="button"
             class="option"
-            [class.selected]="!answered && isSelected(answer)"
-            [class.correct]="answered && isCorrectAnswer(answer)"
+            [class.selected]="!answered() && isSelected(answer)"
+            [class.correct]="answered() && isCorrectAnswer(answer)"
             [class.wrong]="
-              answered && isSelected(answer) && !isCorrectAnswer(answer)
+              answered() && isSelected(answer) && !isCorrectAnswer(answer)
             "
-            [class.muted]="answered && !isHighlighted(answer)"
-            [disabled]="answered"
+            [class.muted]="answered() && !isHighlighted(answer)"
+            [disabled]="answered()"
             (click)="onOptionClick(answer)"
           >
             <span class="letter">{{ letters[i] }}</span>
             <span class="label">{{ answer.text }}</span>
-            @if (answered && isCorrectAnswer(answer)) {
+            @if (answered() && isCorrectAnswer(answer)) {
               <mat-icon class="state-icon">check_circle</mat-icon>
             } @else if (
-              answered && isSelected(answer) && !isCorrectAnswer(answer)
+              answered() && isSelected(answer) && !isCorrectAnswer(answer)
             ) {
               <mat-icon class="state-icon">cancel</mat-icon>
-            } @else if (!answered && isSelected(answer)) {
+            } @else if (!answered() && isSelected(answer)) {
               <mat-icon class="state-icon">check</mat-icon>
             }
           </button>
         }
       </div>
 
-      @if (isMultiple && !answered) {
+      @if (isMultiple() && !answered()) {
         <div class="submit-row">
           <button
             mat-flat-button
-            [disabled]="pending.length === 0"
+            [disabled]="pending().length === 0"
             (click)="submitPending()"
           >
             Check answer
@@ -171,14 +170,17 @@ import { Allocation, Answer, Question } from '../../core/models';
       }
     }
 
-    @if (answered && question.explanation) {
+    @if (answered() && question().explanation) {
       <div class="explanation">
         <div class="explanation-head">
           <mat-icon>lightbulb</mat-icon>
           <span>Explanation</span>
         </div>
         <!-- Imported, trusted content; Angular sanitises innerHTML. -->
-        <div class="explanation-body" [innerHTML]="question.explanation"></div>
+        <div
+          class="explanation-body"
+          [innerHTML]="question().explanation"
+        ></div>
       </div>
     }
   `,
@@ -475,73 +477,86 @@ import { Allocation, Answer, Question } from '../../core/models';
     `,
   ],
 })
-export class QuestionViewComponent implements OnChanges {
-  @Input({ required: true }) question!: Question;
-  @Input() answered = false;
-  @Input() selectedAnswerIds: string[] = [];
-  @Input() correctAnswerIds: string[] | null = null;
+export class QuestionViewComponent {
+  readonly question = input.required<Question>();
+  readonly answered = input(false);
+  readonly selectedAnswerIds = input<string[]>([]);
+  readonly correctAnswerIds = input<string[] | null>(null);
   /** Allocation placements the user made (item -> basket); for review/resume. */
-  @Input() selectedAllocations: Allocation[] = [];
+  readonly selectedAllocations = input<Allocation[]>([]);
   /** Allocation solution (item -> correct basket); revealed after answering. */
-  @Input() correctAllocations: Allocation[] | null = null;
+  readonly correctAllocations = input<Allocation[] | null>(null);
   /** Emits the chosen answer ids: one for single choice, several for multiple. */
-  @Output() submitAnswers = new EventEmitter<string[]>();
+  readonly submitAnswers = output<string[]>();
   /** Emits the placements of an allocation question once every item is sorted. */
-  @Output() submitAllocations = new EventEmitter<Allocation[]>();
+  readonly submitAllocations = output<Allocation[]>();
 
   readonly letters = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-  /** Local multiple-choice selection, before it is submitted. */
-  pending: string[] = [];
+  readonly isMultiple = computed(
+    () => this.question().questionType === 'MULTIPLE_CHOICE',
+  );
+  readonly isAllocation = computed(
+    () => this.question().questionType === 'ALLOCATION',
+  );
 
-  /** Allocation edit state: unplaced items and items per basket (categoryId). */
-  tray: Answer[] = [];
-  basketItems: Record<string, Answer[]> = {};
+  /**
+   * Local multiple-choice selection before submit. A linkedSignal so it resets
+   * to empty whenever a new question is bound, yet stays locally writable.
+   */
+  readonly pending = linkedSignal<Question, string[]>({
+    source: this.question,
+    computation: () => [],
+  });
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['question']) {
-      this.pending = [];
-      this.setupAllocation();
+  /** Unplaced allocation items; resets to all answers when the question changes. */
+  readonly tray = linkedSignal<Answer[]>(() =>
+    this.isAllocation() ? [...this.question().answers] : [],
+  );
+
+  /** Allocation items per basket (categoryId); resets when the question changes. */
+  readonly basketItems = linkedSignal<Record<string, Answer[]>>(() => {
+    const baskets: Record<string, Answer[]> = {};
+    if (this.isAllocation()) {
+      for (const category of this.question().categories) {
+        baskets[category.id] = [];
+      }
     }
-  }
-
-  get isMultiple(): boolean {
-    return this.question.questionType === 'MULTIPLE_CHOICE';
-  }
-
-  get isAllocation(): boolean {
-    return this.question.questionType === 'ALLOCATION';
-  }
+    return baskets;
+  });
 
   // ---- Choice questions ---------------------------------------------------
 
   onOptionClick(answer: Answer): void {
-    if (this.answered) {
+    if (this.answered()) {
       return;
     }
-    if (!this.isMultiple) {
+    if (!this.isMultiple()) {
       this.submitAnswers.emit([answer.id]);
       return;
     }
-    this.pending = this.pending.includes(answer.id)
-      ? this.pending.filter((id) => id !== answer.id)
-      : [...this.pending, answer.id];
+    this.pending.update((pending) =>
+      pending.includes(answer.id)
+        ? pending.filter((id) => id !== answer.id)
+        : [...pending, answer.id],
+    );
   }
 
   submitPending(): void {
-    if (this.pending.length > 0) {
-      this.submitAnswers.emit(this.pending);
+    const pending = this.pending();
+    if (pending.length > 0) {
+      this.submitAnswers.emit(pending);
     }
   }
 
   isSelected(answer: Answer): boolean {
-    return this.answered
-      ? this.selectedAnswerIds.includes(answer.id)
-      : this.pending.includes(answer.id);
+    return this.answered()
+      ? this.selectedAnswerIds().includes(answer.id)
+      : this.pending().includes(answer.id);
   }
 
   isCorrectAnswer(answer: Answer): boolean {
-    return this.correctAnswerIds?.includes(answer.id) ?? false;
+    return this.correctAnswerIds()?.includes(answer.id) ?? false;
   }
 
   isHighlighted(answer: Answer): boolean {
@@ -550,23 +565,8 @@ export class QuestionViewComponent implements OnChanges {
 
   // ---- Allocation questions ----------------------------------------------
 
-  /** Reset the drag state so a fresh allocation question starts in the tray. */
-  private setupAllocation(): void {
-    this.basketItems = {};
-    if (!this.isAllocation) {
-      this.tray = [];
-      return;
-    }
-    for (const category of this.question.categories) {
-      this.basketItems[category.id] = [];
-    }
-    // Edit mode begins with every item unplaced; the answered view renders
-    // straight from the selectedAllocations/correctAllocations inputs instead.
-    this.tray = [...this.question.answers];
-  }
-
   drop(event: CdkDragDrop<Answer[]>): void {
-    if (this.answered) {
+    if (this.answered()) {
       return;
     }
     if (event.previousContainer === event.container) {
@@ -583,15 +583,20 @@ export class QuestionViewComponent implements OnChanges {
         event.currentIndex,
       );
     }
+    // CdkDragDrop mutates the bound arrays in place; re-set the signals to fresh
+    // references so zoneless change detection re-renders the lists.
+    this.tray.set([...this.tray()]);
+    this.basketItems.set({ ...this.basketItems() });
   }
 
   submitAllocation(): void {
-    if (this.tray.length > 0) {
+    if (this.tray().length > 0) {
       return;
     }
+    const baskets = this.basketItems();
     const allocations: Allocation[] = [];
-    for (const category of this.question.categories) {
-      for (const item of this.basketItems[category.id]) {
+    for (const category of this.question().categories) {
+      for (const item of baskets[category.id]) {
         allocations.push({ answerId: item.id, categoryId: category.id });
       }
     }
@@ -600,15 +605,15 @@ export class QuestionViewComponent implements OnChanges {
 
   /** Items the user dropped into a basket (answered view, from the inputs). */
   itemsInBasket(categoryId: string): Answer[] {
-    const ids = this.selectedAllocations
+    const ids = this.selectedAllocations()
       .filter((a) => a.categoryId === categoryId)
       .map((a) => a.answerId);
-    return this.question.answers.filter((answer) => ids.includes(answer.id));
+    return this.question().answers.filter((answer) => ids.includes(answer.id));
   }
 
   correctCategoryId(answerId: string): string | null {
     return (
-      this.correctAllocations?.find((a) => a.answerId === answerId)
+      this.correctAllocations()?.find((a) => a.answerId === answerId)
         ?.categoryId ?? null
     );
   }
@@ -619,7 +624,7 @@ export class QuestionViewComponent implements OnChanges {
 
   categoryLabel(categoryId: string | null): string {
     return (
-      this.question.categories.find((c) => c.id === categoryId)?.label ?? ''
+      this.question().categories.find((c) => c.id === categoryId)?.label ?? ''
     );
   }
 }

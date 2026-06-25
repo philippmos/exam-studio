@@ -1,9 +1,9 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  EventEmitter,
   Input,
-  Output,
+  input,
+  output,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
@@ -53,7 +53,7 @@ import { Exam, StudyGoalProgress } from '../../core/models';
             <span>No exam date scheduled yet</span>
           }
         </p>
-        @if (goalProgress; as gp) {
+        @if (goalProgress(); as gp) {
           <div class="goal" [class.done]="gp.answered >= gp.target">
             <div class="goal-head">
               <span class="goal-label">
@@ -291,15 +291,15 @@ import { Exam, StudyGoalProgress } from '../../core/models';
 export class ExamCardComponent {
   @Input({ required: true }) exam!: Exam;
   /** Current-period goal progress; hidden when the exam has no goal. */
-  @Input() goalProgress: StudyGoalProgress | null = null;
+  readonly goalProgress = input<StudyGoalProgress | null>(null);
   /** Questions due for spaced-repetition review; hides the chip when zero. */
   @Input() dueCount = 0;
-  @Output() open = new EventEmitter<Exam>();
-  @Output() archive = new EventEmitter<Exam>();
-  @Output() viewProgress = new EventEmitter<Exam>();
-  @Output() goal = new EventEmitter<Exam>();
-  @Output() examDate = new EventEmitter<Exam>();
-  @Output() review = new EventEmitter<Exam>();
+  readonly open = output<Exam>();
+  readonly archive = output<Exam>();
+  readonly viewProgress = output<Exam>();
+  readonly goal = output<Exam>();
+  readonly examDate = output<Exam>();
+  readonly review = output<Exam>();
 
   goalPct(gp: StudyGoalProgress): number {
     return Math.min(100, (gp.answered / gp.target) * 100);

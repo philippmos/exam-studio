@@ -2,11 +2,12 @@ import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
-  OnInit,
+  computed,
+  effect,
   inject,
   input,
-  signal,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -15,7 +16,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
-import { ExamStats, StudyDayStats } from '../../core/models';
 import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
 import { StudyHistoryChartComponent } from '../../shared/study-history-chart/study-history-chart.component';
 
@@ -340,32 +340,33 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
     `,
   ],
 })
-export class ExamProgressComponent implements OnInit {
+export class ExamProgressComponent {
   private readonly examService = inject(ExamService);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly id = input.required<string>();
 
-  readonly stats = signal<ExamStats | null>(null);
-  readonly history = signal<StudyDayStats[]>([]);
-  readonly loading = signal(true);
+  private readonly statsResource = rxResource({
+    params: () => this.id(),
+    stream: ({ params: id }) => this.examService.getExamStats(id),
+  });
+  // The chart is supplementary: on error it simply stays hidden, so no extra
+  // snackbar is stacked on top of the stats one.
+  private readonly historyResource = rxResource({
+    params: () => this.id(),
+    stream: ({ params: id }) => this.examService.getStudyHistory(id),
+  });
 
-  ngOnInit(): void {
-    this.examService.getExamStats(this.id()).subscribe({
-      next: (stats) => {
-        this.stats.set(stats);
-        this.loading.set(false);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
-    });
-    // The chart is supplementary: on error just leave it hidden instead of
-    // stacking a second snackbar on top of the stats one.
-    this.examService.getStudyHistory(this.id()).subscribe({
-      next: (history) => this.history.set(history),
-      error: () => undefined,
+  readonly stats = this.statsResource.value;
+  readonly loading = this.statsResource.isLoading;
+  readonly history = computed(() => this.historyResource.value() ?? []);
+
+  constructor() {
+    effect(() => {
+      const error = this.statsResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 

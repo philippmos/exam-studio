@@ -1,11 +1,13 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  OnInit,
+  computed,
+  effect,
   inject,
   input,
-  signal,
+  linkedSignal,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -126,7 +128,7 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
     `,
   ],
 })
-export class ExamDetailComponent implements OnInit {
+export class ExamDetailComponent {
   private readonly examService = inject(ExamService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
@@ -135,38 +137,37 @@ export class ExamDetailComponent implements OnInit {
   /** Bound from the `:id` route param via withComponentInputBinding(). */
   readonly id = input.required<string>();
 
-  readonly exam = signal<Exam | null>(null);
-  readonly dueCount = signal(0);
-  readonly loading = signal(true);
+  private readonly examResource = rxResource({
+    params: () => this.id(),
+    stream: ({ params: id }) => this.examService.getExam(id),
+  });
+  // The review badge is supplementary: on error it just stays at zero.
+  private readonly dueResource = rxResource({
+    params: () => this.id(),
+    stream: ({ params: id }) => this.examService.getReviewDue(id),
+  });
 
-  ngOnInit(): void {
-    this.load();
-  }
+  // A linkedSignal over the resource so editGoal can patch the exam locally.
+  readonly exam = linkedSignal(() => this.examResource.value() ?? null);
+  readonly loading = this.examResource.isLoading;
+  readonly dueCount = computed(
+    () => this.dueResource.value()?.[0]?.dueCount ?? 0,
+  );
 
-  private load(): void {
-    this.examService.getExam(this.id()).subscribe({
-      next: (exam) => {
-        // Archived exams can't be practised: send the user back to the
-        // dashboard even when the detail URL is opened directly.
-        if (exam?.archived) {
-          this.snackBar.open('This exam is archived.', 'OK', {
-            duration: 4000,
-          });
-          this.router.navigate(['/']);
-          return;
-        }
-        this.exam.set(exam);
-        this.loading.set(false);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
+  constructor() {
+    // Archived exams can't be practised: bounce back to the dashboard even when
+    // the detail URL is opened directly.
+    effect(() => {
+      if (this.examResource.value()?.archived) {
+        this.snackBar.open('This exam is archived.', 'OK', { duration: 4000 });
+        this.router.navigate(['/']);
+      }
     });
-    // The review badge is supplementary: on error just leave it at zero.
-    this.examService.getReviewDue(this.id()).subscribe({
-      next: (due) => this.dueCount.set(due[0]?.dueCount ?? 0),
-      error: () => undefined,
+    effect(() => {
+      const error = this.examResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 

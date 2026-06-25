@@ -1,9 +1,11 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  effect,
   inject,
-  signal,
+  linkedSignal,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -190,24 +192,20 @@ export class ArchiveComponent {
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
 
-  readonly exams = signal<Exam[]>([]);
-  readonly loading = signal(true);
+  private readonly examsResource = rxResource({
+    stream: () => this.examService.getArchivedExams(),
+  });
+
+  // A linkedSignal over the resource so restore/delete can drop a card locally.
+  readonly exams = linkedSignal(() => this.examsResource.value() ?? []);
+  readonly loading = this.examsResource.isLoading;
 
   constructor() {
-    this.load();
-  }
-
-  private load(): void {
-    this.loading.set(true);
-    this.examService.getArchivedExams().subscribe({
-      next: (exams) => {
-        this.exams.set(exams);
-        this.loading.set(false);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
+    effect(() => {
+      const error = this.examsResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 

@@ -1,12 +1,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  OnInit,
   computed,
+  effect,
   inject,
   input,
+  linkedSignal,
   signal,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -278,7 +280,7 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
     `,
   ],
 })
-export class QuizComponent implements OnInit {
+export class QuizComponent {
   private readonly examService = inject(ExamService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
@@ -287,10 +289,28 @@ export class QuizComponent implements OnInit {
   /** Session id, bound from the `:id` route param. */
   readonly id = input.required<string>();
 
-  readonly session = signal<ExamSession | null>(null);
-  readonly items = signal<SessionItem[]>([]);
-  readonly index = signal(0);
-  readonly loading = signal(true);
+  private readonly sessionResource = rxResource({
+    params: () => this.id(),
+    stream: ({ params: id }) => this.examService.getSession(id),
+  });
+
+  readonly session = computed(() => this.sessionResource.value() ?? null);
+  readonly loading = this.sessionResource.isLoading;
+
+  // Local, mutable copy of the items seeded from the loaded session; submitting
+  // an answer patches these in place as the user works through the quiz.
+  readonly items = linkedSignal<SessionItem[]>(
+    () => this.sessionResource.value()?.items ?? [],
+  );
+
+  /** Resume at the first unanswered question whenever the session loads. */
+  readonly index = linkedSignal<number>(() => {
+    const session = this.sessionResource.value();
+    const firstUnanswered =
+      session?.items.findIndex((i) => i.selectedAnswerIds.length === 0) ?? -1;
+    return firstUnanswered === -1 ? 0 : firstUnanswered;
+  });
+
   readonly finished = signal(false);
 
   /** Per-item Leitner outcome from this run's answers (item id -> schedule). */
@@ -319,29 +339,12 @@ export class QuizComponent implements OnInit {
     return total ? Math.round((this.correctCount() / total) * 100) : 0;
   });
 
-  ngOnInit(): void {
-    this.load();
-  }
-
-  private load(): void {
-    this.examService.getSession(this.id()).subscribe({
-      next: (session) => {
-        this.loading.set(false);
-        if (!session) {
-          return;
-        }
-        this.session.set(session);
-        this.items.set(session.items);
-        // Resume at the first unanswered question.
-        const firstUnanswered = session.items.findIndex(
-          (i) => i.selectedAnswerIds.length === 0,
-        );
-        this.index.set(firstUnanswered === -1 ? 0 : firstUnanswered);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
+  constructor() {
+    effect(() => {
+      const error = this.sessionResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 

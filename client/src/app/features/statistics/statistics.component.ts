@@ -3,9 +3,10 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
-  signal,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -14,7 +15,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
-import { StudyDayStats, StudyStreak } from '../../core/models';
 import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
 import { StreakCardComponent } from '../../shared/streak-card/streak-card.component';
 import { StudyHistoryChartComponent } from '../../shared/study-history-chart/study-history-chart.component';
@@ -133,9 +133,17 @@ export class StatisticsComponent {
   private readonly examService = inject(ExamService);
   private readonly snackBar = inject(MatSnackBar);
 
-  readonly history = signal<StudyDayStats[]>([]);
-  readonly streak = signal<StudyStreak | null>(null);
-  readonly loading = signal(true);
+  private readonly historyResource = rxResource({
+    stream: () => this.examService.getStudyHistory(),
+  });
+  // The streak banner is supplementary: on error it simply stays hidden.
+  private readonly streakResource = rxResource({
+    stream: () => this.examService.getStudyStreak(),
+  });
+
+  readonly history = computed(() => this.historyResource.value() ?? []);
+  readonly streak = this.streakResource.value;
+  readonly loading = this.historyResource.isLoading;
 
   readonly summary = computed(() => {
     const days = this.history();
@@ -152,20 +160,11 @@ export class StatisticsComponent {
   });
 
   constructor() {
-    this.examService.getStudyHistory().subscribe({
-      next: (history) => {
-        this.history.set(history);
-        this.loading.set(false);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
-    });
-    // The streak banner is supplementary: on error just leave it hidden.
-    this.examService.getStudyStreak().subscribe({
-      next: (streak) => this.streak.set(streak),
-      error: () => undefined,
+    effect(() => {
+      const error = this.historyResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 }

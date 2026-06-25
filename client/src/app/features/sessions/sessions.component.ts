@@ -2,9 +2,11 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
-  signal,
+  linkedSignal,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -223,8 +225,14 @@ export class SessionsComponent {
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
 
-  readonly sessions = signal<SessionOverview[]>([]);
-  readonly loading = signal(true);
+  private readonly sessionsResource = rxResource({
+    stream: () => this.examService.getSessions(),
+  });
+
+  // A linkedSignal over the resource so deletes can optimistically drop a row
+  // locally, while a reload still refreshes from the server.
+  readonly sessions = linkedSignal(() => this.sessionsResource.value() ?? []);
+  readonly loading = this.sessionsResource.isLoading;
 
   readonly openSessions = computed(() =>
     this.sessions().filter((s) => s.finishedAt === null),
@@ -234,15 +242,11 @@ export class SessionsComponent {
   );
 
   constructor() {
-    this.examService.getSessions().subscribe({
-      next: (sessions) => {
-        this.sessions.set(sessions);
-        this.loading.set(false);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
+    effect(() => {
+      const error = this.sessionsResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 
