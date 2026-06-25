@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -21,8 +26,8 @@ import { Exam } from '../../core/models';
     <h2 mat-dialog-title>Import exam</h2>
     <mat-dialog-content>
       <p class="hint">
-        Select an exam JSON file (e.g. <code>exam.json</code>). A new
-        exam will be created from its sections and questions.
+        Select an exam JSON file (e.g. <code>exam.json</code>). A new exam will
+        be created from its sections and questions.
       </p>
 
       <button mat-stroked-button type="button" (click)="fileInput.click()">
@@ -79,7 +84,9 @@ import { Exam } from '../../core/models';
 })
 export class ImportDialogComponent {
   private readonly examService = inject(ExamService);
-  private readonly dialogRef = inject(MatDialogRef<ImportDialogComponent, Exam>);
+  private readonly dialogRef = inject(
+    MatDialogRef<ImportDialogComponent, Exam>,
+  );
 
   readonly fileName = signal<string | null>(null);
   readonly fileContent = signal<string | null>(null);

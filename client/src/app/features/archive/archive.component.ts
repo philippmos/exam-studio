@@ -45,7 +45,9 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
       } @else if (exams().length === 0) {
         <div class="empty-state">
           <div class="empty-icon"><mat-icon>inventory_2</mat-icon></div>
-          <p>No archived exams. Archive one from the dashboard to tuck it away.</p>
+          <p>
+            No archived exams. Archive one from the dashboard to tuck it away.
+          </p>
           <button mat-stroked-button (click)="goDashboard()">
             <mat-icon>grid_view</mat-icon> Browse exams
           </button>
@@ -214,7 +216,9 @@ export class ArchiveComponent {
     this.examService.setExamArchived(exam.id, false).subscribe({
       next: () => {
         this.exams.update((list) => list.filter((e) => e.id !== exam.id));
-        this.snackBar.open(`"${exam.name}" restored.`, 'OK', { duration: 3000 });
+        this.snackBar.open(`"${exam.name}" restored.`, 'OK', {
+          duration: 3000,
+        });
       },
       error: (err: Error) =>
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),

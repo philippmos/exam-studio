@@ -1,6 +1,16 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterOutlet,
+} from '@angular/router';
 import { filter } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -17,7 +27,11 @@ import { MatIconModule } from '@angular/material/icon';
           <span>Exam Studio</span>
         </a>
         <span class="spacer"></span>
-        <a routerLink="/" class="nav-link" [class.active]="section() === 'exams'">
+        <a
+          routerLink="/"
+          class="nav-link"
+          [class.active]="section() === 'exams'"
+        >
           <mat-icon>grid_view</mat-icon>
           <span>Exams</span>
         </a>

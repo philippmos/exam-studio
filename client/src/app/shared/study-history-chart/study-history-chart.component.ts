@@ -226,10 +226,16 @@ export class StudyHistoryChartComponent {
     }
     const tickEvery = Math.max(1, Math.ceil(days.length / 8));
     return days.map((day, i) => {
-      const stats = byDay.get(day) ?? { day, total: 0, correct: 0, incorrect: 0 };
+      const stats = byDay.get(day) ?? {
+        day,
+        total: 0,
+        correct: 0,
+        incorrect: 0,
+      };
       return {
         ...stats,
-        tick: i % tickEvery === 0 ? formatDate(day, 'MMM d', this.locale) : null,
+        tick:
+          i % tickEvery === 0 ? formatDate(day, 'MMM d', this.locale) : null,
         tooltip:
           `${formatDate(day, 'mediumDate', this.locale)}: ` +
           `${stats.total} answered · ${stats.correct} correct · ` +

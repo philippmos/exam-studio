@@ -143,24 +143,25 @@ export class ExamService {
   /** Archived exams, for the archive page. */
   getArchivedExams(): Observable<Exam[]> {
     return this.graphql
-      .request<{ archivedExams: Exam[] }>(
-        `query { archivedExams { ${EXAM_FIELDS} } }`,
-      )
+      .request<{
+        archivedExams: Exam[];
+      }>(`query { archivedExams { ${EXAM_FIELDS} } }`)
       .pipe(map((data) => data.archivedExams));
   }
 
   getExam(id: string): Observable<Exam | null> {
     return this.graphql
-      .request<{ exam: Exam | null }>(
-        `query Exam($id: UUID!) { exam(id: $id) { ${EXAM_FIELDS} } }`,
-        { id },
-      )
+      .request<{
+        exam: Exam | null;
+      }>(`query Exam($id: UUID!) { exam(id: $id) { ${EXAM_FIELDS} } }`, { id })
       .pipe(map((data) => data.exam));
   }
 
   getSession(id: string): Observable<ExamSession | null> {
     return this.graphql
-      .request<{ session: ExamSession | null }>(
+      .request<{
+        session: ExamSession | null;
+      }>(
         `query Session($id: UUID!) { session(id: $id) { ${SESSION_FIELDS} } }`,
         { id },
       )
@@ -180,7 +181,9 @@ export class ExamService {
 
   getExamStats(examId: string): Observable<ExamStats | null> {
     return this.graphql
-      .request<{ examStats: ExamStats | null }>(
+      .request<{
+        examStats: ExamStats | null;
+      }>(
         `query Stats($examId: UUID!) { examStats(examId: $examId) { ${EXAM_STATS_FIELDS} } }`,
         { examId },
       )
@@ -366,10 +369,9 @@ export class ExamService {
 
   deleteExam(id: string): Observable<boolean> {
     return this.graphql
-      .request<{ deleteExam: boolean }>(
-        `mutation Delete($id: UUID!) { deleteExam(id: $id) }`,
-        { id },
-      )
+      .request<{
+        deleteExam: boolean;
+      }>(`mutation Delete($id: UUID!) { deleteExam(id: $id) }`, { id })
       .pipe(map((data) => data.deleteExam));
   }
 
@@ -460,10 +462,11 @@ export class ExamService {
 
   deleteSession(id: string): Observable<boolean> {
     return this.graphql
-      .request<{ deleteSession: boolean }>(
-        `mutation DeleteSession($id: UUID!) { deleteSession(id: $id) }`,
-        { id },
-      )
+      .request<{
+        deleteSession: boolean;
+      }>(`mutation DeleteSession($id: UUID!) { deleteSession(id: $id) }`, {
+        id,
+      })
       .pipe(map((data) => data.deleteSession));
   }
 

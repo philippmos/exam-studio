@@ -38,9 +38,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
       <header class="page-header">
         <div>
           <h1>Sessions</h1>
-          <p class="subtitle">
-            Resume open sessions or review finished ones.
-          </p>
+          <p class="subtitle">Resume open sessions or review finished ones.</p>
         </div>
       </header>
 
@@ -64,15 +62,12 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
                   <div class="info">
                     <span class="exam-name">{{ s.examName }}</span>
                     <span class="meta">
-                      {{ modeLabel(s) }} ·
-                      started {{ s.createdAt | date: 'medium' }}
+                      {{ modeLabel(s) }} · started
+                      {{ s.createdAt | date: 'medium' }}
                     </span>
                   </div>
                   <div class="progress-block">
-                    <mat-progress-bar
-                      mode="determinate"
-                      [value]="percent(s)"
-                    />
+                    <mat-progress-bar mode="determinate" [value]="percent(s)" />
                     <span class="progress-label">
                       {{ s.answered }} / {{ s.total }} answered
                     </span>
@@ -106,8 +101,8 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
                   <div class="info">
                     <span class="exam-name">{{ s.examName }}</span>
                     <span class="meta">
-                      {{ modeLabel(s) }} ·
-                      finished {{ s.finishedAt | date: 'medium' }}
+                      {{ modeLabel(s) }} · finished
+                      {{ s.finishedAt | date: 'medium' }}
                     </span>
                   </div>
                   <div class="progress-block">

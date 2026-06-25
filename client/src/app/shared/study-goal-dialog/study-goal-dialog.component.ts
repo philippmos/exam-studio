@@ -79,7 +79,9 @@ export type StudyGoalDialogResult = StudyGoal | null | undefined;
       >
         <mat-radio-button value="DAILY">
           <span class="period-title">Daily</span>
-          <span class="period-desc">The goal resets every day at midnight.</span>
+          <span class="period-desc"
+            >The goal resets every day at midnight.</span
+          >
         </mat-radio-button>
 
         <mat-radio-button value="WEEKLY">
@@ -240,8 +242,7 @@ export class StudyGoalDialogComponent {
 
   /** Whether the target is computed from the exam date or typed by hand. */
   readonly mode = signal<StudyGoalSource>(
-    this.data.exam.studyGoal?.source ??
-      (this.hasExamDate ? 'AUTO' : 'MANUAL'),
+    this.data.exam.studyGoal?.source ?? (this.hasExamDate ? 'AUTO' : 'MANUAL'),
   );
   readonly period = signal<GoalPeriod>(
     this.data.exam.studyGoal?.period ?? 'DAILY',
@@ -272,10 +273,11 @@ export class StudyGoalDialogComponent {
     exam: Exam,
   ): Observable<StudyGoalDialogResult> {
     return dialog
-      .open<StudyGoalDialogComponent, DialogData, StudyGoalDialogResult>(
+      .open<
         StudyGoalDialogComponent,
-        { data: { exam }, width: '460px' },
-      )
+        DialogData,
+        StudyGoalDialogResult
+      >(StudyGoalDialogComponent, { data: { exam }, width: '460px' })
       .afterClosed();
   }
 

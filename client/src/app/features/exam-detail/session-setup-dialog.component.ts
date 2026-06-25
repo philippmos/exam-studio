@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import {
   MAT_DIALOG_DATA,
   MatDialogModule,
@@ -42,7 +47,9 @@ interface DialogData {
       >
         <mat-radio-button value="ALL_RANDOM">
           <span class="mode-title">All questions, shuffled</span>
-          <span class="mode-desc">Go through the whole exam in random order.</span>
+          <span class="mode-desc"
+            >Go through the whole exam in random order.</span
+          >
         </mat-radio-button>
 
         <mat-radio-button value="BY_SECTION">

@@ -101,7 +101,9 @@ import { Allocation, Answer, Question } from '../../core/models';
                       [class.wrong]="!isItemCorrect(item.id, cat.id)"
                     >
                       <mat-icon class="state-icon">{{
-                        isItemCorrect(item.id, cat.id) ? 'check_circle' : 'cancel'
+                        isItemCorrect(item.id, cat.id)
+                          ? 'check_circle'
+                          : 'cancel'
                       }}</mat-icon>
                       <span class="chip-label">{{ item.text }}</span>
                       @if (!isItemCorrect(item.id, cat.id)) {
@@ -234,7 +236,11 @@ import { Allocation, Answer, Question } from '../../core/models';
       }
       .option:not(:disabled):hover {
         border-color: var(--mat-sys-primary);
-        background: color-mix(in srgb, var(--mat-sys-primary) 4%, var(--mat-sys-surface));
+        background: color-mix(
+          in srgb,
+          var(--mat-sys-primary) 4%,
+          var(--mat-sys-surface)
+        );
       }
       .option:focus-visible {
         outline: 2px solid var(--mat-sys-primary);
@@ -264,7 +270,11 @@ import { Allocation, Answer, Question } from '../../core/models';
       }
       .option.selected {
         border-color: var(--mat-sys-primary);
-        background: color-mix(in srgb, var(--mat-sys-primary) 6%, var(--mat-sys-surface));
+        background: color-mix(
+          in srgb,
+          var(--mat-sys-primary) 6%,
+          var(--mat-sys-surface)
+        );
       }
       .option.selected .letter {
         background: var(--mat-sys-primary);
@@ -377,12 +387,18 @@ import { Allocation, Answer, Question } from '../../core/models';
           color-mix(in srgb, var(--mat-sys-outline-variant) 70%, transparent);
         border-radius: 12px;
         background: var(--mat-sys-surface-container-low);
-        transition: border-color 0.15s, background 0.15s;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
       }
       .dropzone.cdk-drop-list-receiving,
       .dropzone.cdk-drop-list-dragging {
         border-color: var(--mat-sys-primary);
-        background: color-mix(in srgb, var(--mat-sys-primary) 5%, var(--mat-sys-surface));
+        background: color-mix(
+          in srgb,
+          var(--mat-sys-primary) 5%,
+          var(--mat-sys-surface)
+        );
       }
       .dropzone.static {
         border-style: solid;
@@ -592,8 +608,8 @@ export class QuestionViewComponent implements OnChanges {
 
   correctCategoryId(answerId: string): string | null {
     return (
-      this.correctAllocations?.find((a) => a.answerId === answerId)?.categoryId ??
-      null
+      this.correctAllocations?.find((a) => a.answerId === answerId)
+        ?.categoryId ?? null
     );
   }
 

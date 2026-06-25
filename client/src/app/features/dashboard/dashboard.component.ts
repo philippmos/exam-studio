@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,7 +12,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
-import { Exam, ReviewDue, StudyGoalProgress, StudyStreak } from '../../core/models';
+import {
+  Exam,
+  ReviewDue,
+  StudyGoalProgress,
+  StudyStreak,
+} from '../../core/models';
 import { ExamCardComponent } from '../../shared/exam-card/exam-card.component';
 import { StreakCardComponent } from '../../shared/streak-card/streak-card.component';
 import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
@@ -58,7 +68,7 @@ import { ImportDialogComponent } from './import-dialog.component';
               [goalProgress]="goalFor(exam.id)"
               [dueCount]="dueFor(exam.id)"
               (open)="openExam($event)"
-              (progress)="openProgress($event)"
+              (viewProgress)="openProgress($event)"
               (goal)="editGoal($event)"
               (examDate)="editExamDate($event)"
               (review)="startReview($event)"

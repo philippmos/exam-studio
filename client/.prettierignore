@@ -1,0 +1,11 @@
+# Build output & caches
+dist/
+.angular/
+coverage/
+node_modules/
+
+# Generated / vendored
+package-lock.json
+
+# The e2e suite is a separate sub-project with its own tooling
+e2e/

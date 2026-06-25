@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   MAT_DIALOG_DATA,
@@ -112,10 +117,11 @@ export class ExamDateDialogComponent {
   /** Opens the dialog for an exam; see {@link ExamDateDialogResult}. */
   static open(dialog: MatDialog, exam: Exam): Observable<ExamDateDialogResult> {
     return dialog
-      .open<ExamDateDialogComponent, DialogData, ExamDateDialogResult>(
+      .open<
         ExamDateDialogComponent,
-        { data: { exam }, width: '460px' },
-      )
+        DialogData,
+        ExamDateDialogResult
+      >(ExamDateDialogComponent, { data: { exam }, width: '460px' })
       .afterClosed();
   }
 

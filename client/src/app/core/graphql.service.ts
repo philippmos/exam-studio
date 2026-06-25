@@ -17,7 +17,10 @@ interface GraphqlResponse<T> {
 export class GraphqlService {
   private readonly http = inject(HttpClient);
 
-  request<T>(query: string, variables?: Record<string, unknown>): Observable<T> {
+  request<T>(
+    query: string,
+    variables?: Record<string, unknown>,
+  ): Observable<T> {
     return this.http
       .post<GraphqlResponse<T>>(environment.graphqlUrl, { query, variables })
       .pipe(

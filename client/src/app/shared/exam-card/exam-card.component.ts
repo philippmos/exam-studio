@@ -68,7 +68,9 @@ import { Exam, StudyGoalProgress } from '../../core/models';
                   </span>
                 }
               </span>
-              <span class="goal-count">{{ gp.answered }} / {{ gp.target }}</span>
+              <span class="goal-count"
+                >{{ gp.answered }} / {{ gp.target }}</span
+              >
             </div>
             <div class="goal-bar">
               <div class="goal-fill" [style.width.%]="goalPct(gp)"></div>
@@ -96,7 +98,7 @@ import { Exam, StudyGoalProgress } from '../../core/models';
           mat-icon-button
           matTooltip="Learning progress"
           aria-label="Learning progress"
-          (click)="progress.emit(exam)"
+          (click)="viewProgress.emit(exam)"
         >
           <mat-icon>insights</mat-icon>
         </button>
@@ -294,7 +296,7 @@ export class ExamCardComponent {
   @Input() dueCount = 0;
   @Output() open = new EventEmitter<Exam>();
   @Output() archive = new EventEmitter<Exam>();
-  @Output() progress = new EventEmitter<Exam>();
+  @Output() viewProgress = new EventEmitter<Exam>();
   @Output() goal = new EventEmitter<Exam>();
   @Output() examDate = new EventEmitter<Exam>();
   @Output() review = new EventEmitter<Exam>();

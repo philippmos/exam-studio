@@ -68,7 +68,12 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
             tint="#e0f2f1"
             [value]="pct(s.coverage) + '%'"
             label="Coverage"
-            [sublabel]="s.attemptedQuestions + ' / ' + s.totalQuestions + ' questions seen'"
+            [sublabel]="
+              s.attemptedQuestions +
+              ' / ' +
+              s.totalQuestions +
+              ' questions seen'
+            "
           />
           <app-stat-card
             icon="verified"
@@ -76,7 +81,12 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
             tint="#e8f5e9"
             [value]="pct(s.mastery) + '%'"
             label="Mastery"
-            [sublabel]="s.masteredQuestions + ' / ' + s.totalQuestions + ' answered correctly'"
+            [sublabel]="
+              s.masteredQuestions +
+              ' / ' +
+              s.totalQuestions +
+              ' answered correctly'
+            "
           />
           <app-stat-card
             icon="ads_click"
@@ -84,7 +94,9 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
             tint="#e3f2fd"
             [value]="pct(s.accuracy) + '%'"
             label="Accuracy"
-            [sublabel]="s.correctAttempts + ' / ' + s.totalAttempts + ' attempts correct'"
+            [sublabel]="
+              s.correctAttempts + ' / ' + s.totalAttempts + ' attempts correct'
+            "
           />
           <app-stat-card
             icon="report_problem"
@@ -133,7 +145,9 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
         <mat-card class="panel" appearance="outlined">
           <mat-card-header>
             <mat-card-title>Question breakdown</mat-card-title>
-            <mat-card-subtitle>{{ s.totalQuestions }} questions</mat-card-subtitle>
+            <mat-card-subtitle
+              >{{ s.totalQuestions }} questions</mat-card-subtitle
+            >
           </mat-card-header>
           <mat-card-content>
             <div class="bar">
@@ -147,13 +161,27 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
               ></div>
               <div
                 class="seg untouched"
-                [style.width.%]="ratio(s.unattemptedQuestions, s.totalQuestions)"
+                [style.width.%]="
+                  ratio(s.unattemptedQuestions, s.totalQuestions)
+                "
               ></div>
             </div>
             <div class="legend">
-              <span><i class="dot mastered"></i>Mastered ({{ s.masteredQuestions }})</span>
-              <span><i class="dot struggling"></i>Needs review ({{ s.strugglingQuestions }})</span>
-              <span><i class="dot untouched"></i>Not started ({{ s.unattemptedQuestions }})</span>
+              <span
+                ><i class="dot mastered"></i>Mastered ({{
+                  s.masteredQuestions
+                }})</span
+              >
+              <span
+                ><i class="dot struggling"></i>Needs review ({{
+                  s.strugglingQuestions
+                }})</span
+              >
+              <span
+                ><i class="dot untouched"></i>Not started ({{
+                  s.unattemptedQuestions
+                }})</span
+              >
             </div>
           </mat-card-content>
         </mat-card>
@@ -170,7 +198,8 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
                   <div class="module-head">
                     <span class="module-name">{{ sec.name }}</span>
                     <span class="module-meta">
-                      {{ sec.masteredQuestions }} / {{ sec.totalQuestions }} mastered
+                      {{ sec.masteredQuestions }} /
+                      {{ sec.totalQuestions }} mastered
                       @if (sec.attemptedQuestions > 0) {
                         · {{ pct(sec.accuracy) }}% accuracy
                       }
@@ -179,11 +208,15 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
                   <div class="bar small">
                     <div
                       class="seg mastered"
-                      [style.width.%]="ratio(sec.masteredQuestions, sec.totalQuestions)"
+                      [style.width.%]="
+                        ratio(sec.masteredQuestions, sec.totalQuestions)
+                      "
                     ></div>
                     <div
                       class="seg struggling"
-                      [style.width.%]="ratio(sec.strugglingQuestions, sec.totalQuestions)"
+                      [style.width.%]="
+                        ratio(sec.strugglingQuestions, sec.totalQuestions)
+                      "
                     ></div>
                     <div
                       class="seg untouched"

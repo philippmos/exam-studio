@@ -60,10 +60,11 @@ export class ConfirmDialogComponent {
     data: ConfirmDialogData,
   ): Observable<boolean | undefined> {
     return dialog
-      .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(
+      .open<
         ConfirmDialogComponent,
-        { data, width: '420px' },
-      )
+        ConfirmDialogData,
+        boolean
+      >(ConfirmDialogComponent, { data, width: '420px' })
       .afterClosed();
   }
 }

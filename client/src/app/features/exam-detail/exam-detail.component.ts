@@ -67,7 +67,10 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
               <mat-icon>flag</mat-icon>
               {{ exam.studyGoal ? 'Edit study goal' : 'Set study goal' }}
             </button>
-            <button mat-stroked-button [routerLink]="['/exams', exam.id, 'progress']">
+            <button
+              mat-stroked-button
+              [routerLink]="['/exams', exam.id, 'progress']"
+            >
               <mat-icon>insights</mat-icon> Learning progress
             </button>
             <button mat-flat-button (click)="openSetup(exam)">
@@ -146,7 +149,9 @@ export class ExamDetailComponent implements OnInit {
         // Archived exams can't be practised: send the user back to the
         // dashboard even when the detail URL is opened directly.
         if (exam?.archived) {
-          this.snackBar.open('This exam is archived.', 'OK', { duration: 4000 });
+          this.snackBar.open('This exam is archived.', 'OK', {
+            duration: 4000,
+          });
           this.router.navigate(['/']);
           return;
         }
@@ -173,7 +178,11 @@ export class ExamDetailComponent implements OnInit {
       const request =
         result === null
           ? this.examService.clearStudyGoal(exam.id)
-          : this.examService.setStudyGoal(exam.id, result.period, result.target);
+          : this.examService.setStudyGoal(
+              exam.id,
+              result.period,
+              result.target,
+            );
       request.subscribe({
         next: (updated) => {
           this.exam.set(updated);
@@ -214,11 +223,9 @@ export class ExamDetailComponent implements OnInit {
       .subscribe({
         next: (session) => {
           if (session.total === 0) {
-            this.snackBar.open(
-              'No questions match this selection.',
-              'OK',
-              { duration: 4000 },
-            );
+            this.snackBar.open('No questions match this selection.', 'OK', {
+              duration: 4000,
+            });
             return;
           }
           this.router.navigate(['/sessions', session.id]);

@@ -63,87 +63,87 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
           </mat-card>
         } @else {
           @if (current(); as item) {
-          <!-- Runner header -->
-          <div class="top">
-            <button mat-button (click)="confirmExit()" class="exit">
-              <mat-icon>close</mat-icon> Exit
-            </button>
-            <span class="position">
-              Question {{ index() + 1 }} / {{ items().length }}
-            </span>
-            <span class="live-score">
-              <mat-icon>check_circle</mat-icon> {{ correctCount() }}
-            </span>
-          </div>
-          <mat-progress-bar
-            mode="determinate"
-            [value]="progress()"
-            class="progress"
-          />
-
-          <mat-card appearance="outlined" class="question-card">
-            <mat-card-content>
-              <app-question-view
-                [question]="item.question"
-                [answered]="isAnswered(item)"
-                [selectedAnswerIds]="item.selectedAnswerIds"
-                [correctAnswerIds]="item.correctAnswerIds"
-                [selectedAllocations]="item.selectedAllocations"
-                [correctAllocations]="item.correctAllocations"
-                (submitAnswers)="answer(item, $event)"
-                (submitAllocations)="answerAllocation(item, $event)"
-              />
-            </mat-card-content>
-          </mat-card>
-
-          @if (reviewInfo(); as info) {
-            <p class="review-hint">
-              <mat-icon>autorenew</mat-icon>
-              Next review in {{ info.intervalDays }}
-              {{ info.intervalDays === 1 ? 'day' : 'days' }} · Box
-              {{ info.box }}/5
-            </p>
-          }
-
-          <!-- Feedback + navigation -->
-          <div class="nav">
-            <button
-              mat-button
-              [disabled]="index() === 0"
-              (click)="previous()"
-            >
-              <mat-icon>chevron_left</mat-icon> Previous
-            </button>
-
-            @if (isAnswered(item)) {
-              <span
-                class="feedback"
-                [class.correct]="item.isCorrect"
-                [class.wrong]="!item.isCorrect"
-              >
-                <mat-icon>{{
-                  item.isCorrect ? 'check_circle' : 'cancel'
-                }}</mat-icon>
-                {{ item.isCorrect ? 'Correct' : 'Incorrect' }}
+            <!-- Runner header -->
+            <div class="top">
+              <button mat-button (click)="confirmExit()" class="exit">
+                <mat-icon>close</mat-icon> Exit
+              </button>
+              <span class="position">
+                Question {{ index() + 1 }} / {{ items().length }}
               </span>
-            } @else {
-              <span class="hint">{{ hintFor(item) }}</span>
+              <span class="live-score">
+                <mat-icon>check_circle</mat-icon> {{ correctCount() }}
+              </span>
+            </div>
+            <mat-progress-bar
+              mode="determinate"
+              [value]="progress()"
+              class="progress"
+            />
+
+            <mat-card appearance="outlined" class="question-card">
+              <mat-card-content>
+                <app-question-view
+                  [question]="item.question"
+                  [answered]="isAnswered(item)"
+                  [selectedAnswerIds]="item.selectedAnswerIds"
+                  [correctAnswerIds]="item.correctAnswerIds"
+                  [selectedAllocations]="item.selectedAllocations"
+                  [correctAllocations]="item.correctAllocations"
+                  (submitAnswers)="answer(item, $event)"
+                  (submitAllocations)="answerAllocation(item, $event)"
+                />
+              </mat-card-content>
+            </mat-card>
+
+            @if (reviewInfo(); as info) {
+              <p class="review-hint">
+                <mat-icon>autorenew</mat-icon>
+                Next review in {{ info.intervalDays }}
+                {{ info.intervalDays === 1 ? 'day' : 'days' }} · Box
+                {{ info.box }}/5
+              </p>
             }
 
-            @if (isLast()) {
+            <!-- Feedback + navigation -->
+            <div class="nav">
               <button
-                mat-flat-button
-                [disabled]="!allAnswered()"
-                (click)="finish(session)"
+                mat-button
+                [disabled]="index() === 0"
+                (click)="previous()"
               >
-                Finish <mat-icon iconPositionEnd>flag</mat-icon>
+                <mat-icon>chevron_left</mat-icon> Previous
               </button>
-            } @else {
-              <button mat-flat-button (click)="next()">
-                Next <mat-icon iconPositionEnd>chevron_right</mat-icon>
-              </button>
-            }
-          </div>
+
+              @if (isAnswered(item)) {
+                <span
+                  class="feedback"
+                  [class.correct]="item.isCorrect"
+                  [class.wrong]="!item.isCorrect"
+                >
+                  <mat-icon>{{
+                    item.isCorrect ? 'check_circle' : 'cancel'
+                  }}</mat-icon>
+                  {{ item.isCorrect ? 'Correct' : 'Incorrect' }}
+                </span>
+              } @else {
+                <span class="hint">{{ hintFor(item) }}</span>
+              }
+
+              @if (isLast()) {
+                <button
+                  mat-flat-button
+                  [disabled]="!allAnswered()"
+                  (click)="finish(session)"
+                >
+                  Finish <mat-icon iconPositionEnd>flag</mat-icon>
+                </button>
+              } @else {
+                <button mat-flat-button (click)="next()">
+                  Next <mat-icon iconPositionEnd>chevron_right</mat-icon>
+                </button>
+              }
+            </div>
           }
         }
       } @else if (loading()) {
@@ -397,7 +397,9 @@ export class QuizComponent implements OnInit {
   ): void {
     this.items.update((list) =>
       list.map((it) =>
-        it.id === itemId ? { ...it, ...patch, isCorrect: result.isCorrect } : it,
+        it.id === itemId
+          ? { ...it, ...patch, isCorrect: result.isCorrect }
+          : it,
       ),
     );
     this.reviewByItem.update((map) => ({

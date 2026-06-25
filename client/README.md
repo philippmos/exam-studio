@@ -40,9 +40,9 @@ src/app/
 2. **Exam detail** (`/exams/:id`) – shows the modules and a **Start exam mode**
    button.
 3. **Start dialog** – choose a mode:
-   - *All questions, shuffled*
-   - *A specific module*
-   - *Only not-yet-correct* (questions never answered correctly before)
+   - _All questions, shuffled_
+   - _A specific module_
+   - _Only not-yet-correct_ (questions never answered correctly before)
 4. **Quiz runner** (`/sessions/:id`) – answer questions one by one. Clicking an
    option submits it (persisted in the DB) and reveals whether it was correct.
    Navigate back/forth; finish to see a summary.
