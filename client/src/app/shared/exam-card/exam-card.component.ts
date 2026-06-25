@@ -124,15 +124,6 @@ import { Exam, StudyGoalProgress } from '../../core/models';
         >
           <mat-icon>archive</mat-icon>
         </button>
-        <button
-          mat-icon-button
-          matTooltip="Delete exam"
-          aria-label="Delete exam"
-          class="delete"
-          (click)="delete.emit(exam)"
-        >
-          <mat-icon>delete_outline</mat-icon>
-        </button>
         <span class="spacer"></span>
         <button mat-flat-button (click)="open.emit(exam)">
           Open <mat-icon iconPositionEnd>arrow_forward</mat-icon>
@@ -292,9 +283,6 @@ import { Exam, StudyGoalProgress } from '../../core/models';
         gap: 2px;
         padding: 8px 12px 12px;
       }
-      .delete:hover mat-icon {
-        color: var(--app-danger);
-      }
     `,
   ],
 })
@@ -305,7 +293,6 @@ export class ExamCardComponent {
   /** Questions due for spaced-repetition review; hides the chip when zero. */
   @Input() dueCount = 0;
   @Output() open = new EventEmitter<Exam>();
-  @Output() delete = new EventEmitter<Exam>();
   @Output() archive = new EventEmitter<Exam>();
   @Output() progress = new EventEmitter<Exam>();
   @Output() goal = new EventEmitter<Exam>();

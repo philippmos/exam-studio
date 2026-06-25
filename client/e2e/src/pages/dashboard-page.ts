@@ -31,16 +31,6 @@ export class DashboardPage {
       .click();
   }
 
-  /** Clicks the delete icon on the card; the confirm dialog is left open. */
-  async requestDeleteExam(examName: string): Promise<void> {
-    await this.examCard(examName)
-      .getByRole('button', { name: 'Delete exam' })
-      .click();
-    await expect(
-      this.page.getByRole('heading', { name: 'Delete exam' }),
-    ).toBeVisible();
-  }
-
   importDialog(): Locator {
     return this.page.getByRole('dialog');
   }

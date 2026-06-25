@@ -8,7 +8,6 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ExamService } from '../../core/exam.service';
 import { Exam, ReviewDue, StudyGoalProgress, StudyStreak } from '../../core/models';
-import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { ExamCardComponent } from '../../shared/exam-card/exam-card.component';
 import { StreakCardComponent } from '../../shared/streak-card/streak-card.component';
 import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
@@ -64,7 +63,6 @@ import { ImportDialogComponent } from './import-dialog.component';
               (examDate)="editExamDate($event)"
               (review)="startReview($event)"
               (archive)="archiveExam($event)"
-              (delete)="deleteExam($event)"
             />
           }
         </div>
@@ -285,27 +283,6 @@ export class DashboardComponent {
       next: () => this.load(),
       error: (err: Error) =>
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
-    });
-  }
-
-  deleteExam(exam: Exam): void {
-    ConfirmDialogComponent.open(this.dialog, {
-      title: 'Delete exam',
-      message: `Delete "${exam.name}" and all of its data? This cannot be undone.`,
-      confirmLabel: 'Delete',
-      destructive: true,
-    }).subscribe((confirmed) => {
-      if (!confirmed) {
-        return;
-      }
-      this.examService.deleteExam(exam.id).subscribe({
-        next: () => {
-          this.exams.update((list) => list.filter((e) => e.id !== exam.id));
-          this.snackBar.open('Exam deleted.', 'OK', { duration: 3000 });
-        },
-        error: (err: Error) =>
-          this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
-      });
     });
   }
 }

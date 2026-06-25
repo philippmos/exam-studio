@@ -13,7 +13,12 @@ test.describe('exam archiving', () => {
 
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
-    await expect(dashboard.examCard(name)).toBeVisible();
+    const card = dashboard.examCard(name);
+    await expect(card).toBeVisible();
+
+    // Deleting is no longer offered on the dashboard — only archiving is.
+    await expect(card.getByRole('button', { name: 'Archive exam' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Delete exam' })).toHaveCount(0);
 
     // Archiving removes the card from the dashboard.
     await dashboard.archiveExam(name);

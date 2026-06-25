@@ -1,28 +1,35 @@
 import { smallExamSpec, uniqueName } from '../src/exam-payload';
 import { expect, test } from '../src/fixtures';
-import { DashboardPage } from '../src/pages/dashboard-page';
+import { ArchivePage } from '../src/pages/archive-page';
 
 test.describe('exam management', () => {
-  test('deleting an exam requires confirmation', async ({ page, examFactory }) => {
+  test('an exam can only be deleted from the archive, with confirmation', async ({
+    page,
+    api,
+    examFactory,
+  }) => {
     const name = uniqueName('Delete Me');
-    await examFactory.create(smallExamSpec(name));
+    const exam = await examFactory.create(smallExamSpec(name));
+    // Deletion lives on the archive page now, so archive the exam first.
+    await api.setExamArchived(exam.id, true);
 
-    const dashboard = new DashboardPage(page);
-    await dashboard.goto();
+    const archive = new ArchivePage(page);
+    await archive.goto();
+    await expect(archive.examCard(name)).toBeVisible();
 
     // Cancelling the confirm dialog keeps the exam.
-    await dashboard.requestDeleteExam(name);
+    await archive.requestDeleteExam(name);
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-    await expect(dashboard.examCard(name)).toBeVisible();
+    await expect(archive.examCard(name)).toBeVisible();
 
     // Confirming deletes it.
-    await dashboard.requestDeleteExam(name);
+    await archive.requestDeleteExam(name);
     await page
       .getByRole('dialog')
       .getByRole('button', { name: 'Delete', exact: true })
       .click();
 
     await expect(page.getByText('Exam deleted.')).toBeVisible();
-    await expect(dashboard.examCard(name)).toBeHidden();
+    await expect(archive.examCard(name)).toBeHidden();
   });
 });
