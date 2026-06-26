@@ -171,6 +171,12 @@ async def _apply_auto_goal(db: AsyncSession, exam: models.Exam) -> None:
         exam.study_goal_source = StudyGoalSource.AUTO.value
 
 
+def _shuffle_answer_order(question: models.Question) -> list[str] | None:
+    answer_ids = [str(answer.id) for answer in question.answers]
+    random.shuffle(answer_ids)
+    return answer_ids
+
+
 @strawberry.type
 class Mutation:
     @strawberry.mutation
@@ -329,6 +335,16 @@ class Mutation:
             raise ValueError("Cannot start a session for an archived exam.")
 
         question_ids = await _select_question_ids(db, exam_id, mode, section_id)
+        questions = list(
+            (
+                await db.scalars(
+                    select(models.Question)
+                    .where(models.Question.id.in_(question_ids))
+                    .options(selectinload(models.Question.answers))
+                )
+            ).all()
+        )
+        questions_by_id = {question.id: question for question in questions}
 
         session = models.ExamSession(
             exam_id=exam_id,
@@ -336,7 +352,11 @@ class Mutation:
             section_id=section_id if mode is SessionMode.BY_SECTION else None,
         )
         session.items = [
-            models.SessionItem(question_id=qid, position=position)
+            models.SessionItem(
+                question_id=qid,
+                position=position,
+                answer_order=_shuffle_answer_order(questions_by_id[qid]),
+            )
             for position, qid in enumerate(question_ids)
         ]
         db.add(session)
