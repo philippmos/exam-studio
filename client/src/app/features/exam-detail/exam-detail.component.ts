@@ -11,6 +11,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
+import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
@@ -27,6 +28,7 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
     MatButtonModule,
     MatIconModule,
     MatCardModule,
+    MatTableModule,
     MatProgressSpinnerModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -116,48 +118,77 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
           </mat-card-header>
           <mat-card-content>
             @if (stats(); as stats) {
-              <div class="modules-table">
-                <div class="modules-head">
-                  <span>Module</span>
-                  <span>Questions</span>
-                  <span>Answered</span>
-                  <span>Correct</span>
-                  <span>Wrong</span>
-                  <span>Progress</span>
-                </div>
-                @for (section of stats.sections; track section.sectionId) {
-                  <div class="module-row">
-                    <div class="module-name">
-                      <mat-icon>folder_open</mat-icon>
-                      <span>{{ section.name }}</span>
-                    </div>
-                    <span>{{ section.totalQuestions }}</span>
-                    <span>{{ section.attemptedQuestions }}</span>
-                    <span class="good">{{ section.correctAttempts }}</span>
-                    <span class="bad">{{ section.incorrectAttempts }}</span>
-                    <div class="progress-mini" aria-hidden="true">
-                      <div
-                        class="progress-fill mastered"
-                        [style.width.%]="ratio(section.masteredQuestions, section.totalQuestions)"
-                      ></div>
-                      <div
-                        class="progress-fill struggling"
-                        [style.width.%]="ratio(section.strugglingQuestions, section.totalQuestions)"
-                      ></div>
-                      <div
-                        class="progress-fill untouched"
-                        [style.width.%]="
-                          ratio(
-                            section.totalQuestions -
-                              section.masteredQuestions -
-                              section.strugglingQuestions,
-                            section.totalQuestions
-                          )
-                        "
-                      ></div>
-                    </div>
-                  </div>
-                }
+              <div class="table-shell">
+                <table
+                  mat-table
+                  [dataSource]="stats.sections"
+                  class="modules-table"
+                  aria-label="Module progress"
+                >
+                  <ng-container matColumnDef="name">
+                    <th mat-header-cell *matHeaderCellDef>Module</th>
+                    <td mat-cell *matCellDef="let section">
+                      <div class="module-name">
+                        <mat-icon>folder_open</mat-icon>
+                        <span>{{ section.name }}</span>
+                      </div>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="questions">
+                    <th mat-header-cell *matHeaderCellDef>Questions</th>
+                    <td mat-cell *matCellDef="let section">{{ section.totalQuestions }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="answered">
+                    <th mat-header-cell *matHeaderCellDef>Answered</th>
+                    <td mat-cell *matCellDef="let section">{{ section.attemptedQuestions }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="correct">
+                    <th mat-header-cell *matHeaderCellDef>Correct</th>
+                    <td mat-cell *matCellDef="let section" class="good">
+                      {{ section.correctAttempts }}
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="wrong">
+                    <th mat-header-cell *matHeaderCellDef>Wrong</th>
+                    <td mat-cell *matCellDef="let section" class="bad">
+                      {{ section.incorrectAttempts }}
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="progress">
+                    <th mat-header-cell *matHeaderCellDef>Progress</th>
+                    <td mat-cell *matCellDef="let section">
+                      <div class="progress-mini" aria-hidden="true">
+                        <div
+                          class="progress-fill mastered"
+                          [style.width.%]="ratio(section.masteredQuestions, section.totalQuestions)"
+                        ></div>
+                        <div
+                          class="progress-fill struggling"
+                          [style.width.%]="ratio(section.strugglingQuestions, section.totalQuestions)"
+                        ></div>
+                        <div
+                          class="progress-fill untouched"
+                          [style.width.%]="
+                            ratio(
+                              section.totalQuestions -
+                                section.masteredQuestions -
+                                section.strugglingQuestions,
+                              section.totalQuestions
+                            )
+                          "
+                        ></div>
+                      </div>
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="moduleColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: moduleColumns"></tr>
+                </table>
               </div>
             } @else {
               <p class="empty-note">Module progress is loading.</p>
@@ -241,27 +272,22 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
         font-size: 13px;
         margin-top: 0.5rem;
       }
+      .table-shell {
+        overflow-x: auto;
+      }
       .modules-table {
-        display: grid;
-        gap: 10px;
+        width: 100%;
+        min-width: 760px;
       }
-      .modules-head,
-      .module-row {
-        display: grid;
-        grid-template-columns: minmax(180px, 2fr) 90px 90px 90px 90px minmax(180px, 1.5fr);
-        gap: 12px;
-        align-items: center;
-      }
-      .modules-head {
-        padding: 0 4px 6px;
+      .modules-table .mat-mdc-header-cell {
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: var(--mat-sys-on-surface-variant);
       }
-      .module-row {
-        padding: 12px 4px;
-        border-top: 1px solid var(--mat-sys-outline-variant);
+      .modules-table .mat-mdc-cell,
+      .modules-table .mat-mdc-header-cell {
+        padding: 12px 8px;
       }
       .module-name {
         display: flex;
@@ -279,15 +305,11 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
         color: var(--mat-sys-primary);
         flex: none;
       }
-      .module-row span,
-      .module-row div {
-        font-size: 14px;
-      }
-      .module-row .good {
+      .good {
         color: var(--app-success);
         font-weight: 500;
       }
-      .module-row .bad {
+      .bad {
         color: var(--app-warning);
         font-weight: 500;
       }
@@ -303,6 +325,8 @@ export class ExamDetailComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+
+  readonly moduleColumns = ['name', 'questions', 'answered', 'correct', 'wrong', 'progress'];
 
   /** Bound from the `:id` route param via withComponentInputBinding(). */
   readonly id = input.required<string>();
