@@ -12,8 +12,8 @@ import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { MatListModule } from '@angular/material/list';
 import { MatDialog } from '@angular/material/dialog';
+import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
@@ -30,7 +30,7 @@ import { SessionSetupDialog } from './session-setup-dialog';
     MatButtonModule,
     MatIconModule,
     MatCardModule,
-    MatListModule,
+    MatTableModule,
     MatProgressSpinnerModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -81,22 +81,145 @@ import { SessionSetupDialog } from './session-setup-dialog';
           </div>
         </header>
 
+        @if (stats(); as stats) {
+          <mat-card class="progress-card" appearance="outlined">
+            <mat-card-content>
+              <div class="progress-copy">
+                <div class="progress-kicker">Overall progress</div>
+                <div class="progress-title">
+                  {{ stats.attemptedQuestions }} /
+                  {{ stats.totalQuestions }} questions answered
+                </div>
+                <div class="progress-meta">
+                  {{ stats.correctAttempts }} correct ·
+                  {{ stats.incorrectAttempts }} wrong ·
+                  {{ pct(stats.coverage) }}% coverage
+                </div>
+              </div>
+              <div class="progress-bar" aria-hidden="true">
+                <div
+                  class="progress-fill mastered"
+                  [style.width.%]="
+                    ratio(stats.masteredQuestions, stats.totalQuestions)
+                  "
+                ></div>
+                <div
+                  class="progress-fill struggling"
+                  [style.width.%]="
+                    ratio(stats.strugglingQuestions, stats.totalQuestions)
+                  "
+                ></div>
+                <div
+                  class="progress-fill untouched"
+                  [style.width.%]="
+                    ratio(stats.unattemptedQuestions, stats.totalQuestions)
+                  "
+                ></div>
+              </div>
+              <div class="progress-legend">
+                <span>Mastered {{ stats.masteredQuestions }}</span>
+                <span>Review {{ stats.strugglingQuestions }}</span>
+                <span>Not started {{ stats.unattemptedQuestions }}</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        }
+
         <mat-card appearance="outlined">
           <mat-card-header>
             <mat-card-title>Modules</mat-card-title>
           </mat-card-header>
           <mat-card-content>
-            <mat-list>
-              @for (section of exam.sections; track section.id) {
-                <mat-list-item>
-                  <mat-icon matListItemIcon>folder_open</mat-icon>
-                  <span matListItemTitle>{{ section.name }}</span>
-                  <span matListItemMeta class="count">
-                    {{ section.questionCount }} questions
-                  </span>
-                </mat-list-item>
-              }
-            </mat-list>
+            @if (stats(); as stats) {
+              <div class="table-shell">
+                <table
+                  mat-table
+                  [dataSource]="stats.sections"
+                  class="modules-table"
+                  aria-label="Module progress"
+                >
+                  <ng-container matColumnDef="name">
+                    <th mat-header-cell *matHeaderCellDef>Module</th>
+                    <td mat-cell *matCellDef="let section">
+                      <div class="module-name">
+                        <mat-icon>folder_open</mat-icon>
+                        <span>{{ section.name }}</span>
+                      </div>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="questions">
+                    <th mat-header-cell *matHeaderCellDef>Questions</th>
+                    <td mat-cell *matCellDef="let section">
+                      {{ section.totalQuestions }}
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="answered">
+                    <th mat-header-cell *matHeaderCellDef>Answered</th>
+                    <td mat-cell *matCellDef="let section">
+                      {{ section.attemptedQuestions }}
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="correct">
+                    <th mat-header-cell *matHeaderCellDef>Correct</th>
+                    <td mat-cell *matCellDef="let section" class="good">
+                      {{ section.correctAttempts }}
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="wrong">
+                    <th mat-header-cell *matHeaderCellDef>Wrong</th>
+                    <td mat-cell *matCellDef="let section" class="bad">
+                      {{ section.incorrectAttempts }}
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="progress">
+                    <th mat-header-cell *matHeaderCellDef>Progress</th>
+                    <td mat-cell *matCellDef="let section">
+                      <div class="progress-mini" aria-hidden="true">
+                        <div
+                          class="progress-fill mastered"
+                          [style.width.%]="
+                            ratio(
+                              section.masteredQuestions,
+                              section.totalQuestions
+                            )
+                          "
+                        ></div>
+                        <div
+                          class="progress-fill struggling"
+                          [style.width.%]="
+                            ratio(
+                              section.strugglingQuestions,
+                              section.totalQuestions
+                            )
+                          "
+                        ></div>
+                        <div
+                          class="progress-fill untouched"
+                          [style.width.%]="
+                            ratio(
+                              section.totalQuestions -
+                                section.masteredQuestions -
+                                section.strugglingQuestions,
+                              section.totalQuestions
+                            )
+                          "
+                        ></div>
+                      </div>
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="moduleColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: moduleColumns"></tr>
+                </table>
+              </div>
+            } @else {
+              <p class="empty-note">Module progress is loading.</p>
+            }
           </mat-card-content>
         </mat-card>
       } @else if (loading()) {
@@ -121,8 +244,104 @@ import { SessionSetupDialog } from './session-setup-dialog';
         gap: 8px;
         flex-wrap: wrap;
       }
-      .count {
+      .progress-card {
+        display: grid;
+        gap: 14px;
+        margin-bottom: 20px;
+      }
+      .progress-kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 11px;
+        color: var(--mat-sys-on-surface-variant);
+        margin-bottom: 6px;
+      }
+      .progress-title {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .progress-meta {
+        margin-top: 4px;
+        margin-bottom: 0.5rem;
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 14px;
+      }
+      .progress-bar,
+      .progress-mini {
+        display: flex;
+        width: 100%;
+        height: 12px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #eceff1;
+      }
+      .progress-bar {
+        height: 14px;
+      }
+      .progress-fill {
+        height: 100%;
+        transition: width 0.3s ease;
+      }
+      .progress-fill.mastered {
+        background: var(--app-success);
+      }
+      .progress-fill.struggling {
+        background: var(--app-warning);
+      }
+      .progress-fill.untouched {
+        background: transparent;
+      }
+      .progress-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        color: var(--mat-sys-on-surface-variant);
         font-size: 13px;
+        margin-top: 0.5rem;
+      }
+      .table-shell {
+        overflow-x: auto;
+      }
+      .modules-table {
+        width: 100%;
+        min-width: 760px;
+      }
+      .modules-table .mat-mdc-header-cell {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--mat-sys-on-surface-variant);
+      }
+      .modules-table .mat-mdc-cell,
+      .modules-table .mat-mdc-header-cell {
+        padding: 12px 8px;
+      }
+      .module-name {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        font-weight: 500;
+      }
+      .module-name span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .module-name mat-icon {
+        color: var(--mat-sys-primary);
+        flex: none;
+      }
+      .good {
+        color: var(--app-success);
+        font-weight: 500;
+      }
+      .bad {
+        color: var(--app-warning);
+        font-weight: 500;
+      }
+      .empty-note {
+        margin: 0;
         color: var(--mat-sys-on-surface-variant);
       }
     `,
@@ -133,6 +352,15 @@ export class ExamDetail {
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+
+  readonly moduleColumns = [
+    'name',
+    'questions',
+    'answered',
+    'correct',
+    'wrong',
+    'progress',
+  ];
 
   /** Bound from the `:id` route param via withComponentInputBinding(). */
   readonly id = input.required<string>();
@@ -146,6 +374,11 @@ export class ExamDetail {
     params: () => this.id(),
     stream: ({ params: id }) => this.examService.getReviewDue(id),
   });
+  // Per-exam progress stats: power the overview card and the module table.
+  private readonly statsResource = rxResource({
+    params: () => this.id(),
+    stream: ({ params: id }) => this.examService.getExamStats(id),
+  });
 
   // A linkedSignal over the resource so editGoal can patch the exam locally.
   readonly exam = linkedSignal(() =>
@@ -156,6 +389,9 @@ export class ExamDetail {
     this.dueResource.hasValue()
       ? (this.dueResource.value()[0]?.dueCount ?? 0)
       : 0,
+  );
+  readonly stats = computed(() =>
+    this.statsResource.hasValue() ? this.statsResource.value() : null,
   );
 
   constructor() {
@@ -242,5 +478,15 @@ export class ExamDetail {
 
   goBack(): void {
     this.router.navigate(['/']);
+  }
+
+  /** Percentage 0..1 -> rounded integer. */
+  pct(value: number): number {
+    return Math.round(value * 100);
+  }
+
+  /** Width helper for the segmented bars. */
+  ratio(part: number, whole: number): number {
+    return whole > 0 ? (part / whole) * 100 : 0;
   }
 }

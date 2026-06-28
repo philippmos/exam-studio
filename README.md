@@ -89,6 +89,8 @@ ExamSession ──< SessionItem ──< SessionItemAnswer (the chosen answers)
 
 Build and start PostgreSQL, the API and the client together:
 
+Duplicate `.env.example` to `.env` and seed with your custom configuration values
+
 ```bash
 docker compose up --build
 ```

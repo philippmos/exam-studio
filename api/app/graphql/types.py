@@ -304,14 +304,30 @@ def to_category(category: models.QuestionCategory) -> CategoryType:
     )
 
 
-def to_question(question: models.Question) -> QuestionType:
+def to_question(
+    question: models.Question, answer_order: list[str] | None = None
+) -> QuestionType:
+    if answer_order:
+        answers_by_id = {str(answer.id): answer for answer in question.answers}
+        ordered_answers = [
+            answers_by_id[answer_id]
+            for answer_id in answer_order
+            if answer_id in answers_by_id
+        ]
+        if len(ordered_answers) != len(question.answers):
+            seen = set(answer_order)
+            ordered_answers.extend(
+                answer for answer in question.answers if str(answer.id) not in seen
+            )
+    else:
+        ordered_answers = list(question.answers)
     return QuestionType(
         id=question.id,
         text=question.text,
         explanation=question.explanation,
         section_id=question.section_id,
         question_type=QuestionTypeValue(question.question_type),
-        answers=[to_answer(a) for a in question.answers],
+        answers=[to_answer(a) for a in ordered_answers],
         categories=[to_category(c) for c in question.categories],
     )
 
@@ -368,7 +384,7 @@ def to_session_item(item: models.SessionItem) -> SessionItemType:
     return SessionItemType(
         id=item.id,
         position=item.position,
-        question=to_question(item.question),
+        question=to_question(item.question, item.answer_order),
         selected_answer_ids=[sa.answer_id for sa in item.selected_answers],
         selected_allocations=[
             AllocationType(answer_id=sa.answer_id, category_id=sa.category_id)
