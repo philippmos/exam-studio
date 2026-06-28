@@ -6,6 +6,13 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "client", "start"],
       "port": 4200
+    },
+    {
+      "name": "client-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "client", "start", "--", "--port", "4310"],
+      "port": 4310,
+      "autoPort": false
     }
   ]
 }
