@@ -43,7 +43,7 @@ src/app/
 3. **Start dialog** – choose a mode:
    - _All questions, shuffled_
    - _A specific module_
-   - _Only not-yet-correct_ (questions never answered correctly before)
+   - _Only not-yet-correct_ (questions answered incorrectly at least once before)
 4. **Quiz runner** (`/sessions/:id`) – answer questions one by one. Clicking an
    option submits it (persisted in the DB) and reveals whether it was correct.
    Navigate back/forth; finish to see a summary.

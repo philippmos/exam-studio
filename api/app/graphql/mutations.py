@@ -43,7 +43,7 @@ async def _select_question_ids(
             raise ValueError("A sectionId is required for BY_SECTION mode.")
         base = base.where(models.Question.section_id == section_id)
     elif mode is SessionMode.UNANSWERED:
-        answered_correctly = (
+        answered_incorrectly = (
             select(models.SessionItem.question_id)
             .join(
                 models.ExamSession,
@@ -51,10 +51,10 @@ async def _select_question_ids(
             )
             .where(
                 models.ExamSession.exam_id == exam_id,
-                models.SessionItem.is_correct.is_(True),
+                models.SessionItem.is_correct.is_(False),
             )
         )
-        base = base.where(models.Question.id.not_in(answered_correctly))
+        base = base.where(models.Question.id.in_(answered_incorrectly))
     elif mode is SessionMode.DUE_REVIEW:
         base = base.join(
             models.QuestionReviewState,

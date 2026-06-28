@@ -189,7 +189,7 @@ you can import the same file multiple times.
 | `finishSession(id)`                                | Mark a session finished.                 |
 
 `mode` is one of `ALL_RANDOM`, `BY_SECTION` (requires `sectionId`),
-`UNANSWERED` (only questions never answered correctly before) or `DUE_REVIEW`
+`UNANSWERED` (only questions answered incorrectly at least once before) or `DUE_REVIEW`
 (only questions whose spaced-repetition review is due).
 
 Every `submitAnswer` advances the question's Leitner review box: a correct

@@ -103,23 +103,50 @@ test.describe('startSession', () => {
     expect(message).toContain('sectionId is required');
   });
 
-  test('UNANSWERED skips questions that were already answered correctly', async ({
+  test('UNANSWERED only contains questions answered incorrectly at least once', async ({
     gql,
     examFactory,
   }) => {
     const exam = await examFactory.createDefault();
     const firstRun = await startSession(gql, exam.id, 'ALL_RANDOM');
 
-    // Answer one question correctly and another one incorrectly.
+    // Answer one question correctly and another one incorrectly; the rest stay
+    // untouched.
     const [masteredItem, failedItem] = firstRun.items;
     await submitAnswer(gql, masteredItem.id, correctAnswerIdsOf(masteredItem));
     await submitAnswer(gql, failedItem.id, [wrongAnswerIdOf(failedItem)]);
 
     const retry = await startSession(gql, exam.id, 'UNANSWERED');
 
-    expect(retry.total).toBe(4);
+    // Only the genuinely wrong question is included: questions answered only
+    // correctly and questions never attempted at all are both excluded.
+    expect(retry.total).toBe(1);
     const retryQuestionIds = retry.items.map((item) => item.question.id);
+    expect(retryQuestionIds).toEqual([failedItem.question.id]);
     expect(retryQuestionIds).not.toContain(masteredItem.question.id);
+  });
+
+  test('UNANSWERED still includes a question that was later answered correctly', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.createDefault();
+    const firstRun = await startSession(gql, exam.id, 'ALL_RANDOM');
+
+    // Get one question wrong, then answer the very same question correctly in a
+    // later session.
+    const failedItem = firstRun.items[0];
+    await submitAnswer(gql, failedItem.id, [wrongAnswerIdOf(failedItem)]);
+
+    const secondRun = await startSession(gql, exam.id, 'UNANSWERED');
+    const redo = secondRun.items.find(
+      (item) => item.question.id === failedItem.question.id,
+    )!;
+    await submitAnswer(gql, redo.id, correctAnswerIdsOf(redo));
+
+    // A past mistake keeps the question in the pool even after a correct answer.
+    const retry = await startSession(gql, exam.id, 'UNANSWERED');
+    const retryQuestionIds = retry.items.map((item) => item.question.id);
     expect(retryQuestionIds).toContain(failedItem.question.id);
   });
 
