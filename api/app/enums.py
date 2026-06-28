@@ -6,7 +6,7 @@ class SessionMode(str, enum.Enum):
 
     ALL_RANDOM = "ALL_RANDOM"  # all questions of the exam, shuffled
     BY_SECTION = "BY_SECTION"  # only questions of one section
-    UNANSWERED = "UNANSWERED"  # only questions never answered correctly yet
+    UNANSWERED = "UNANSWERED"  # only questions answered incorrectly at least once
     DUE_REVIEW = "DUE_REVIEW"  # only questions whose spaced-repetition review is due
 
 

@@ -60,7 +60,7 @@ interface DialogData {
         <mat-radio-button value="UNANSWERED">
           <span class="mode-title">Only not-yet-correct</span>
           <span class="mode-desc">
-            Questions you have never answered correctly before.
+            Questions you answered incorrectly at least once before.
           </span>
         </mat-radio-button>
 
