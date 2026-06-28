@@ -14,10 +14,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ExamService } from '../../core/exam.service';
-import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
-import { StreakCardComponent } from '../../shared/streak-card/streak-card.component';
-import { StudyHistoryChartComponent } from '../../shared/study-history-chart/study-history-chart.component';
+import { ExamService } from '../../core/exam-service';
+import { StatCard } from '../../shared/stat-card/stat-card';
+import { StreakCard } from '../../shared/streak-card/streak-card';
+import { StudyHistoryChart } from '../../shared/study-history-chart/study-history-chart';
 
 @Component({
   selector: 'app-statistics',
@@ -29,9 +29,9 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
     MatCardModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    StatCardComponent,
-    StreakCardComponent,
-    StudyHistoryChartComponent,
+    StatCard,
+    StreakCard,
+    StudyHistoryChart,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -129,7 +129,7 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
     `,
   ],
 })
-export class StatisticsComponent {
+export class Statistics {
   private readonly examService = inject(ExamService);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -141,8 +141,12 @@ export class StatisticsComponent {
     stream: () => this.examService.getStudyStreak(),
   });
 
-  readonly history = computed(() => this.historyResource.value() ?? []);
-  readonly streak = this.streakResource.value;
+  readonly history = computed(() =>
+    this.historyResource.hasValue() ? this.historyResource.value() : [],
+  );
+  readonly streak = computed(() =>
+    this.streakResource.hasValue() ? this.streakResource.value() : null,
+  );
   readonly loading = this.historyResource.isLoading;
 
   readonly summary = computed(() => {

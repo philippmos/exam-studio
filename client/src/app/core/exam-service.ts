@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 
-import { GraphqlService } from './graphql.service';
+import { GraphqlService } from './graphql-service';
 import {
   Allocation,
   AnswerResult,

@@ -18,9 +18,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import { SessionOverview } from '../../core/models';
-import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
+import { ConfirmDialog } from '../../shared/confirm-dialog/confirm-dialog';
 
 @Component({
   selector: 'app-sessions',
@@ -219,7 +219,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
     `,
   ],
 })
-export class SessionsComponent {
+export class Sessions {
   private readonly examService = inject(ExamService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
@@ -231,7 +231,9 @@ export class SessionsComponent {
 
   // A linkedSignal over the resource so deletes can optimistically drop a row
   // locally, while a reload still refreshes from the server.
-  readonly sessions = linkedSignal(() => this.sessionsResource.value() ?? []);
+  readonly sessions = linkedSignal(() =>
+    this.sessionsResource.hasValue() ? this.sessionsResource.value() : [],
+  );
   readonly loading = this.sessionsResource.isLoading;
 
   readonly openSessions = computed(() =>
@@ -272,7 +274,7 @@ export class SessionsComponent {
   }
 
   deleteSession(session: SessionOverview): void {
-    ConfirmDialogComponent.open(this.dialog, {
+    ConfirmDialog.open(this.dialog, {
       title: 'Delete session',
       message: `Delete this "${session.examName}" session and its answers? This cannot be undone.`,
       confirmLabel: 'Delete',

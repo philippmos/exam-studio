@@ -17,10 +17,10 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import { Exam, SessionSetup } from '../../core/models';
-import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
-import { SessionSetupDialogComponent } from './session-setup-dialog.component';
+import { StudyGoalDialog } from '../../shared/study-goal-dialog/study-goal-dialog';
+import { SessionSetupDialog } from './session-setup-dialog';
 
 @Component({
   selector: 'app-exam-detail',
@@ -128,7 +128,7 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
     `,
   ],
 })
-export class ExamDetailComponent {
+export class ExamDetail {
   private readonly examService = inject(ExamService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
@@ -148,17 +148,21 @@ export class ExamDetailComponent {
   });
 
   // A linkedSignal over the resource so editGoal can patch the exam locally.
-  readonly exam = linkedSignal(() => this.examResource.value() ?? null);
+  readonly exam = linkedSignal(() =>
+    this.examResource.hasValue() ? this.examResource.value() : null,
+  );
   readonly loading = this.examResource.isLoading;
-  readonly dueCount = computed(
-    () => this.dueResource.value()?.[0]?.dueCount ?? 0,
+  readonly dueCount = computed(() =>
+    this.dueResource.hasValue()
+      ? (this.dueResource.value()[0]?.dueCount ?? 0)
+      : 0,
   );
 
   constructor() {
     // Archived exams can't be practised: bounce back to the dashboard even when
     // the detail URL is opened directly.
     effect(() => {
-      if (this.examResource.value()?.archived) {
+      if (this.exam()?.archived) {
         this.snackBar.open('This exam is archived.', 'OK', { duration: 4000 });
         this.router.navigate(['/']);
       }
@@ -172,7 +176,7 @@ export class ExamDetailComponent {
   }
 
   editGoal(exam: Exam): void {
-    StudyGoalDialogComponent.open(this.dialog, exam).subscribe((result) => {
+    StudyGoalDialog.open(this.dialog, exam).subscribe((result) => {
       if (result === undefined) {
         return; // cancelled
       }
@@ -201,7 +205,7 @@ export class ExamDetailComponent {
 
   openSetup(exam: Exam): void {
     this.dialog
-      .open(SessionSetupDialogComponent, {
+      .open(SessionSetupDialog, {
         data: { exam, dueCount: this.dueCount() },
         width: '460px',
       })

@@ -288,7 +288,7 @@ import { Exam, StudyGoalProgress } from '../../core/models';
     `,
   ],
 })
-export class ExamCardComponent {
+export class ExamCard {
   @Input({ required: true }) exam!: Exam;
   /** Current-period goal progress; hidden when the exam has no goal. */
   readonly goalProgress = input<StudyGoalProgress | null>(null);

@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 
 import { Answer, Question } from '../../core/models';
-import { QuestionViewComponent } from './question-view.component';
+import { QuestionView } from './question-view';
 
 function makeQuestion(partial: Partial<Question>): Question {
   return {
@@ -19,9 +19,9 @@ function makeQuestion(partial: Partial<Question>): Question {
 }
 
 /** Create the component and bind a question input (pure logic — no template CD). */
-function createWith(question: Question): QuestionViewComponent {
-  TestBed.configureTestingModule({ imports: [QuestionViewComponent] });
-  const fixture = TestBed.createComponent(QuestionViewComponent);
+function createWith(question: Question): QuestionView {
+  TestBed.configureTestingModule({ imports: [QuestionView] });
+  const fixture = TestBed.createComponent(QuestionView);
   fixture.componentRef.setInput('question', question);
   return fixture.componentInstance;
 }
@@ -41,7 +41,7 @@ function dragEvent(
   } as unknown as CdkDragDrop<Answer[]>;
 }
 
-describe('QuestionViewComponent', () => {
+describe('QuestionView', () => {
   it('emits a single-choice answer immediately on click', () => {
     const question = makeQuestion({
       questionType: 'SINGLE_CHOICE',

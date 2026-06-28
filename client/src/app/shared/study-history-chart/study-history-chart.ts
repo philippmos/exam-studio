@@ -201,7 +201,7 @@ const DAY_MS = 86_400_000;
     `,
   ],
 })
-export class StudyHistoryChartComponent {
+export class StudyHistoryChart {
   private readonly locale = inject(LOCALE_ID);
 
   /** Per-day history; gaps between days are filled with zero bars. */

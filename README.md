@@ -5,7 +5,7 @@ A small full-stack app for practising certification exams. Import an exam
 answers tracked in the database.
 
 * **API** – FastAPI + GraphQL (Strawberry) + SQLAlchemy (async) + Alembic + PostgreSQL
-* **Client** – Angular 19 (standalone, signals) + Angular Material
+* **Client** – Angular 22 (standalone, signals, zoneless) + Angular Material
 
 ## Screenshots
 

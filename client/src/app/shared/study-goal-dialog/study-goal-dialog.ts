@@ -20,7 +20,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatRadioModule } from '@angular/material/radio';
 import { FormsModule } from '@angular/forms';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import {
   Exam,
   GoalPeriod,
@@ -231,10 +231,10 @@ export type StudyGoalDialogResult = StudyGoal | null | undefined;
     `,
   ],
 })
-export class StudyGoalDialogComponent {
+export class StudyGoalDialog {
   readonly data = inject<DialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject(
-    MatDialogRef<StudyGoalDialogComponent, StudyGoalDialogResult>,
+    MatDialogRef<StudyGoalDialog, StudyGoalDialogResult>,
   );
   private readonly examService = inject(ExamService);
 
@@ -274,10 +274,10 @@ export class StudyGoalDialogComponent {
   ): Observable<StudyGoalDialogResult> {
     return dialog
       .open<
-        StudyGoalDialogComponent,
+        StudyGoalDialog,
         DialogData,
         StudyGoalDialogResult
-      >(StudyGoalDialogComponent, { data: { exam }, width: '460px' })
+      >(StudyGoalDialog, { data: { exam }, width: '460px' })
       .afterClosed();
   }
 

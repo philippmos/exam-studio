@@ -15,9 +15,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ExamService } from '../../core/exam.service';
-import { StatCardComponent } from '../../shared/stat-card/stat-card.component';
-import { StudyHistoryChartComponent } from '../../shared/study-history-chart/study-history-chart.component';
+import { ExamService } from '../../core/exam-service';
+import { StatCard } from '../../shared/stat-card/stat-card';
+import { StudyHistoryChart } from '../../shared/study-history-chart/study-history-chart';
 
 @Component({
   selector: 'app-exam-progress',
@@ -29,8 +29,8 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
     MatCardModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    StatCardComponent,
-    StudyHistoryChartComponent,
+    StatCard,
+    StudyHistoryChart,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -340,7 +340,7 @@ import { StudyHistoryChartComponent } from '../../shared/study-history-chart/stu
     `,
   ],
 })
-export class ExamProgressComponent {
+export class ExamProgress {
   private readonly examService = inject(ExamService);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -357,9 +357,13 @@ export class ExamProgressComponent {
     stream: ({ params: id }) => this.examService.getStudyHistory(id),
   });
 
-  readonly stats = this.statsResource.value;
+  readonly stats = computed(() =>
+    this.statsResource.hasValue() ? this.statsResource.value() : null,
+  );
   readonly loading = this.statsResource.isLoading;
-  readonly history = computed(() => this.historyResource.value() ?? []);
+  readonly history = computed(() =>
+    this.historyResource.hasValue() ? this.historyResource.value() : [],
+  );
 
   constructor() {
     effect(() => {

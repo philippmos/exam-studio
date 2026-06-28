@@ -66,7 +66,7 @@ import { MatIconModule } from '@angular/material/icon';
     `,
   ],
 })
-export class StatCardComponent {
+export class StatCard {
   readonly icon = input.required<string>();
   readonly value = input.required<string | number>();
   readonly label = input.required<string>();

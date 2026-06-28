@@ -103,10 +103,10 @@ function toLocalInput(iso: string | null): string {
     `,
   ],
 })
-export class ExamDateDialogComponent {
+export class ExamDateDialog {
   readonly data = inject<DialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject(
-    MatDialogRef<ExamDateDialogComponent, ExamDateDialogResult>,
+    MatDialogRef<ExamDateDialog, ExamDateDialogResult>,
   );
 
   /** datetime-local wall-clock string ("YYYY-MM-DDTHH:mm"), '' when unset. */
@@ -118,10 +118,10 @@ export class ExamDateDialogComponent {
   static open(dialog: MatDialog, exam: Exam): Observable<ExamDateDialogResult> {
     return dialog
       .open<
-        ExamDateDialogComponent,
+        ExamDateDialog,
         DialogData,
         ExamDateDialogResult
-      >(ExamDateDialogComponent, { data: { exam }, width: '460px' })
+      >(ExamDateDialog, { data: { exam }, width: '460px' })
       .afterClosed();
   }
 

@@ -14,13 +14,13 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import { Exam, StudyGoalProgress } from '../../core/models';
-import { ExamCardComponent } from '../../shared/exam-card/exam-card.component';
-import { StreakCardComponent } from '../../shared/streak-card/streak-card.component';
-import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
-import { ExamDateDialogComponent } from '../../shared/exam-date-dialog/exam-date-dialog.component';
-import { ImportDialogComponent } from './import-dialog.component';
+import { ExamCard } from '../../shared/exam-card/exam-card';
+import { StreakCard } from '../../shared/streak-card/streak-card';
+import { StudyGoalDialog } from '../../shared/study-goal-dialog/study-goal-dialog';
+import { ExamDateDialog } from '../../shared/exam-date-dialog/exam-date-dialog';
+import { ImportDialog } from './import-dialog';
 
 @Component({
   selector: 'app-dashboard',
@@ -29,8 +29,8 @@ import { ImportDialogComponent } from './import-dialog.component';
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    ExamCardComponent,
-    StreakCardComponent,
+    ExamCard,
+    StreakCard,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -91,7 +91,7 @@ import { ImportDialogComponent } from './import-dialog.component';
     `,
   ],
 })
-export class DashboardComponent {
+export class Dashboard {
   private readonly examService = inject(ExamService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
@@ -114,12 +114,20 @@ export class DashboardComponent {
 
   // linkedSignals over the resources so mutations (archive, review-cleared) can
   // update the lists optimistically while reload() still refreshes from server.
-  readonly exams = linkedSignal(() => this.examsResource.value() ?? []);
-  readonly reviewDue = linkedSignal(() => this.reviewDueResource.value() ?? []);
-  readonly goalProgress = computed(
-    () => this.goalProgressResource.value() ?? [],
+  readonly exams = linkedSignal(() =>
+    this.examsResource.hasValue() ? this.examsResource.value() : [],
   );
-  readonly streak = this.streakResource.value;
+  readonly reviewDue = linkedSignal(() =>
+    this.reviewDueResource.hasValue() ? this.reviewDueResource.value() : [],
+  );
+  readonly goalProgress = computed(() =>
+    this.goalProgressResource.hasValue()
+      ? this.goalProgressResource.value()
+      : [],
+  );
+  readonly streak = computed(() =>
+    this.streakResource.hasValue() ? this.streakResource.value() : null,
+  );
   readonly loading = this.examsResource.isLoading;
 
   constructor() {
@@ -149,7 +157,7 @@ export class DashboardComponent {
 
   openImport(): void {
     this.dialog
-      .open(ImportDialogComponent, { width: '480px' })
+      .open(ImportDialog, { width: '480px' })
       .afterClosed()
       .subscribe((exam: Exam | undefined) => {
         if (exam) {
@@ -190,7 +198,7 @@ export class DashboardComponent {
   }
 
   editGoal(exam: Exam): void {
-    StudyGoalDialogComponent.open(this.dialog, exam).subscribe((result) => {
+    StudyGoalDialog.open(this.dialog, exam).subscribe((result) => {
       if (result === undefined) {
         return; // cancelled
       }
@@ -222,7 +230,7 @@ export class DashboardComponent {
   }
 
   editExamDate(exam: Exam): void {
-    ExamDateDialogComponent.open(this.dialog, exam).subscribe((result) => {
+    ExamDateDialog.open(this.dialog, exam).subscribe((result) => {
       if (result === undefined) {
         return; // cancelled
       }

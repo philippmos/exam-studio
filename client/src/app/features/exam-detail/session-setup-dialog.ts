@@ -143,10 +143,10 @@ interface DialogData {
     `,
   ],
 })
-export class SessionSetupDialogComponent {
+export class SessionSetupDialog {
   readonly data = inject<DialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject(
-    MatDialogRef<SessionSetupDialogComponent, SessionSetup>,
+    MatDialogRef<SessionSetupDialog, SessionSetup>,
   );
 
   // Default to reviewing when something is due, so spaced repetition is the

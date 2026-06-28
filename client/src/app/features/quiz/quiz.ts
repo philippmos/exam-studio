@@ -18,15 +18,15 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import {
   Allocation,
   AnswerResult,
   ExamSession,
   SessionItem,
 } from '../../core/models';
-import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
-import { QuestionViewComponent } from '../../shared/question-view/question-view.component';
+import { ConfirmDialog } from '../../shared/confirm-dialog/confirm-dialog';
+import { QuestionView } from '../../shared/question-view/question-view';
 
 @Component({
   selector: 'app-quiz',
@@ -37,7 +37,7 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
     MatCardModule,
     MatProgressBarModule,
     MatProgressSpinnerModule,
-    QuestionViewComponent,
+    QuestionView,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -280,7 +280,7 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
     `,
   ],
 })
-export class QuizComponent {
+export class Quiz {
   private readonly examService = inject(ExamService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
@@ -294,18 +294,20 @@ export class QuizComponent {
     stream: ({ params: id }) => this.examService.getSession(id),
   });
 
-  readonly session = computed(() => this.sessionResource.value() ?? null);
+  readonly session = computed(() =>
+    this.sessionResource.hasValue() ? this.sessionResource.value() : null,
+  );
   readonly loading = this.sessionResource.isLoading;
 
   // Local, mutable copy of the items seeded from the loaded session; submitting
   // an answer patches these in place as the user works through the quiz.
   readonly items = linkedSignal<SessionItem[]>(
-    () => this.sessionResource.value()?.items ?? [],
+    () => this.session()?.items ?? [],
   );
 
   /** Resume at the first unanswered question whenever the session loads. */
   readonly index = linkedSignal<number>(() => {
-    const session = this.sessionResource.value();
+    const session = this.session();
     const firstUnanswered =
       session?.items.findIndex((i) => i.selectedAnswerIds.length === 0) ?? -1;
     return firstUnanswered === -1 ? 0 : firstUnanswered;
@@ -445,7 +447,7 @@ export class QuizComponent {
   }
 
   confirmExit(): void {
-    ConfirmDialogComponent.open(this.dialog, {
+    ConfirmDialog.open(this.dialog, {
       title: 'Exit session?',
       message: 'Your answers are saved — you can resume this session later.',
       confirmLabel: 'Exit',

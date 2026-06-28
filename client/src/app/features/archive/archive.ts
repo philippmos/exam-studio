@@ -15,9 +15,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import { Exam } from '../../core/models';
-import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
+import { ConfirmDialog } from '../../shared/confirm-dialog/confirm-dialog';
 
 @Component({
   selector: 'app-archive',
@@ -186,7 +186,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
     `,
   ],
 })
-export class ArchiveComponent {
+export class Archive {
   private readonly examService = inject(ExamService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
@@ -197,7 +197,9 @@ export class ArchiveComponent {
   });
 
   // A linkedSignal over the resource so restore/delete can drop a card locally.
-  readonly exams = linkedSignal(() => this.examsResource.value() ?? []);
+  readonly exams = linkedSignal(() =>
+    this.examsResource.hasValue() ? this.examsResource.value() : [],
+  );
   readonly loading = this.examsResource.isLoading;
 
   constructor() {
@@ -228,7 +230,7 @@ export class ArchiveComponent {
   }
 
   deleteExam(exam: Exam): void {
-    ConfirmDialogComponent.open(this.dialog, {
+    ConfirmDialog.open(this.dialog, {
       title: 'Delete exam',
       message: `Delete "${exam.name}" and all of its data? This cannot be undone.`,
       confirmLabel: 'Delete',

@@ -477,7 +477,7 @@ import { Allocation, Answer, Question } from '../../core/models';
     `,
   ],
 })
-export class QuestionViewComponent {
+export class QuestionView {
   readonly question = input.required<Question>();
   readonly answered = input(false);
   readonly selectedAnswerIds = input<string[]>([]);

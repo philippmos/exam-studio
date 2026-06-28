@@ -232,7 +232,7 @@ interface WeekDay {
     `,
   ],
 })
-export class StreakCardComponent {
+export class StreakCard {
   private readonly locale = inject(LOCALE_ID);
 
   /** Streak to render; nothing is shown until it has loaded. */

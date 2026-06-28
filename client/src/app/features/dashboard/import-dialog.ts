@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import { Exam } from '../../core/models';
 
 @Component({
@@ -82,11 +82,9 @@ import { Exam } from '../../core/models';
     `,
   ],
 })
-export class ImportDialogComponent {
+export class ImportDialog {
   private readonly examService = inject(ExamService);
-  private readonly dialogRef = inject(
-    MatDialogRef<ImportDialogComponent, Exam>,
-  );
+  private readonly dialogRef = inject(MatDialogRef<ImportDialog, Exam>);
 
   readonly fileName = signal<string | null>(null);
   readonly fileContent = signal<string | null>(null);

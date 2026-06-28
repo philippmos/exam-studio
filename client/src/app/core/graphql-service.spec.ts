@@ -7,7 +7,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { environment } from '../../environments/environment';
-import { GraphqlService } from './graphql.service';
+import { GraphqlService } from './graphql-service';
 
 describe('GraphqlService', () => {
   let service: GraphqlService;

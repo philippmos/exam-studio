@@ -141,7 +141,7 @@ import { MatIconModule } from '@angular/material/icon';
     `,
   ],
 })
-export class AppComponent {
+export class App {
   /** Current top-level area, used to highlight the active nav pill. */
   readonly section = signal<'exams' | 'sessions' | 'statistics' | 'archive'>(
     'exams',

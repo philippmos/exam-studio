@@ -51,7 +51,7 @@ export interface ConfirmDialogData {
     `,
   ],
 })
-export class ConfirmDialogComponent {
+export class ConfirmDialog {
   readonly data = inject<ConfirmDialogData>(MAT_DIALOG_DATA);
 
   /** Opens the dialog; emits `true` only when the user confirmed. */
@@ -61,10 +61,10 @@ export class ConfirmDialogComponent {
   ): Observable<boolean | undefined> {
     return dialog
       .open<
-        ConfirmDialogComponent,
+        ConfirmDialog,
         ConfirmDialogData,
         boolean
-      >(ConfirmDialogComponent, { data, width: '420px' })
+      >(ConfirmDialog, { data, width: '420px' })
       .afterClosed();
   }
 }

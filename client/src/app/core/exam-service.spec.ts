@@ -7,7 +7,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { environment } from '../../environments/environment';
-import { ExamService } from './exam.service';
+import { ExamService } from './exam-service';
 import { Exam } from './models';
 
 interface GraphqlBody {
