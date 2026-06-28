@@ -45,13 +45,13 @@ export interface ConfirmDialogData {
         line-height: 1.5;
       }
       .destructive {
-        --mdc-filled-button-container-color: var(--mat-sys-error);
-        --mdc-filled-button-label-text-color: var(--mat-sys-on-error);
+        --mat-button-filled-container-color: var(--mat-sys-error);
+        --mat-button-filled-label-text-color: var(--mat-sys-on-error);
       }
     `,
   ],
 })
-export class ConfirmDialogComponent {
+export class ConfirmDialog {
   readonly data = inject<ConfirmDialogData>(MAT_DIALOG_DATA);
 
   /** Opens the dialog; emits `true` only when the user confirmed. */
@@ -60,10 +60,11 @@ export class ConfirmDialogComponent {
     data: ConfirmDialogData,
   ): Observable<boolean | undefined> {
     return dialog
-      .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(
-        ConfirmDialogComponent,
-        { data, width: '420px' },
-      )
+      .open<
+        ConfirmDialog,
+        ConfirmDialogData,
+        boolean
+      >(ConfirmDialog, { data, width: '420px' })
       .afterClosed();
   }
 }

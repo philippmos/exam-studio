@@ -20,7 +20,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatRadioModule } from '@angular/material/radio';
 import { FormsModule } from '@angular/forms';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import {
   Exam,
   GoalPeriod,
@@ -79,7 +79,9 @@ export type StudyGoalDialogResult = StudyGoal | null | undefined;
       >
         <mat-radio-button value="DAILY">
           <span class="period-title">Daily</span>
-          <span class="period-desc">The goal resets every day at midnight.</span>
+          <span class="period-desc"
+            >The goal resets every day at midnight.</span
+          >
         </mat-radio-button>
 
         <mat-radio-button value="WEEKLY">
@@ -229,10 +231,10 @@ export type StudyGoalDialogResult = StudyGoal | null | undefined;
     `,
   ],
 })
-export class StudyGoalDialogComponent {
+export class StudyGoalDialog {
   readonly data = inject<DialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject(
-    MatDialogRef<StudyGoalDialogComponent, StudyGoalDialogResult>,
+    MatDialogRef<StudyGoalDialog, StudyGoalDialogResult>,
   );
   private readonly examService = inject(ExamService);
 
@@ -240,8 +242,7 @@ export class StudyGoalDialogComponent {
 
   /** Whether the target is computed from the exam date or typed by hand. */
   readonly mode = signal<StudyGoalSource>(
-    this.data.exam.studyGoal?.source ??
-      (this.hasExamDate ? 'AUTO' : 'MANUAL'),
+    this.data.exam.studyGoal?.source ?? (this.hasExamDate ? 'AUTO' : 'MANUAL'),
   );
   readonly period = signal<GoalPeriod>(
     this.data.exam.studyGoal?.period ?? 'DAILY',
@@ -272,10 +273,11 @@ export class StudyGoalDialogComponent {
     exam: Exam,
   ): Observable<StudyGoalDialogResult> {
     return dialog
-      .open<StudyGoalDialogComponent, DialogData, StudyGoalDialogResult>(
-        StudyGoalDialogComponent,
-        { data: { exam }, width: '460px' },
-      )
+      .open<
+        StudyGoalDialog,
+        DialogData,
+        StudyGoalDialogResult
+      >(StudyGoalDialog, { data: { exam }, width: '460px' })
       .afterClosed();
   }
 

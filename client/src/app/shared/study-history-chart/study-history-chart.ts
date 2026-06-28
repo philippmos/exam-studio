@@ -98,7 +98,7 @@ const DAY_MS = 86_400_000;
         margin-bottom: 16px;
       }
       .head mat-button-toggle-group {
-        --mat-standard-button-toggle-height: 32px;
+        --mat-button-toggle-height: 32px;
         font-size: 13px;
       }
       .chart {
@@ -201,7 +201,7 @@ const DAY_MS = 86_400_000;
     `,
   ],
 })
-export class StudyHistoryChartComponent {
+export class StudyHistoryChart {
   private readonly locale = inject(LOCALE_ID);
 
   /** Per-day history; gaps between days are filled with zero bars. */
@@ -226,10 +226,16 @@ export class StudyHistoryChartComponent {
     }
     const tickEvery = Math.max(1, Math.ceil(days.length / 8));
     return days.map((day, i) => {
-      const stats = byDay.get(day) ?? { day, total: 0, correct: 0, incorrect: 0 };
+      const stats = byDay.get(day) ?? {
+        day,
+        total: 0,
+        correct: 0,
+        incorrect: 0,
+      };
       return {
         ...stats,
-        tick: i % tickEvery === 0 ? formatDate(day, 'MMM d', this.locale) : null,
+        tick:
+          i % tickEvery === 0 ? formatDate(day, 'MMM d', this.locale) : null,
         tooltip:
           `${formatDate(day, 'mediumDate', this.locale)}: ` +
           `${stats.total} answered · ${stats.correct} correct · ` +

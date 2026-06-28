@@ -1,9 +1,11 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  effect,
   inject,
-  signal,
+  linkedSignal,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -13,9 +15,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import { Exam } from '../../core/models';
-import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
+import { ConfirmDialog } from '../../shared/confirm-dialog/confirm-dialog';
 
 @Component({
   selector: 'app-archive',
@@ -45,7 +47,9 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
       } @else if (exams().length === 0) {
         <div class="empty-state">
           <div class="empty-icon"><mat-icon>inventory_2</mat-icon></div>
-          <p>No archived exams. Archive one from the dashboard to tuck it away.</p>
+          <p>
+            No archived exams. Archive one from the dashboard to tuck it away.
+          </p>
           <button mat-stroked-button (click)="goDashboard()">
             <mat-icon>grid_view</mat-icon> Browse exams
           </button>
@@ -182,30 +186,28 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
     `,
   ],
 })
-export class ArchiveComponent {
+export class Archive {
   private readonly examService = inject(ExamService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
 
-  readonly exams = signal<Exam[]>([]);
-  readonly loading = signal(true);
+  private readonly examsResource = rxResource({
+    stream: () => this.examService.getArchivedExams(),
+  });
+
+  // A linkedSignal over the resource so restore/delete can drop a card locally.
+  readonly exams = linkedSignal(() =>
+    this.examsResource.hasValue() ? this.examsResource.value() : [],
+  );
+  readonly loading = this.examsResource.isLoading;
 
   constructor() {
-    this.load();
-  }
-
-  private load(): void {
-    this.loading.set(true);
-    this.examService.getArchivedExams().subscribe({
-      next: (exams) => {
-        this.exams.set(exams);
-        this.loading.set(false);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
+    effect(() => {
+      const error = this.examsResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 
@@ -214,7 +216,9 @@ export class ArchiveComponent {
     this.examService.setExamArchived(exam.id, false).subscribe({
       next: () => {
         this.exams.update((list) => list.filter((e) => e.id !== exam.id));
-        this.snackBar.open(`"${exam.name}" restored.`, 'OK', { duration: 3000 });
+        this.snackBar.open(`"${exam.name}" restored.`, 'OK', {
+          duration: 3000,
+        });
       },
       error: (err: Error) =>
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
@@ -226,7 +230,7 @@ export class ArchiveComponent {
   }
 
   deleteExam(exam: Exam): void {
-    ConfirmDialogComponent.open(this.dialog, {
+    ConfirmDialog.open(this.dialog, {
       title: 'Delete exam',
       message: `Delete "${exam.name}" and all of its data? This cannot be undone.`,
       confirmLabel: 'Delete',

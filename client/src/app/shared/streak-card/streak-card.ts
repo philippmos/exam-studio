@@ -121,7 +121,8 @@ interface WeekDay {
         color: var(--app-streak);
       }
       .lit .flame {
-        box-shadow: 0 0 0 4px color-mix(in srgb, var(--app-streak) 12%, transparent);
+        box-shadow: 0 0 0 4px
+          color-mix(in srgb, var(--app-streak) 12%, transparent);
       }
       .cold .flame {
         background: var(--mat-sys-surface-container-highest);
@@ -214,7 +215,8 @@ interface WeekDay {
         color: #fff;
       }
       .day.today .cell {
-        box-shadow: 0 0 0 2px var(--mat-sys-surface),
+        box-shadow:
+          0 0 0 2px var(--mat-sys-surface),
           0 0 0 4px color-mix(in srgb, var(--app-streak) 55%, transparent);
       }
       .dow {
@@ -230,7 +232,7 @@ interface WeekDay {
     `,
   ],
 })
-export class StreakCardComponent {
+export class StreakCard {
   private readonly locale = inject(LOCALE_ID);
 
   /** Streak to render; nothing is shown until it has loaded. */

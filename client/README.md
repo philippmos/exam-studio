@@ -1,6 +1,7 @@
 # Exam Studio – Client
 
-Angular 19 (standalone components, signals) + Angular Material.
+Angular 22 — standalone components, signals, zoneless change detection,
+`rxResource`-based data loading — with Angular Material.
 
 ## Getting started
 
@@ -20,8 +21,8 @@ The app runs at <http://localhost:4200> and talks to the API at
 src/app/
 ├── core/                     # cross-cutting, non-visual code
 │   ├── models.ts             # TypeScript types mirroring the GraphQL schema
-│   ├── graphql.service.ts    # tiny GraphQL-over-HttpClient client
-│   └── exam.service.ts       # all exam/session queries & mutations
+│   ├── graphql-service.ts    # tiny GraphQL-over-HttpClient client
+│   └── exam-service.ts       # all exam/session queries & mutations
 ├── shared/                   # reusable, presentational components
 │   ├── exam-card/            # one exam tile on the dashboard
 │   ├── stat-card/            # a reusable KPI tile
@@ -40,9 +41,9 @@ src/app/
 2. **Exam detail** (`/exams/:id`) – shows the modules and a **Start exam mode**
    button.
 3. **Start dialog** – choose a mode:
-   - *All questions, shuffled*
-   - *A specific module*
-   - *Only not-yet-correct* (questions never answered correctly before)
+   - _All questions, shuffled_
+   - _A specific module_
+   - _Only not-yet-correct_ (questions never answered correctly before)
 4. **Quiz runner** (`/sessions/:id`) – answer questions one by one. Clicking an
    option submits it (persisted in the DB) and reveals whether it was correct.
    Navigate back/forth; finish to see a summary.
@@ -51,6 +52,20 @@ src/app/
    sessions, last activity), an overall question-breakdown bar and a per-module
    breakdown. Reachable from the dashboard card (chart icon) or the exam detail
    page (**Learning progress**).
+
+> Files follow the current Angular style guide: no `.component`/`.service`
+> suffix (e.g. `dashboard.ts` exporting `Dashboard`); services keep the
+> `Service` class suffix to disambiguate from the domain models.
+
+## Scripts
+
+```bash
+npm start          # dev server at http://localhost:4200
+npm run build      # production bundle
+npm test           # unit tests (Vitest)
+npm run lint       # ESLint (angular-eslint, flat config)
+npm run format     # Prettier --write
+```
 
 ## End-to-end tests
 

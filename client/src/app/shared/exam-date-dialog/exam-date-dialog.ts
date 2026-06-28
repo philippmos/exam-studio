@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   MAT_DIALOG_DATA,
@@ -98,10 +103,10 @@ function toLocalInput(iso: string | null): string {
     `,
   ],
 })
-export class ExamDateDialogComponent {
+export class ExamDateDialog {
   readonly data = inject<DialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject(
-    MatDialogRef<ExamDateDialogComponent, ExamDateDialogResult>,
+    MatDialogRef<ExamDateDialog, ExamDateDialogResult>,
   );
 
   /** datetime-local wall-clock string ("YYYY-MM-DDTHH:mm"), '' when unset. */
@@ -112,10 +117,11 @@ export class ExamDateDialogComponent {
   /** Opens the dialog for an exam; see {@link ExamDateDialogResult}. */
   static open(dialog: MatDialog, exam: Exam): Observable<ExamDateDialogResult> {
     return dialog
-      .open<ExamDateDialogComponent, DialogData, ExamDateDialogResult>(
-        ExamDateDialogComponent,
-        { data: { exam }, width: '460px' },
-      )
+      .open<
+        ExamDateDialog,
+        DialogData,
+        ExamDateDialogResult
+      >(ExamDateDialog, { data: { exam }, width: '460px' })
       .afterClosed();
   }
 

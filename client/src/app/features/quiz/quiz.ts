@@ -1,12 +1,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  OnInit,
   computed,
+  effect,
   inject,
   input,
+  linkedSignal,
   signal,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -16,15 +18,15 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import {
   Allocation,
   AnswerResult,
   ExamSession,
   SessionItem,
 } from '../../core/models';
-import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
-import { QuestionViewComponent } from '../../shared/question-view/question-view.component';
+import { ConfirmDialog } from '../../shared/confirm-dialog/confirm-dialog';
+import { QuestionView } from '../../shared/question-view/question-view';
 
 @Component({
   selector: 'app-quiz',
@@ -35,7 +37,7 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
     MatCardModule,
     MatProgressBarModule,
     MatProgressSpinnerModule,
-    QuestionViewComponent,
+    QuestionView,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -63,87 +65,87 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
           </mat-card>
         } @else {
           @if (current(); as item) {
-          <!-- Runner header -->
-          <div class="top">
-            <button mat-button (click)="confirmExit()" class="exit">
-              <mat-icon>close</mat-icon> Exit
-            </button>
-            <span class="position">
-              Question {{ index() + 1 }} / {{ items().length }}
-            </span>
-            <span class="live-score">
-              <mat-icon>check_circle</mat-icon> {{ correctCount() }}
-            </span>
-          </div>
-          <mat-progress-bar
-            mode="determinate"
-            [value]="progress()"
-            class="progress"
-          />
-
-          <mat-card appearance="outlined" class="question-card">
-            <mat-card-content>
-              <app-question-view
-                [question]="item.question"
-                [answered]="isAnswered(item)"
-                [selectedAnswerIds]="item.selectedAnswerIds"
-                [correctAnswerIds]="item.correctAnswerIds"
-                [selectedAllocations]="item.selectedAllocations"
-                [correctAllocations]="item.correctAllocations"
-                (submitAnswers)="answer(item, $event)"
-                (submitAllocations)="answerAllocation(item, $event)"
-              />
-            </mat-card-content>
-          </mat-card>
-
-          @if (reviewInfo(); as info) {
-            <p class="review-hint">
-              <mat-icon>autorenew</mat-icon>
-              Next review in {{ info.intervalDays }}
-              {{ info.intervalDays === 1 ? 'day' : 'days' }} · Box
-              {{ info.box }}/5
-            </p>
-          }
-
-          <!-- Feedback + navigation -->
-          <div class="nav">
-            <button
-              mat-button
-              [disabled]="index() === 0"
-              (click)="previous()"
-            >
-              <mat-icon>chevron_left</mat-icon> Previous
-            </button>
-
-            @if (isAnswered(item)) {
-              <span
-                class="feedback"
-                [class.correct]="item.isCorrect"
-                [class.wrong]="!item.isCorrect"
-              >
-                <mat-icon>{{
-                  item.isCorrect ? 'check_circle' : 'cancel'
-                }}</mat-icon>
-                {{ item.isCorrect ? 'Correct' : 'Incorrect' }}
+            <!-- Runner header -->
+            <div class="top">
+              <button mat-button (click)="confirmExit()" class="exit">
+                <mat-icon>close</mat-icon> Exit
+              </button>
+              <span class="position">
+                Question {{ index() + 1 }} / {{ items().length }}
               </span>
-            } @else {
-              <span class="hint">{{ hintFor(item) }}</span>
+              <span class="live-score">
+                <mat-icon>check_circle</mat-icon> {{ correctCount() }}
+              </span>
+            </div>
+            <mat-progress-bar
+              mode="determinate"
+              [value]="progress()"
+              class="progress"
+            />
+
+            <mat-card appearance="outlined" class="question-card">
+              <mat-card-content>
+                <app-question-view
+                  [question]="item.question"
+                  [answered]="isAnswered(item)"
+                  [selectedAnswerIds]="item.selectedAnswerIds"
+                  [correctAnswerIds]="item.correctAnswerIds"
+                  [selectedAllocations]="item.selectedAllocations"
+                  [correctAllocations]="item.correctAllocations"
+                  (submitAnswers)="answer(item, $event)"
+                  (submitAllocations)="answerAllocation(item, $event)"
+                />
+              </mat-card-content>
+            </mat-card>
+
+            @if (reviewInfo(); as info) {
+              <p class="review-hint">
+                <mat-icon>autorenew</mat-icon>
+                Next review in {{ info.intervalDays }}
+                {{ info.intervalDays === 1 ? 'day' : 'days' }} · Box
+                {{ info.box }}/5
+              </p>
             }
 
-            @if (isLast()) {
+            <!-- Feedback + navigation -->
+            <div class="nav">
               <button
-                mat-flat-button
-                [disabled]="!allAnswered()"
-                (click)="finish(session)"
+                mat-button
+                [disabled]="index() === 0"
+                (click)="previous()"
               >
-                Finish <mat-icon iconPositionEnd>flag</mat-icon>
+                <mat-icon>chevron_left</mat-icon> Previous
               </button>
-            } @else {
-              <button mat-flat-button (click)="next()">
-                Next <mat-icon iconPositionEnd>chevron_right</mat-icon>
-              </button>
-            }
-          </div>
+
+              @if (isAnswered(item)) {
+                <span
+                  class="feedback"
+                  [class.correct]="item.isCorrect"
+                  [class.wrong]="!item.isCorrect"
+                >
+                  <mat-icon>{{
+                    item.isCorrect ? 'check_circle' : 'cancel'
+                  }}</mat-icon>
+                  {{ item.isCorrect ? 'Correct' : 'Incorrect' }}
+                </span>
+              } @else {
+                <span class="hint">{{ hintFor(item) }}</span>
+              }
+
+              @if (isLast()) {
+                <button
+                  mat-flat-button
+                  [disabled]="!allAnswered()"
+                  (click)="finish(session)"
+                >
+                  Finish <mat-icon iconPositionEnd>flag</mat-icon>
+                </button>
+              } @else {
+                <button mat-flat-button (click)="next()">
+                  Next <mat-icon iconPositionEnd>chevron_right</mat-icon>
+                </button>
+              }
+            </div>
           }
         }
       } @else if (loading()) {
@@ -186,8 +188,8 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
         border-radius: 99px;
         overflow: hidden;
         margin-bottom: 20px;
-        --mdc-linear-progress-track-height: 8px;
-        --mdc-linear-progress-active-indicator-height: 8px;
+        --mat-progress-bar-track-height: 8px;
+        --mat-progress-bar-active-indicator-height: 8px;
       }
       .question-card {
         margin-bottom: 16px;
@@ -278,7 +280,7 @@ import { QuestionViewComponent } from '../../shared/question-view/question-view.
     `,
   ],
 })
-export class QuizComponent implements OnInit {
+export class Quiz {
   private readonly examService = inject(ExamService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
@@ -287,10 +289,30 @@ export class QuizComponent implements OnInit {
   /** Session id, bound from the `:id` route param. */
   readonly id = input.required<string>();
 
-  readonly session = signal<ExamSession | null>(null);
-  readonly items = signal<SessionItem[]>([]);
-  readonly index = signal(0);
-  readonly loading = signal(true);
+  private readonly sessionResource = rxResource({
+    params: () => this.id(),
+    stream: ({ params: id }) => this.examService.getSession(id),
+  });
+
+  readonly session = computed(() =>
+    this.sessionResource.hasValue() ? this.sessionResource.value() : null,
+  );
+  readonly loading = this.sessionResource.isLoading;
+
+  // Local, mutable copy of the items seeded from the loaded session; submitting
+  // an answer patches these in place as the user works through the quiz.
+  readonly items = linkedSignal<SessionItem[]>(
+    () => this.session()?.items ?? [],
+  );
+
+  /** Resume at the first unanswered question whenever the session loads. */
+  readonly index = linkedSignal<number>(() => {
+    const session = this.session();
+    const firstUnanswered =
+      session?.items.findIndex((i) => i.selectedAnswerIds.length === 0) ?? -1;
+    return firstUnanswered === -1 ? 0 : firstUnanswered;
+  });
+
   readonly finished = signal(false);
 
   /** Per-item Leitner outcome from this run's answers (item id -> schedule). */
@@ -319,29 +341,12 @@ export class QuizComponent implements OnInit {
     return total ? Math.round((this.correctCount() / total) * 100) : 0;
   });
 
-  ngOnInit(): void {
-    this.load();
-  }
-
-  private load(): void {
-    this.examService.getSession(this.id()).subscribe({
-      next: (session) => {
-        this.loading.set(false);
-        if (!session) {
-          return;
-        }
-        this.session.set(session);
-        this.items.set(session.items);
-        // Resume at the first unanswered question.
-        const firstUnanswered = session.items.findIndex(
-          (i) => i.selectedAnswerIds.length === 0,
-        );
-        this.index.set(firstUnanswered === -1 ? 0 : firstUnanswered);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
+  constructor() {
+    effect(() => {
+      const error = this.sessionResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 
@@ -397,7 +402,9 @@ export class QuizComponent implements OnInit {
   ): void {
     this.items.update((list) =>
       list.map((it) =>
-        it.id === itemId ? { ...it, ...patch, isCorrect: result.isCorrect } : it,
+        it.id === itemId
+          ? { ...it, ...patch, isCorrect: result.isCorrect }
+          : it,
       ),
     );
     this.reviewByItem.update((map) => ({
@@ -440,7 +447,7 @@ export class QuizComponent implements OnInit {
   }
 
   confirmExit(): void {
-    ConfirmDialogComponent.open(this.dialog, {
+    ConfirmDialog.open(this.dialog, {
       title: 'Exit session?',
       message: 'Your answers are saved — you can resume this session later.',
       confirmLabel: 'Exit',

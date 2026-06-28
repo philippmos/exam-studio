@@ -4,49 +4,38 @@ export const routes: Routes = [
   {
     path: '',
     loadComponent: () =>
-      import('./features/dashboard/dashboard.component').then(
-        (m) => m.DashboardComponent,
-      ),
+      import('./features/dashboard/dashboard').then((m) => m.Dashboard),
   },
   {
     path: 'exams/:id',
     loadComponent: () =>
-      import('./features/exam-detail/exam-detail.component').then(
-        (m) => m.ExamDetailComponent,
-      ),
+      import('./features/exam-detail/exam-detail').then((m) => m.ExamDetail),
   },
   {
     path: 'exams/:id/progress',
     loadComponent: () =>
-      import('./features/exam-progress/exam-progress.component').then(
-        (m) => m.ExamProgressComponent,
+      import('./features/exam-progress/exam-progress').then(
+        (m) => m.ExamProgress,
       ),
   },
   {
     path: 'statistics',
     loadComponent: () =>
-      import('./features/statistics/statistics.component').then(
-        (m) => m.StatisticsComponent,
-      ),
+      import('./features/statistics/statistics').then((m) => m.Statistics),
   },
   {
     path: 'sessions',
     loadComponent: () =>
-      import('./features/sessions/sessions.component').then(
-        (m) => m.SessionsComponent,
-      ),
+      import('./features/sessions/sessions').then((m) => m.Sessions),
   },
   {
     path: 'sessions/:id',
-    loadComponent: () =>
-      import('./features/quiz/quiz.component').then((m) => m.QuizComponent),
+    loadComponent: () => import('./features/quiz/quiz').then((m) => m.Quiz),
   },
   {
     path: 'archive',
     loadComponent: () =>
-      import('./features/archive/archive.component').then(
-        (m) => m.ArchiveComponent,
-      ),
+      import('./features/archive/archive').then((m) => m.Archive),
   },
   { path: '**', redirectTo: '' },
 ];

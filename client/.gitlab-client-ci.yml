@@ -27,7 +27,7 @@ variables:
 
 build:
   stage: build
-  image: node:20-alpine
+  image: node:24-alpine
   rules:
     - when: on_success
   cache:

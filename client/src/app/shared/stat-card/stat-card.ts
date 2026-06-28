@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   Input,
+  input,
 } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,12 +15,12 @@ import { MatIconModule } from '@angular/material/icon';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <mat-card class="stat-card" appearance="outlined">
-      <div class="icon" [style.background]="tint">
-        <mat-icon [style.color]="color">{{ icon }}</mat-icon>
+      <div class="icon" [style.background]="tint()">
+        <mat-icon [style.color]="color()">{{ icon() }}</mat-icon>
       </div>
       <div class="body">
-        <div class="value">{{ value }}</div>
-        <div class="label">{{ label }}</div>
+        <div class="value">{{ value() }}</div>
+        <div class="label">{{ label() }}</div>
         @if (sublabel) {
           <div class="sublabel">{{ sublabel }}</div>
         }
@@ -65,11 +66,11 @@ import { MatIconModule } from '@angular/material/icon';
     `,
   ],
 })
-export class StatCardComponent {
-  @Input({ required: true }) icon!: string;
-  @Input({ required: true }) value!: string | number;
-  @Input({ required: true }) label!: string;
+export class StatCard {
+  readonly icon = input.required<string>();
+  readonly value = input.required<string | number>();
+  readonly label = input.required<string>();
   @Input() sublabel?: string;
-  @Input() color = '#1976d2';
-  @Input() tint = '#e3f2fd';
+  readonly color = input('#1976d2');
+  readonly tint = input('#e3f2fd');
 }

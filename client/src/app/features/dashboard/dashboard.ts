@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  linkedSignal,
+} from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -6,13 +14,13 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ExamService } from '../../core/exam.service';
-import { Exam, ReviewDue, StudyGoalProgress, StudyStreak } from '../../core/models';
-import { ExamCardComponent } from '../../shared/exam-card/exam-card.component';
-import { StreakCardComponent } from '../../shared/streak-card/streak-card.component';
-import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
-import { ExamDateDialogComponent } from '../../shared/exam-date-dialog/exam-date-dialog.component';
-import { ImportDialogComponent } from './import-dialog.component';
+import { ExamService } from '../../core/exam-service';
+import { Exam, StudyGoalProgress } from '../../core/models';
+import { ExamCard } from '../../shared/exam-card/exam-card';
+import { StreakCard } from '../../shared/streak-card/streak-card';
+import { StudyGoalDialog } from '../../shared/study-goal-dialog/study-goal-dialog';
+import { ExamDateDialog } from '../../shared/exam-date-dialog/exam-date-dialog';
+import { ImportDialog } from './import-dialog';
 
 @Component({
   selector: 'app-dashboard',
@@ -21,8 +29,8 @@ import { ImportDialogComponent } from './import-dialog.component';
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    ExamCardComponent,
-    StreakCardComponent,
+    ExamCard,
+    StreakCard,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -58,7 +66,7 @@ import { ImportDialogComponent } from './import-dialog.component';
               [goalProgress]="goalFor(exam.id)"
               [dueCount]="dueFor(exam.id)"
               (open)="openExam($event)"
-              (progress)="openProgress($event)"
+              (viewProgress)="openProgress($event)"
               (goal)="editGoal($event)"
               (examDate)="editExamDate($event)"
               (review)="startReview($event)"
@@ -83,61 +91,60 @@ import { ImportDialogComponent } from './import-dialog.component';
     `,
   ],
 })
-export class DashboardComponent {
+export class Dashboard {
   private readonly examService = inject(ExamService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
 
-  readonly exams = signal<Exam[]>([]);
-  readonly goalProgress = signal<StudyGoalProgress[]>([]);
-  readonly reviewDue = signal<ReviewDue[]>([]);
-  readonly streak = signal<StudyStreak | null>(null);
-  readonly loading = signal(true);
+  private readonly examsResource = rxResource({
+    stream: () => this.examService.getExams(),
+  });
+  // Supplementary data: on error these resources stay empty/hidden, so only the
+  // main exam-list failure raises a snackbar.
+  private readonly goalProgressResource = rxResource({
+    stream: () => this.examService.getStudyGoalProgress(),
+  });
+  private readonly reviewDueResource = rxResource({
+    stream: () => this.examService.getReviewDue(),
+  });
+  private readonly streakResource = rxResource({
+    stream: () => this.examService.getStudyStreak(),
+  });
+
+  // linkedSignals over the resources so mutations (archive, review-cleared) can
+  // update the lists optimistically while reload() still refreshes from server.
+  readonly exams = linkedSignal(() =>
+    this.examsResource.hasValue() ? this.examsResource.value() : [],
+  );
+  readonly reviewDue = linkedSignal(() =>
+    this.reviewDueResource.hasValue() ? this.reviewDueResource.value() : [],
+  );
+  readonly goalProgress = computed(() =>
+    this.goalProgressResource.hasValue()
+      ? this.goalProgressResource.value()
+      : [],
+  );
+  readonly streak = computed(() =>
+    this.streakResource.hasValue() ? this.streakResource.value() : null,
+  );
+  readonly loading = this.examsResource.isLoading;
 
   constructor() {
-    this.load();
-  }
-
-  private load(): void {
-    this.loading.set(true);
-    this.examService.getExams().subscribe({
-      next: (exams) => {
-        this.exams.set(exams);
-        this.loading.set(false);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
-    });
-    this.loadGoalProgress();
-    this.loadReviewDue();
-    this.loadStreak();
-  }
-
-  /** The streak banner is supplementary: on error just leave it hidden. */
-  private loadStreak(): void {
-    this.examService.getStudyStreak().subscribe({
-      next: (streak) => this.streak.set(streak),
-      error: () => undefined,
+    effect(() => {
+      const error = this.examsResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 
-  /** The goal bars are supplementary: on error just leave them hidden. */
-  private loadGoalProgress(): void {
-    this.examService.getStudyGoalProgress().subscribe({
-      next: (progress) => this.goalProgress.set(progress),
-      error: () => undefined,
-    });
-  }
-
-  /** The review chips are supplementary: on error just leave them hidden. */
-  private loadReviewDue(): void {
-    this.examService.getReviewDue().subscribe({
-      next: (due) => this.reviewDue.set(due),
-      error: () => undefined,
-    });
+  /** Refresh every dashboard data source from the server. */
+  private reloadAll(): void {
+    this.examsResource.reload();
+    this.goalProgressResource.reload();
+    this.reviewDueResource.reload();
+    this.streakResource.reload();
   }
 
   goalFor(examId: string): StudyGoalProgress | null {
@@ -150,14 +157,14 @@ export class DashboardComponent {
 
   openImport(): void {
     this.dialog
-      .open(ImportDialogComponent, { width: '480px' })
+      .open(ImportDialog, { width: '480px' })
       .afterClosed()
       .subscribe((exam: Exam | undefined) => {
         if (exam) {
           this.snackBar.open(`Imported "${exam.name}".`, 'OK', {
             duration: 3000,
           });
-          this.load();
+          this.reloadAll();
         }
       });
   }
@@ -191,7 +198,7 @@ export class DashboardComponent {
   }
 
   editGoal(exam: Exam): void {
-    StudyGoalDialogComponent.open(this.dialog, exam).subscribe((result) => {
+    StudyGoalDialog.open(this.dialog, exam).subscribe((result) => {
       if (result === undefined) {
         return; // cancelled
       }
@@ -209,7 +216,7 @@ export class DashboardComponent {
           this.exams.update((list) =>
             list.map((e) => (e.id === updated.id ? updated : e)),
           );
-          this.loadGoalProgress();
+          this.goalProgressResource.reload();
           this.snackBar.open(
             result === null ? 'Study goal removed.' : 'Study goal saved.',
             'OK',
@@ -223,7 +230,7 @@ export class DashboardComponent {
   }
 
   editExamDate(exam: Exam): void {
-    ExamDateDialogComponent.open(this.dialog, exam).subscribe((result) => {
+    ExamDateDialog.open(this.dialog, exam).subscribe((result) => {
       if (result === undefined) {
         return; // cancelled
       }
@@ -238,7 +245,7 @@ export class DashboardComponent {
           );
           // Setting/clearing the date may have (re)computed an automatic goal
           // server-side, so refresh the progress bars to match.
-          this.loadGoalProgress();
+          this.goalProgressResource.reload();
           this.snackBar.open(this.examDateMessage(result, updated), 'OK', {
             duration: 4000,
           });
@@ -280,7 +287,7 @@ export class DashboardComponent {
   /** Undo an archive: restore the exam and bring it back to the dashboard. */
   private restoreExam(exam: Exam): void {
     this.examService.setExamArchived(exam.id, false).subscribe({
-      next: () => this.load(),
+      next: () => this.reloadAll(),
       error: (err: Error) =>
         this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
     });

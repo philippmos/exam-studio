@@ -1,6 +1,16 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterOutlet,
+} from '@angular/router';
 import { filter } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -28,8 +38,17 @@ import { MatIconModule } from '@angular/material/icon';
         </button>
       </div>
       <nav class="app-nav">
-        <div id="app-navigation" class="nav-links" [class.open]="mobileMenuOpen()">
-          <a routerLink="/" class="nav-link" [class.active]="section() === 'exams'" (click)="closeMobileMenu()">
+        <div
+          id="app-navigation"
+          class="nav-links"
+          [class.open]="mobileMenuOpen()"
+        >
+          <a
+            routerLink="/"
+            class="nav-link"
+            [class.active]="section() === 'exams'"
+            (click)="closeMobileMenu()"
+          >
             <mat-icon>grid_view</mat-icon>
             <span>Exams</span>
           </a>
@@ -211,7 +230,11 @@ import { MatIconModule } from '@angular/material/icon';
           border: 1px solid
             color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent);
           border-radius: 20px;
-          background: color-mix(in srgb, var(--mat-sys-surface) 96%, transparent);
+          background: color-mix(
+            in srgb,
+            var(--mat-sys-surface) 96%,
+            transparent
+          );
           box-shadow: 0 16px 40px color-mix(in srgb, #000 12%, transparent);
           max-height: 0;
           overflow: hidden;
@@ -237,13 +260,17 @@ import { MatIconModule } from '@angular/material/icon';
           justify-content: flex-start;
           padding: 13px 14px;
           border-radius: 16px;
-          background: color-mix(in srgb, var(--mat-sys-surface-container) 72%, transparent);
+          background: color-mix(
+            in srgb,
+            var(--mat-sys-surface-container) 72%,
+            transparent
+          );
         }
       }
     `,
   ],
 })
-export class AppComponent {
+export class App {
   /** Current top-level area, used to highlight the active nav pill. */
   readonly section = signal<'exams' | 'sessions' | 'statistics' | 'archive'>(
     'exams',

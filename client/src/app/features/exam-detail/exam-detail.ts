@@ -1,11 +1,13 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  OnInit,
+  computed,
+  effect,
   inject,
   input,
-  signal,
+  linkedSignal,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,10 +17,10 @@ import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ExamService } from '../../core/exam.service';
-import { Exam, ExamStats, SessionSetup } from '../../core/models';
-import { StudyGoalDialogComponent } from '../../shared/study-goal-dialog/study-goal-dialog.component';
-import { SessionSetupDialogComponent } from './session-setup-dialog.component';
+import { ExamService } from '../../core/exam-service';
+import { Exam, SessionSetup } from '../../core/models';
+import { StudyGoalDialog } from '../../shared/study-goal-dialog/study-goal-dialog';
+import { SessionSetupDialog } from './session-setup-dialog';
 
 @Component({
   selector: 'app-exam-detail',
@@ -67,7 +69,10 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
               <mat-icon>flag</mat-icon>
               {{ exam.studyGoal ? 'Edit study goal' : 'Set study goal' }}
             </button>
-            <button mat-stroked-button [routerLink]="['/exams', exam.id, 'progress']">
+            <button
+              mat-stroked-button
+              [routerLink]="['/exams', exam.id, 'progress']"
+            >
               <mat-icon>insights</mat-icon> Learning progress
             </button>
             <button mat-flat-button (click)="openSetup(exam)">
@@ -82,25 +87,33 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
               <div class="progress-copy">
                 <div class="progress-kicker">Overall progress</div>
                 <div class="progress-title">
-                  {{ stats.attemptedQuestions }} / {{ stats.totalQuestions }} questions answered
+                  {{ stats.attemptedQuestions }} /
+                  {{ stats.totalQuestions }} questions answered
                 </div>
                 <div class="progress-meta">
-                  {{ stats.correctAttempts }} correct · {{ stats.incorrectAttempts }} wrong ·
+                  {{ stats.correctAttempts }} correct ·
+                  {{ stats.incorrectAttempts }} wrong ·
                   {{ pct(stats.coverage) }}% coverage
                 </div>
               </div>
               <div class="progress-bar" aria-hidden="true">
                 <div
                   class="progress-fill mastered"
-                  [style.width.%]="ratio(stats.masteredQuestions, stats.totalQuestions)"
+                  [style.width.%]="
+                    ratio(stats.masteredQuestions, stats.totalQuestions)
+                  "
                 ></div>
                 <div
                   class="progress-fill struggling"
-                  [style.width.%]="ratio(stats.strugglingQuestions, stats.totalQuestions)"
+                  [style.width.%]="
+                    ratio(stats.strugglingQuestions, stats.totalQuestions)
+                  "
                 ></div>
                 <div
                   class="progress-fill untouched"
-                  [style.width.%]="ratio(stats.unattemptedQuestions, stats.totalQuestions)"
+                  [style.width.%]="
+                    ratio(stats.unattemptedQuestions, stats.totalQuestions)
+                  "
                 ></div>
               </div>
               <div class="progress-legend">
@@ -137,12 +150,16 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
 
                   <ng-container matColumnDef="questions">
                     <th mat-header-cell *matHeaderCellDef>Questions</th>
-                    <td mat-cell *matCellDef="let section">{{ section.totalQuestions }}</td>
+                    <td mat-cell *matCellDef="let section">
+                      {{ section.totalQuestions }}
+                    </td>
                   </ng-container>
 
                   <ng-container matColumnDef="answered">
                     <th mat-header-cell *matHeaderCellDef>Answered</th>
-                    <td mat-cell *matCellDef="let section">{{ section.attemptedQuestions }}</td>
+                    <td mat-cell *matCellDef="let section">
+                      {{ section.attemptedQuestions }}
+                    </td>
                   </ng-container>
 
                   <ng-container matColumnDef="correct">
@@ -165,11 +182,21 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
                       <div class="progress-mini" aria-hidden="true">
                         <div
                           class="progress-fill mastered"
-                          [style.width.%]="ratio(section.masteredQuestions, section.totalQuestions)"
+                          [style.width.%]="
+                            ratio(
+                              section.masteredQuestions,
+                              section.totalQuestions
+                            )
+                          "
                         ></div>
                         <div
                           class="progress-fill struggling"
-                          [style.width.%]="ratio(section.strugglingQuestions, section.totalQuestions)"
+                          [style.width.%]="
+                            ratio(
+                              section.strugglingQuestions,
+                              section.totalQuestions
+                            )
+                          "
                         ></div>
                         <div
                           class="progress-fill untouched"
@@ -320,64 +347,83 @@ import { SessionSetupDialogComponent } from './session-setup-dialog.component';
     `,
   ],
 })
-export class ExamDetailComponent implements OnInit {
+export class ExamDetail {
   private readonly examService = inject(ExamService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
 
-  readonly moduleColumns = ['name', 'questions', 'answered', 'correct', 'wrong', 'progress'];
+  readonly moduleColumns = [
+    'name',
+    'questions',
+    'answered',
+    'correct',
+    'wrong',
+    'progress',
+  ];
 
   /** Bound from the `:id` route param via withComponentInputBinding(). */
   readonly id = input.required<string>();
 
-  readonly exam = signal<Exam | null>(null);
-  readonly stats = signal<ExamStats | null>(null);
-  readonly dueCount = signal(0);
-  readonly loading = signal(true);
+  private readonly examResource = rxResource({
+    params: () => this.id(),
+    stream: ({ params: id }) => this.examService.getExam(id),
+  });
+  // The review badge is supplementary: on error it just stays at zero.
+  private readonly dueResource = rxResource({
+    params: () => this.id(),
+    stream: ({ params: id }) => this.examService.getReviewDue(id),
+  });
+  // Per-exam progress stats: power the overview card and the module table.
+  private readonly statsResource = rxResource({
+    params: () => this.id(),
+    stream: ({ params: id }) => this.examService.getExamStats(id),
+  });
 
-  ngOnInit(): void {
-    this.load();
-  }
+  // A linkedSignal over the resource so editGoal can patch the exam locally.
+  readonly exam = linkedSignal(() =>
+    this.examResource.hasValue() ? this.examResource.value() : null,
+  );
+  readonly loading = this.examResource.isLoading;
+  readonly dueCount = computed(() =>
+    this.dueResource.hasValue()
+      ? (this.dueResource.value()[0]?.dueCount ?? 0)
+      : 0,
+  );
+  readonly stats = computed(() =>
+    this.statsResource.hasValue() ? this.statsResource.value() : null,
+  );
 
-  private load(): void {
-    this.examService.getExam(this.id()).subscribe({
-      next: (exam) => {
-        // Archived exams can't be practised: send the user back to the
-        // dashboard even when the detail URL is opened directly.
-        if (exam?.archived) {
-          this.snackBar.open('This exam is archived.', 'OK', { duration: 4000 });
-          this.router.navigate(['/']);
-          return;
-        }
-        this.exam.set(exam);
-        this.loading.set(false);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
+  constructor() {
+    // Archived exams can't be practised: bounce back to the dashboard even when
+    // the detail URL is opened directly.
+    effect(() => {
+      if (this.exam()?.archived) {
+        this.snackBar.open('This exam is archived.', 'OK', { duration: 4000 });
+        this.router.navigate(['/']);
+      }
     });
-    // The review badge is supplementary: on error just leave it at zero.
-    this.examService.getReviewDue(this.id()).subscribe({
-      next: (due) => this.dueCount.set(due[0]?.dueCount ?? 0),
-      error: () => undefined,
-    });
-    this.examService.getExamStats(this.id()).subscribe({
-      next: (stats) => this.stats.set(stats),
-      error: () => undefined,
+    effect(() => {
+      const error = this.examResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 
   editGoal(exam: Exam): void {
-    StudyGoalDialogComponent.open(this.dialog, exam).subscribe((result) => {
+    StudyGoalDialog.open(this.dialog, exam).subscribe((result) => {
       if (result === undefined) {
         return; // cancelled
       }
       const request =
         result === null
           ? this.examService.clearStudyGoal(exam.id)
-          : this.examService.setStudyGoal(exam.id, result.period, result.target);
+          : this.examService.setStudyGoal(
+              exam.id,
+              result.period,
+              result.target,
+            );
       request.subscribe({
         next: (updated) => {
           this.exam.set(updated);
@@ -395,7 +441,7 @@ export class ExamDetailComponent implements OnInit {
 
   openSetup(exam: Exam): void {
     this.dialog
-      .open(SessionSetupDialogComponent, {
+      .open(SessionSetupDialog, {
         data: { exam, dueCount: this.dueCount() },
         width: '460px',
       })
@@ -418,11 +464,9 @@ export class ExamDetailComponent implements OnInit {
       .subscribe({
         next: (session) => {
           if (session.total === 0) {
-            this.snackBar.open(
-              'No questions match this selection.',
-              'OK',
-              { duration: 4000 },
-            );
+            this.snackBar.open('No questions match this selection.', 'OK', {
+              duration: 4000,
+            });
             return;
           }
           this.router.navigate(['/sessions', session.id]);

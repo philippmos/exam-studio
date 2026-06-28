@@ -2,9 +2,11 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
-  signal,
+  linkedSignal,
 } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,9 +18,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { ExamService } from '../../core/exam.service';
+import { ExamService } from '../../core/exam-service';
 import { SessionOverview } from '../../core/models';
-import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
+import { ConfirmDialog } from '../../shared/confirm-dialog/confirm-dialog';
 
 @Component({
   selector: 'app-sessions',
@@ -38,9 +40,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
       <header class="page-header">
         <div>
           <h1>Sessions</h1>
-          <p class="subtitle">
-            Resume open sessions or review finished ones.
-          </p>
+          <p class="subtitle">Resume open sessions or review finished ones.</p>
         </div>
       </header>
 
@@ -64,15 +64,12 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
                   <div class="info">
                     <span class="exam-name">{{ s.examName }}</span>
                     <span class="meta">
-                      {{ modeLabel(s) }} ·
-                      started {{ s.createdAt | date: 'medium' }}
+                      {{ modeLabel(s) }} · started
+                      {{ s.createdAt | date: 'medium' }}
                     </span>
                   </div>
                   <div class="progress-block">
-                    <mat-progress-bar
-                      mode="determinate"
-                      [value]="percent(s)"
-                    />
+                    <mat-progress-bar mode="determinate" [value]="percent(s)" />
                     <span class="progress-label">
                       {{ s.answered }} / {{ s.total }} answered
                     </span>
@@ -106,8 +103,8 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
                   <div class="info">
                     <span class="exam-name">{{ s.examName }}</span>
                     <span class="meta">
-                      {{ modeLabel(s) }} ·
-                      finished {{ s.finishedAt | date: 'medium' }}
+                      {{ modeLabel(s) }} · finished
+                      {{ s.finishedAt | date: 'medium' }}
                     </span>
                   </div>
                   <div class="progress-block">
@@ -222,14 +219,22 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
     `,
   ],
 })
-export class SessionsComponent {
+export class Sessions {
   private readonly examService = inject(ExamService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
 
-  readonly sessions = signal<SessionOverview[]>([]);
-  readonly loading = signal(true);
+  private readonly sessionsResource = rxResource({
+    stream: () => this.examService.getSessions(),
+  });
+
+  // A linkedSignal over the resource so deletes can optimistically drop a row
+  // locally, while a reload still refreshes from the server.
+  readonly sessions = linkedSignal(() =>
+    this.sessionsResource.hasValue() ? this.sessionsResource.value() : [],
+  );
+  readonly loading = this.sessionsResource.isLoading;
 
   readonly openSessions = computed(() =>
     this.sessions().filter((s) => s.finishedAt === null),
@@ -239,15 +244,11 @@ export class SessionsComponent {
   );
 
   constructor() {
-    this.examService.getSessions().subscribe({
-      next: (sessions) => {
-        this.sessions.set(sessions);
-        this.loading.set(false);
-      },
-      error: (err: Error) => {
-        this.loading.set(false);
-        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 });
-      },
+    effect(() => {
+      const error = this.sessionsResource.error() as Error | undefined;
+      if (error) {
+        this.snackBar.open(error.message, 'Dismiss', { duration: 5000 });
+      }
     });
   }
 
@@ -273,7 +274,7 @@ export class SessionsComponent {
   }
 
   deleteSession(session: SessionOverview): void {
-    ConfirmDialogComponent.open(this.dialog, {
+    ConfirmDialog.open(this.dialog, {
       title: 'Delete session',
       message: `Delete this "${session.examName}" session and its answers? This cannot be undone.`,
       confirmLabel: 'Delete',
