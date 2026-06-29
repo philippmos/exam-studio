@@ -91,7 +91,7 @@ async def record_answer(
 
 
 async def compute_review_due(
-    db: AsyncSession, exam_id: uuid.UUID | None = None
+    db: AsyncSession, user_id: uuid.UUID, exam_id: uuid.UUID | None = None
 ) -> list[ReviewDueStatus]:
     """Number of questions due for review right now, grouped per exam.
 
@@ -111,7 +111,11 @@ async def compute_review_due(
             models.Question.id == models.QuestionReviewState.question_id,
         )
         .join(models.Section, models.Section.id == models.Question.section_id)
-        .where(models.QuestionReviewState.due_at <= now)
+        .join(models.Exam, models.Exam.id == models.Section.exam_id)
+        .where(
+            models.QuestionReviewState.due_at <= now,
+            models.Exam.user_id == user_id,
+        )
         .group_by(models.Section.exam_id)
     )
     if exam_id is not None:

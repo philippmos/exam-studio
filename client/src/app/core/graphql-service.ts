@@ -1,8 +1,8 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, defer, from } from 'rxjs';
 
-import { environment } from '../../environments/environment';
+import { AuthService } from './auth-service';
+import { ConfigService } from './config-service';
 
 interface GraphqlResponse<T> {
   data: T;
@@ -10,26 +10,67 @@ interface GraphqlResponse<T> {
 }
 
 /**
- * Thin GraphQL client over HttpClient. Deliberately minimal (no cache layer):
- * every call posts a query + variables and unwraps `data` / surfaces errors.
+ * Thin GraphQL client. Requests go through {@link AuthService.fetchApi}, which
+ * attaches the Bearer access token. Every call posts a query + variables and
+ * unwraps `data` / surfaces errors; a 401 bounces the user through Auth0 again.
  */
 @Injectable({ providedIn: 'root' })
 export class GraphqlService {
-  private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
+  private readonly config = inject(ConfigService);
+
+  /**
+   * The GraphQL endpoint as an absolute URL, handling both the relative
+   * `/graphql` used behind nginx and the dev server's absolute URL.
+   */
+  private get url(): string {
+    return new URL(
+      this.config.get().graphqlUrl,
+      window.location.origin,
+    ).toString();
+  }
 
   request<T>(
     query: string,
     variables?: Record<string, unknown>,
   ): Observable<T> {
-    return this.http
-      .post<GraphqlResponse<T>>(environment.graphqlUrl, { query, variables })
-      .pipe(
-        map((response) => {
-          if (response.errors?.length) {
-            throw new Error(response.errors[0].message);
-          }
-          return response.data;
-        }),
-      );
+    // `defer` keeps the call cold: it fires per subscription, like HttpClient.
+    return defer(() => from(this.execute<T>(query, variables)));
+  }
+
+  private async execute<T>(
+    query: string,
+    variables?: Record<string, unknown>,
+  ): Promise<T> {
+    const response = await this.auth.fetchApi(this.url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query, variables }),
+    });
+
+    if (response.status === 401) {
+      // A freshly-minted token rejected by the API is a server-side validation
+      // problem (e.g. AUTH0_AUDIENCE mismatch, clock skew), not an expired
+      // token — re-logging-in would just loop. Surface the reason instead.
+      let detail = 'Unauthorized';
+      try {
+        detail =
+          ((await response.json()) as { detail?: string })?.detail ?? detail;
+      } catch {
+        /* non-JSON body */
+      }
+      const message = `The API rejected your session (401): ${detail}`;
+      this.auth.reportError(message);
+      throw new Error(message);
+    }
+    if (!response.ok) {
+      throw new Error(`GraphQL request failed (HTTP ${response.status}).`);
+    }
+
+    const body = (await response.json()) as GraphqlResponse<T>;
+    if (body.errors?.length) {
+      throw new Error(body.errors[0].message);
+    }
+    return body.data;
   }
 }

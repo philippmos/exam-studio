@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    ForeignKey,
     Integer,
     String,
     Uuid,
@@ -39,6 +40,11 @@ class Exam(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    # The owning user. Every exam (and everything cascading from it) belongs to
+    # exactly one registered user; data is always scoped by this in the API.
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     issuer: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(
@@ -66,6 +72,7 @@ class Exam(Base):
         Boolean, nullable=False, default=False, server_default=false()
     )
 
+    owner: Mapped["User"] = relationship(back_populates="exams")
     sections: Mapped[list["Section"]] = relationship(
         back_populates="exam",
         cascade="all, delete-orphan",

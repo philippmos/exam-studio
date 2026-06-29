@@ -43,16 +43,22 @@ async def count_questions(db: AsyncSession, exam_id: uuid.UUID) -> int:
 
 async def load_exams(
     db: AsyncSession,
+    user_id: uuid.UUID,
     exam_id: uuid.UUID | None = None,
     archived: bool | None = None,
 ) -> list[types.ExamType]:
-    """Load exams as GraphQL types, newest first.
+    """Load the user's exams as GraphQL types, newest first.
 
+    Always scoped to ``user_id`` so one user never sees another's exams.
     ``archived`` narrows the result to active (``False``) or archived (``True``)
     exams; ``None`` (the default) leaves both in, which is what loading a single
     exam by id needs so an archived exam is still returned.
     """
-    stmt = select(models.Exam).options(selectinload(models.Exam.sections))
+    stmt = (
+        select(models.Exam)
+        .where(models.Exam.user_id == user_id)
+        .options(selectinload(models.Exam.sections))
+    )
     if exam_id is not None:
         stmt = stmt.where(models.Exam.id == exam_id)
     if archived is not None:
@@ -65,11 +71,15 @@ async def load_exams(
 
 
 async def load_session(
-    db: AsyncSession, session_id: uuid.UUID
+    db: AsyncSession, session_id: uuid.UUID, user_id: uuid.UUID
 ) -> models.ExamSession | None:
     stmt = (
         select(models.ExamSession)
-        .where(models.ExamSession.id == session_id)
+        .join(models.Exam, models.ExamSession.exam_id == models.Exam.id)
+        .where(
+            models.ExamSession.id == session_id,
+            models.Exam.user_id == user_id,
+        )
         .options(
             selectinload(models.ExamSession.items)
             .selectinload(models.SessionItem.question)
@@ -86,16 +96,16 @@ async def load_session(
 
 
 async def load_session_type(
-    db: AsyncSession, session_id: uuid.UUID
+    db: AsyncSession, session_id: uuid.UUID, user_id: uuid.UUID
 ) -> types.ExamSessionType | None:
-    session = await load_session(db, session_id)
+    session = await load_session(db, session_id, user_id)
     return types.to_session(session) if session is not None else None
 
 
 async def load_session_overviews(
-    db: AsyncSession, exam_id: uuid.UUID | None = None
+    db: AsyncSession, user_id: uuid.UUID, exam_id: uuid.UUID | None = None
 ) -> list[types.SessionOverviewType]:
-    """Session rows with their answer counts (aggregated in SQL), newest first."""
+    """The user's session rows with answer counts (aggregated in SQL), newest first."""
     progress = (
         select(
             models.SessionItem.session_id,
@@ -121,6 +131,7 @@ async def load_session_overviews(
         .join(models.Exam, models.ExamSession.exam_id == models.Exam.id)
         .outerjoin(models.Section, models.ExamSession.section_id == models.Section.id)
         .outerjoin(progress, progress.c.session_id == models.ExamSession.id)
+        .where(models.Exam.user_id == user_id)
         .order_by(models.ExamSession.created_at.desc())
     )
     if exam_id is not None:
@@ -133,3 +144,33 @@ async def load_session_overviews(
         )
         for session, exam_name, section_name, total, answered, correct in rows
     ]
+
+
+async def get_owned_exam(
+    db: AsyncSession, user_id: uuid.UUID, exam_id: uuid.UUID
+) -> models.Exam | None:
+    """The exam ORM object if it belongs to ``user_id``, else ``None``.
+
+    The single authorization gate for exam-targeting mutations: callers treat a
+    ``None`` result as "not found" so a foreign id is indistinguishable from a
+    missing one (no existence leak).
+    """
+    return await db.scalar(
+        select(models.Exam).where(
+            models.Exam.id == exam_id, models.Exam.user_id == user_id
+        )
+    )
+
+
+async def get_owned_session(
+    db: AsyncSession, user_id: uuid.UUID, session_id: uuid.UUID
+) -> models.ExamSession | None:
+    """The session ORM object if its exam belongs to ``user_id``, else ``None``."""
+    return await db.scalar(
+        select(models.ExamSession)
+        .join(models.Exam, models.ExamSession.exam_id == models.Exam.id)
+        .where(
+            models.ExamSession.id == session_id,
+            models.Exam.user_id == user_id,
+        )
+    )

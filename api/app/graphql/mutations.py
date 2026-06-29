@@ -13,6 +13,7 @@ from strawberry.types import Info
 from app import models
 from app.enums import GoalPeriod, QuestionType, SessionMode, StudyGoalSource
 from app.graphql import loaders, planning, review
+from app.graphql.context import current_user
 from app.graphql.types import (
     AllocationInput,
     AllocationType,
@@ -183,20 +184,23 @@ class Mutation:
     async def import_exam(self, info: Info, payload: str) -> ExamType:
         """Import an exam from the JSON produced in the `exam.json` format."""
         db: AsyncSession = info.context["db"]
+        user = current_user(info)
         try:
             exam = build_exam_from_payload(payload)
         except ImportError_ as exc:
             raise ValueError(str(exc)) from exc
 
+        exam.user_id = user.id
         db.add(exam)
         await db.commit()
-        result = await loaders.load_exams(db, exam_id=exam.id)
+        result = await loaders.load_exams(db, user.id, exam_id=exam.id)
         return result[0]
 
     @strawberry.mutation
     async def delete_exam(self, info: Info, id: uuid.UUID) -> bool:
         db: AsyncSession = info.context["db"]
-        exam = await db.get(models.Exam, id)
+        user = current_user(info)
+        exam = await loaders.get_owned_exam(db, user.id, id)
         if exam is None:
             return False
         await db.delete(exam)
@@ -215,13 +219,14 @@ class Mutation:
         streak keep accounting for it.
         """
         db: AsyncSession = info.context["db"]
-        exam = await db.get(models.Exam, exam_id)
+        user = current_user(info)
+        exam = await loaders.get_owned_exam(db, user.id, exam_id)
         if exam is None:
             raise ValueError("Exam not found.")
 
         exam.archived = archived
         await db.commit()
-        result = await loaders.load_exams(db, exam_id=exam_id)
+        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
         return result[0]
 
     @strawberry.mutation
@@ -240,7 +245,8 @@ class Mutation:
         ``AUTO`` goals are later recomputed when the exam date changes.
         """
         db: AsyncSession = info.context["db"]
-        exam = await db.get(models.Exam, exam_id)
+        user = current_user(info)
+        exam = await loaders.get_owned_exam(db, user.id, exam_id)
         if exam is None:
             raise ValueError("Exam not found.")
         if target < 1:
@@ -250,14 +256,15 @@ class Mutation:
         exam.study_goal_target = target
         exam.study_goal_source = source.value
         await db.commit()
-        result = await loaders.load_exams(db, exam_id=exam_id)
+        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
         return result[0]
 
     @strawberry.mutation
     async def clear_study_goal(self, info: Info, exam_id: uuid.UUID) -> ExamType:
         """Remove the exam's study goal, if any."""
         db: AsyncSession = info.context["db"]
-        exam = await db.get(models.Exam, exam_id)
+        user = current_user(info)
+        exam = await loaders.get_owned_exam(db, user.id, exam_id)
         if exam is None:
             raise ValueError("Exam not found.")
 
@@ -265,7 +272,7 @@ class Mutation:
         exam.study_goal_target = None
         exam.study_goal_source = None
         await db.commit()
-        result = await loaders.load_exams(db, exam_id=exam_id)
+        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
         return result[0]
 
     @strawberry.mutation
@@ -278,14 +285,15 @@ class Mutation:
         kept as-is.
         """
         db: AsyncSession = info.context["db"]
-        exam = await db.get(models.Exam, exam_id)
+        user = current_user(info)
+        exam = await loaders.get_owned_exam(db, user.id, exam_id)
         if exam is None:
             raise ValueError("Exam not found.")
 
         exam.certification_exam_at = exam_at
         await _apply_auto_goal(db, exam)
         await db.commit()
-        result = await loaders.load_exams(db, exam_id=exam_id)
+        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
         return result[0]
 
     @strawberry.mutation
@@ -298,20 +306,22 @@ class Mutation:
         goal is kept.
         """
         db: AsyncSession = info.context["db"]
-        exam = await db.get(models.Exam, exam_id)
+        user = current_user(info)
+        exam = await loaders.get_owned_exam(db, user.id, exam_id)
         if exam is None:
             raise ValueError("Exam not found.")
 
         exam.certification_exam_at = None
         await _apply_auto_goal(db, exam)
         await db.commit()
-        result = await loaders.load_exams(db, exam_id=exam_id)
+        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
         return result[0]
 
     @strawberry.mutation
     async def delete_session(self, info: Info, id: uuid.UUID) -> bool:
         db: AsyncSession = info.context["db"]
-        session = await db.get(models.ExamSession, id)
+        user = current_user(info)
+        session = await loaders.get_owned_session(db, user.id, id)
         if session is None:
             return False
         await db.delete(session)
@@ -327,8 +337,9 @@ class Mutation:
         section_id: uuid.UUID | None = None,
     ) -> ExamSessionType:
         db: AsyncSession = info.context["db"]
+        user = current_user(info)
 
-        exam = await db.get(models.Exam, exam_id)
+        exam = await loaders.get_owned_exam(db, user.id, exam_id)
         if exam is None:
             raise ValueError("Exam not found.")
         if exam.archived:
@@ -362,7 +373,7 @@ class Mutation:
         db.add(session)
         await db.commit()
 
-        return await loaders.load_session_type(db, session.id)
+        return await loaders.load_session_type(db, session.id, user.id)
 
     @strawberry.mutation
     async def submit_answer(
@@ -383,6 +394,7 @@ class Mutation:
         the next due date to the caller's local day).
         """
         db: AsyncSession = info.context["db"]
+        user = current_user(info)
 
         item = await db.get(
             models.SessionItem,
@@ -390,6 +402,9 @@ class Mutation:
             options=(selectinload(models.SessionItem.selected_answers),),
         )
         if item is None:
+            raise ValueError("Session item not found.")
+        # Authorize: the item's session must belong to the current user.
+        if await loaders.get_owned_session(db, user.id, item.session_id) is None:
             raise ValueError("Session item not found.")
 
         question = await db.get(models.Question, item.question_id)
@@ -448,9 +463,10 @@ class Mutation:
     @strawberry.mutation
     async def finish_session(self, info: Info, id: uuid.UUID) -> ExamSessionType:
         db: AsyncSession = info.context["db"]
-        session = await db.get(models.ExamSession, id)
+        user = current_user(info)
+        session = await loaders.get_owned_session(db, user.id, id)
         if session is None:
             raise ValueError("Session not found.")
         session.finished_at = datetime.now(timezone.utc)
         await db.commit()
-        return await loaders.load_session_type(db, id)
+        return await loaders.load_session_type(db, id, user.id)

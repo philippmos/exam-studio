@@ -1,56 +1,59 @@
-import { provideHttpClient } from '@angular/common/http';
-import {
-  HttpTestingController,
-  provideHttpClientTesting,
-} from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { firstValueFrom } from 'rxjs';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { environment } from '../../environments/environment';
+import { AuthService } from './auth-service';
+import { ConfigService } from './config-service';
 import { GraphqlService } from './graphql-service';
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
 
 describe('GraphqlService', () => {
   let service: GraphqlService;
-  let httpMock: HttpTestingController;
+  let fetchApi: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    fetchApi = vi.fn();
+    // GraphqlService posts through the auth-aware fetch (Bearer token), not HttpClient.
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        { provide: AuthService, useValue: { fetchApi } },
+        {
+          provide: ConfigService,
+          useValue: { get: () => ({ graphqlUrl: '/graphql', auth0: {} }) },
+        },
+      ],
     });
     service = TestBed.inject(GraphqlService);
-    httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  it('POSTs the query and unwraps the data field', async () => {
+    fetchApi.mockResolvedValue(jsonResponse({ data: { ping: 'pong' } }));
 
-  it('POSTs the query and unwraps the data field', () => {
-    let result: unknown;
-    service
-      .request<{ ping: string }>('query { ping }')
-      .subscribe((data) => (result = data));
+    const result = await firstValueFrom(
+      service.request<{ ping: string }>('query { ping }'),
+    );
 
-    const req = httpMock.expectOne(environment.graphqlUrl);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({
-      query: 'query { ping }',
-      variables: undefined,
-    });
-    req.flush({ data: { ping: 'pong' } });
-
+    expect(fetchApi).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchApi.mock.calls[0];
+    expect(url).toContain('/graphql');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ query: 'query { ping }' });
     expect(result).toEqual({ ping: 'pong' });
   });
 
-  it('throws the first GraphQL error message', () => {
-    let error: Error | undefined;
-    service
-      .request('query { boom }')
-      .subscribe({ error: (e: Error) => (error = e) });
+  it('throws the first GraphQL error message', async () => {
+    fetchApi.mockResolvedValue(
+      jsonResponse({ data: null, errors: [{ message: 'Boom' }] }),
+    );
 
-    httpMock
-      .expectOne(environment.graphqlUrl)
-      .flush({ data: null, errors: [{ message: 'Boom' }] });
-
-    expect(error).toBeInstanceOf(Error);
-    expect(error?.message).toBe('Boom');
+    await expect(
+      firstValueFrom(service.request('query { boom }')),
+    ).rejects.toThrowError('Boom');
   });
 });

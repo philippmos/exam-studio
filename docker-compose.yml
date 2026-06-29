@@ -27,6 +27,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      AUTH0_DOMAIN: ${AUTH0_DOMAIN}
+      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
     depends_on:
       db:
         condition: service_healthy
@@ -48,6 +50,12 @@ services:
       context: ./client
     container_name: exam-studio-client
     restart: unless-stopped
+    env_file: .env
+    environment:
+      GRAPHQL_URL: ${GRAPHQL_URL:-/graphql}
+      AUTH0_DOMAIN: ${AUTH0_DOMAIN}
+      AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID}
+      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
     depends_on:
       - api
     ports:

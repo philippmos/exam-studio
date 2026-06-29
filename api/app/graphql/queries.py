@@ -6,9 +6,9 @@ from datetime import datetime
 import strawberry
 from strawberry.types import Info
 
-from app import models
 from app.enums import GoalPeriod
 from app.graphql import loaders, planning, review, stats
+from app.graphql.context import current_user
 from app.graphql.types import (
     ExamSessionType,
     ExamStats,
@@ -28,35 +28,43 @@ class Query:
     @strawberry.field
     async def exams(self, info: Info) -> list[ExamType]:
         """Active (non-archived) exams for the dashboard."""
-        return await loaders.load_exams(info.context["db"], archived=False)
+        user = current_user(info)
+        return await loaders.load_exams(info.context["db"], user.id, archived=False)
 
     @strawberry.field
     async def archived_exams(self, info: Info) -> list[ExamType]:
         """Archived exams, for the archive page."""
-        return await loaders.load_exams(info.context["db"], archived=True)
+        user = current_user(info)
+        return await loaders.load_exams(info.context["db"], user.id, archived=True)
 
     @strawberry.field
     async def exam(self, info: Info, id: uuid.UUID) -> ExamType | None:
         """A single exam by id (archived or not), e.g. for its progress page."""
-        result = await loaders.load_exams(info.context["db"], exam_id=id)
+        user = current_user(info)
+        result = await loaders.load_exams(info.context["db"], user.id, exam_id=id)
         return result[0] if result else None
 
     @strawberry.field
     async def session(self, info: Info, id: uuid.UUID) -> ExamSessionType | None:
         """A running (or finished) exam session with its ordered questions."""
-        return await loaders.load_session_type(info.context["db"], id)
+        user = current_user(info)
+        return await loaders.load_session_type(info.context["db"], id, user.id)
 
     @strawberry.field
     async def sessions(
         self, info: Info, exam_id: uuid.UUID | None = None
     ) -> list[SessionOverviewType]:
         """All sessions (optionally one exam's) with answer progress, newest first."""
-        return await loaders.load_session_overviews(info.context["db"], exam_id)
+        user = current_user(info)
+        return await loaders.load_session_overviews(
+            info.context["db"], user.id, exam_id
+        )
 
     @strawberry.field
     async def exam_stats(self, info: Info, exam_id: uuid.UUID) -> ExamStats | None:
         """Aggregated learning-progress statistics for an exam."""
-        return await stats.compute_exam_stats(info.context["db"], exam_id)
+        user = current_user(info)
+        return await stats.compute_exam_stats(info.context["db"], exam_id, user.id)
 
     @strawberry.field
     async def study_history(
@@ -66,8 +74,9 @@ class Query:
         tz_offset_minutes: int = 0,
     ) -> list[StudyDayStats]:
         """Questions answered per day -- all exams, or one exam's history."""
+        user = current_user(info)
         return await stats.compute_study_history(
-            info.context["db"], exam_id, tz_offset_minutes
+            info.context["db"], user.id, exam_id, tz_offset_minutes
         )
 
     @strawberry.field
@@ -78,8 +87,9 @@ class Query:
         tz_offset_minutes: int = 0,
     ) -> list[StudyGoalProgress]:
         """Current-period progress of every exam that has a study goal."""
+        user = current_user(info)
         return await stats.compute_study_goal_progress(
-            info.context["db"], exam_id, tz_offset_minutes
+            info.context["db"], user.id, exam_id, tz_offset_minutes
         )
 
     @strawberry.field
@@ -87,15 +97,17 @@ class Query:
         self, info: Info, exam_id: uuid.UUID | None = None
     ) -> list[ReviewDueStatus]:
         """Questions currently due for spaced-repetition review, per exam."""
-        return await review.compute_review_due(info.context["db"], exam_id)
+        user = current_user(info)
+        return await review.compute_review_due(info.context["db"], user.id, exam_id)
 
     @strawberry.field
     async def study_streak(
         self, info: Info, tz_offset_minutes: int = 0
     ) -> StudyStreak:
         """Consecutive-day study streak across all exams (habit/gamification)."""
+        user = current_user(info)
         return await stats.compute_study_streak(
-            info.context["db"], tz_offset_minutes
+            info.context["db"], user.id, tz_offset_minutes
         )
 
     @strawberry.field
@@ -114,7 +126,8 @@ class Query:
         :func:`app.graphql.planning.suggest`).
         """
         db = info.context["db"]
-        exam = await db.get(models.Exam, exam_id)
+        user = current_user(info)
+        exam = await loaders.get_owned_exam(db, user.id, exam_id)
         if exam is None:
             return None
         when = exam_at or exam.certification_exam_at

@@ -2,6 +2,9 @@ node_modules/
 .angular/
 dist/
 
+# Dev-only runtime config; the image generates config.json at container start.
+public/config.json
+
 # Playwright test project (runs outside the image)
 e2e/
 

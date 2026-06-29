@@ -59,16 +59,20 @@ def _current_period_start(
 
 async def compute_study_goal_progress(
     db: AsyncSession,
+    user_id: uuid.UUID,
     exam_id: uuid.UUID | None = None,
     tz_offset_minutes: int = 0,
 ) -> list[StudyGoalProgress]:
     """Progress of every configured study goal in its current period.
 
-    Returns one entry per exam that has a goal (optionally narrowed to one
-    exam), counting the questions answered since the period started. Every
-    answered SessionItem counts, so re-attempting a question also counts.
+    Returns one entry per exam (of the current user) that has a goal (optionally
+    narrowed to one exam), counting the questions answered since the period
+    started. Every answered SessionItem counts, so re-attempting also counts.
     """
-    stmt = select(models.Exam).where(models.Exam.study_goal_period.is_not(None))
+    stmt = select(models.Exam).where(
+        models.Exam.user_id == user_id,
+        models.Exam.study_goal_period.is_not(None),
+    )
     if exam_id is not None:
         stmt = stmt.where(models.Exam.id == exam_id)
     exams = list((await db.scalars(stmt.order_by(models.Exam.created_at.desc()))).all())
@@ -117,14 +121,16 @@ async def compute_study_goal_progress(
 
 async def compute_study_history(
     db: AsyncSession,
+    user_id: uuid.UUID,
     exam_id: uuid.UUID | None = None,
     tz_offset_minutes: int = 0,
 ) -> list[StudyDayStats]:
     """Questions answered per calendar day, oldest day first.
 
-    Covers all exams unless ``exam_id`` narrows it down to one. Timestamps are
-    stored in UTC; ``tz_offset_minutes`` shifts them into the caller's local
-    time before bucketing so a late-evening session lands on the right day.
+    Covers all of the user's exams unless ``exam_id`` narrows it to one.
+    Timestamps are stored in UTC; ``tz_offset_minutes`` shifts them into the
+    caller's local time before bucketing so a late-evening session lands on the
+    right day.
     """
     local_time = models.SessionItem.answered_at + timedelta(
         minutes=tz_offset_minutes
@@ -141,15 +147,20 @@ async def compute_study_history(
                 0,
             ),
         )
-        .where(models.SessionItem.answered_at.is_not(None))
+        .join(
+            models.ExamSession,
+            models.SessionItem.session_id == models.ExamSession.id,
+        )
+        .join(models.Exam, models.ExamSession.exam_id == models.Exam.id)
+        .where(
+            models.SessionItem.answered_at.is_not(None),
+            models.Exam.user_id == user_id,
+        )
         .group_by(day)
         .order_by(day)
     )
     if exam_id is not None:
-        stmt = stmt.join(
-            models.ExamSession,
-            models.SessionItem.session_id == models.ExamSession.id,
-        ).where(models.ExamSession.exam_id == exam_id)
+        stmt = stmt.where(models.ExamSession.exam_id == exam_id)
 
     rows = (await db.execute(stmt)).all()
     return [
@@ -194,7 +205,7 @@ def _summarise_streak(active_days: set[date], today: date) -> StudyStreak:
 
 
 async def compute_study_streak(
-    db: AsyncSession, tz_offset_minutes: int = 0
+    db: AsyncSession, user_id: uuid.UUID, tz_offset_minutes: int = 0
 ) -> StudyStreak:
     """The consecutive-day study streak across all exams.
 
@@ -209,7 +220,15 @@ async def compute_study_streak(
     rows = (
         await db.execute(
             select(day)
-            .where(models.SessionItem.answered_at.is_not(None))
+            .join(
+                models.ExamSession,
+                models.SessionItem.session_id == models.ExamSession.id,
+            )
+            .join(models.Exam, models.ExamSession.exam_id == models.Exam.id)
+            .where(
+                models.SessionItem.answered_at.is_not(None),
+                models.Exam.user_id == user_id,
+            )
             .group_by(day)
         )
     ).all()
@@ -223,9 +242,13 @@ async def compute_study_streak(
 
 
 async def compute_exam_stats(
-    db: AsyncSession, exam_id: uuid.UUID
+    db: AsyncSession, exam_id: uuid.UUID, user_id: uuid.UUID
 ) -> ExamStats | None:
-    exam = await db.get(models.Exam, exam_id)
+    exam = await db.scalar(
+        select(models.Exam).where(
+            models.Exam.id == exam_id, models.Exam.user_id == user_id
+        )
+    )
     if exam is None:
         return None
 

@@ -92,7 +92,11 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Adjust `DATABASE_URL` / `CORS_ORIGINS` if needed.
+Adjust `DATABASE_URL` / `CORS_ORIGINS` if needed, and set `AUTH0_DOMAIN` /
+`AUTH0_AUDIENCE` so the API can validate access tokens (see
+[Authentication](#authentication-auth0) and `docs/auth0-setup.md`). The
+API rejects every GraphQL request with **HTTP 401** until these are configured
+and a valid token is supplied.
 
 ### 4. Run the database migrations
 
@@ -106,8 +110,34 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-* GraphQL endpoint & in-browser playground: <http://localhost:8000/graphql>
-* Health check: <http://localhost:8000/health>
+* GraphQL endpoint: <http://localhost:8000/graphql> (requires a valid access
+  token; the in-browser IDE is only served when `DEBUG=true`)
+* Health check: <http://localhost:8000/health> (public)
+
+## Authentication (Auth0)
+
+The API is an OAuth2 **resource server**. Every `/graphql` request must present a
+valid Auth0 Bearer access token for the configured audience; `/health` stays
+public.
+
+* **Token validation** — the access token is RS256-verified against the tenant
+  JWKS (`app/auth.py`), checking issuer, audience and expiry. Only `RS256` is
+  accepted (`alg: none` and key-confusion attacks are rejected).
+* **Users & ownership** — on first login a `User` row is provisioned from the
+  token's `sub` (`get_or_create_user`). Every `Exam` (and everything cascading
+  from it) has a `user_id`, and all queries/mutations are scoped to the caller,
+  so users only ever see their own data.
+
+Required env vars (`.env`):
+
+| Var              | Example                    | Notes                               |
+| ---------------- | -------------------------- | ----------------------------------- |
+| `AUTH0_DOMAIN`   | `your-tenant.eu.auth0.com` | Tenant domain (no scheme/slash).    |
+| `AUTH0_AUDIENCE` | `https://api.exam-studio`  | The API identifier set in Auth0.    |
+| `DEBUG`          | `false`                    | `true` also serves the GraphQL IDE. |
+
+See [`docs/auth0-setup.md`](../docs/auth0-setup.md) for the full Auth0 tenant
+setup (API, SPA application, optional M2M client for tests).
 
 ## Database migrations (Alembic, code-first)
 
@@ -207,3 +237,7 @@ semantics, statistics. See [e2e/README.md](e2e/README.md).
 docker compose up -d --build db api   # repo root
 cd api/e2e && npm ci && npm test
 ```
+
+> Since authentication is required, the suite needs an access token for the API
+> audience (e.g. from an Auth0 machine-to-machine application). See
+> [e2e/README.md](e2e/README.md).
