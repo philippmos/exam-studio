@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +9,8 @@ from app.auth import AuthError, get_or_create_user, verify_access_token
 from app.config import settings
 from app.database import get_db_session
 from app.graphql.schema import schema
+
+logger = logging.getLogger("app.auth")
 
 
 async def get_context(
@@ -30,6 +34,8 @@ async def get_context(
         claims = verify_access_token(token)
         user = await get_or_create_user(db, claims)
     except AuthError as exc:
+        # Log the reason (not the token) so token-rejection causes are diagnosable.
+        logger.warning("Access token rejected: %s", exc.detail)
         raise HTTPException(
             status_code=401,
             detail=exc.detail,

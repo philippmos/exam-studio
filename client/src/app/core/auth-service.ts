@@ -86,6 +86,11 @@ export class AuthService {
     });
   }
 
+  /** Surface an API/auth failure to the app shell without re-triggering login. */
+  reportError(message: string): void {
+    this.error.set(message);
+  }
+
   /** Log out locally and end the Auth0 session, returning to the app origin. */
   async logout(): Promise<void> {
     await this.client?.logout({

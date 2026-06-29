@@ -46,9 +46,19 @@ export class GraphqlService {
     });
 
     if (response.status === 401) {
-      // Token expired or session gone — re-authenticate.
-      await this.auth.login();
-      throw new Error('Not authenticated.');
+      // A freshly-minted token rejected by the API is a server-side validation
+      // problem (e.g. AUTH0_AUDIENCE mismatch, clock skew), not an expired
+      // token — re-logging-in would just loop. Surface the reason instead.
+      let detail = 'Unauthorized';
+      try {
+        detail =
+          ((await response.json()) as { detail?: string })?.detail ?? detail;
+      } catch {
+        /* non-JSON body */
+      }
+      const message = `The API rejected your session (401): ${detail}`;
+      this.auth.reportError(message);
+      throw new Error(message);
     }
     if (!response.ok) {
       throw new Error(`GraphQL request failed (HTTP ${response.status}).`);

@@ -68,6 +68,8 @@ def verify_access_token(token: str) -> dict:
             algorithms=settings.auth0_algorithms_list,
             audience=settings.auth0_audience,
             issuer=settings.auth0_issuer,
+            # Tolerate small Auth0/host clock drift on iat/nbf/exp.
+            leeway=settings.auth0_leeway_seconds,
             options={"require": ["exp", "iat", "iss", "aud", "sub"]},
         )
     except AuthError:

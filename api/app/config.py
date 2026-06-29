@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     # Namespace for custom (profile) claims the API may read off the access
     # token, e.g. "https://exam-studio/email". Matches the Auth0 Action.
     auth0_namespace: str = "https://exam-studio/"
+    # Allowed clock skew (seconds) when validating token time claims
+    # (iat/nbf/exp). A few seconds of drift between Auth0 and the API host is
+    # normal; without leeway a token whose `iat` is marginally ahead of the
+    # server clock is wrongly rejected as "not yet valid".
+    auth0_leeway_seconds: int = 60
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
