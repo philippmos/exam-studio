@@ -136,27 +136,29 @@ relies on the IdP for.
 
 ## 7. Wire the values into Exam Studio
 
-**API** — `.env` at the repo root (loaded by `app/config.py` and Docker):
+**API + client** — a single `.env` at the repo root is the source of truth for
+both (loaded by `app/config.py` and Docker Compose):
 
 ```dotenv
 AUTH0_DOMAIN=your-tenant.eu.auth0.com
 AUTH0_AUDIENCE=https://api.exam-studio
+AUTH0_CLIENT_ID=THE_SPA_CLIENT_ID
 ```
 
-**Client** — `client/src/environments/environment.ts` **and**
-`environment.development.ts`:
+The client SPA reads its configuration at **runtime** from `/config.json`
+(`graphqlUrl` plus the `auth0` values), so the same build runs in any
+environment:
 
-```ts
-auth0: {
-  domain: 'your-tenant.eu.auth0.com',
-  clientId: 'THE_SPA_CLIENT_ID',
-  audience: 'https://api.exam-studio',   // must equal AUTH0_AUDIENCE
-},
-```
+- **Docker:** nginx renders `config.json` from the env vars above at container
+  start (`client/docker-entrypoint.d/40-render-config.sh`).
+- **Local dev (`npm start`):** copy `client/public/config.json.example` to
+  `client/public/config.json` and fill in the values. That file is gitignored,
+  so real values never land in git.
 
-> `audience` on the client and `AUTH0_AUDIENCE` on the API **must be identical**,
-> and must match the API Identifier from §2, otherwise login or token validation
-> fails.
+> In the Docker/Compose stack this one `.env` feeds both the API and the client,
+> so `AUTH0_AUDIENCE` can no longer drift between them. It must still match the
+> API Identifier from §2 exactly. (For local `npm start`, keep the `audience` in
+> `client/public/config.json` equal to the API's `AUTH0_AUDIENCE`.)
 
 ---
 

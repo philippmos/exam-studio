@@ -1,7 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Auth0Client, User, createAuth0Client } from '@auth0/auth0-spa-js';
 
-import { environment } from '../../environments/environment';
+import { ConfigService } from './config-service';
 
 /**
  * Thin, signal-based wrapper around the framework-agnostic `@auth0/auth0-spa-js`
@@ -16,6 +16,7 @@ import { environment } from '../../environments/environment';
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly config = inject(ConfigService);
   private client?: Auth0Client;
 
   /** True until the initial Auth0 bootstrap (and any redirect) has settled. */
@@ -30,18 +31,20 @@ export class AuthService {
    * Run once from an APP_INITIALIZER so auth state is known before routing.
    */
   async init(): Promise<void> {
-    if (environment.auth0.domain.startsWith('YOUR_')) {
+    const { domain, clientId, audience } = this.config.get().auth0;
+    if (!domain || !clientId || domain.startsWith('YOUR_')) {
       console.warn(
-        'Auth0 is not configured: set environment.auth0 (see docs/auth0-setup.md).',
+        'Auth0 is not configured: set the client runtime config ' +
+          '(see docs/auth0-setup.md).',
       );
     }
 
     this.client = await createAuth0Client({
-      domain: environment.auth0.domain,
-      clientId: environment.auth0.clientId,
+      domain,
+      clientId,
       authorizationParams: {
         redirect_uri: window.location.origin,
-        audience: environment.auth0.audience,
+        audience,
       },
       // Persist the rotating refresh token so a full page reload restores the
       // session via the refresh-token grant (no redirect/consent, no iframe).

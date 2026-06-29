@@ -3,6 +3,7 @@ import { firstValueFrom } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from './auth-service';
+import { ConfigService } from './config-service';
 import { ExamService } from './exam-service';
 import { Exam } from './models';
 
@@ -39,7 +40,13 @@ describe('ExamService', () => {
   beforeEach(() => {
     fetchApi = vi.fn();
     TestBed.configureTestingModule({
-      providers: [{ provide: AuthService, useValue: { fetchApi } }],
+      providers: [
+        { provide: AuthService, useValue: { fetchApi } },
+        {
+          provide: ConfigService,
+          useValue: { get: () => ({ graphqlUrl: '/graphql', auth0: {} }) },
+        },
+      ],
     });
     service = TestBed.inject(ExamService);
   });

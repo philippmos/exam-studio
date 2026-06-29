@@ -1,20 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, defer, from } from 'rxjs';
 
-import { environment } from '../../environments/environment';
 import { AuthService } from './auth-service';
+import { ConfigService } from './config-service';
 
 interface GraphqlResponse<T> {
   data: T;
   errors?: { message: string }[];
-}
-
-/**
- * Resolves the GraphQL endpoint to an absolute URL, handling both the relative
- * `/graphql` used behind nginx and the dev server's absolute URL.
- */
-function resolveGraphqlUrl(): string {
-  return new URL(environment.graphqlUrl, window.location.origin).toString();
 }
 
 /**
@@ -25,7 +17,18 @@ function resolveGraphqlUrl(): string {
 @Injectable({ providedIn: 'root' })
 export class GraphqlService {
   private readonly auth = inject(AuthService);
-  private readonly url = resolveGraphqlUrl();
+  private readonly config = inject(ConfigService);
+
+  /**
+   * The GraphQL endpoint as an absolute URL, handling both the relative
+   * `/graphql` used behind nginx and the dev server's absolute URL.
+   */
+  private get url(): string {
+    return new URL(
+      this.config.get().graphqlUrl,
+      window.location.origin,
+    ).toString();
+  }
 
   request<T>(
     query: string,

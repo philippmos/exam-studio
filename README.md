@@ -96,9 +96,10 @@ authenticated user.
 Before the app works you must configure an Auth0 tenant and fill in the
 placeholders:
 
-* API (`.env`): `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`.
-* Client (`client/src/environments/environment*.ts`): `auth0.domain`,
-  `auth0.clientId`, `auth0.audience` (audience must equal `AUTH0_AUDIENCE`).
+* API + client (repo-root `.env`): `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`,
+  `AUTH0_CLIENT_ID`. The client reads these at runtime from `/config.json`
+  (nginx renders it in the Docker image). For `npm start`, copy
+  `client/public/config.json.example` to `client/public/config.json`.
 
 Full step-by-step instructions: **[docs/auth0-setup.md](docs/auth0-setup.md)**.
 

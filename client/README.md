@@ -12,8 +12,10 @@ npm start
 ```
 
 The app runs at <http://localhost:4200> and talks to the API at
-`http://localhost:8000/graphql` (configured in
-`src/environments/environment.ts`). Make sure the API is running first.
+`http://localhost:8000/graphql`. Configuration is loaded at **runtime** from
+`public/config.json` — copy `public/config.json.example` to
+`public/config.json` first (it is gitignored, so real values stay out of git).
+Make sure the API is running first.
 
 ## Project structure
 

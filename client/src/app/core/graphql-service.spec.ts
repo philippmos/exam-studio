@@ -3,6 +3,7 @@ import { firstValueFrom } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from './auth-service';
+import { ConfigService } from './config-service';
 import { GraphqlService } from './graphql-service';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -20,7 +21,13 @@ describe('GraphqlService', () => {
     fetchApi = vi.fn();
     // GraphqlService posts through the auth-aware fetch (Bearer token), not HttpClient.
     TestBed.configureTestingModule({
-      providers: [{ provide: AuthService, useValue: { fetchApi } }],
+      providers: [
+        { provide: AuthService, useValue: { fetchApi } },
+        {
+          provide: ConfigService,
+          useValue: { get: () => ({ graphqlUrl: '/graphql', auth0: {} }) },
+        },
+      ],
     });
     service = TestBed.inject(GraphqlService);
   });

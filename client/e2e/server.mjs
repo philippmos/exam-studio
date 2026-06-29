@@ -48,10 +48,30 @@ const server = http.createServer((req, res) => {
   const pathname = new URL(req.url, `http://localhost:${port}`).pathname;
   if (pathname === '/graphql' || pathname === '/health') {
     proxyToApi(req, res, pathname);
+  } else if (pathname === '/config.json') {
+    serveConfig(res);
   } else {
     serveStatic(pathname, res);
   }
 });
+
+// Mirror the nginx image's runtime config: serve /config.json from environment
+// variables so the production bundle boots under the E2E server too.
+function serveConfig(res) {
+  const config = {
+    graphqlUrl: process.env.GRAPHQL_URL ?? '/graphql',
+    auth0: {
+      domain: process.env.AUTH0_DOMAIN ?? '',
+      clientId: process.env.AUTH0_CLIENT_ID ?? '',
+      audience: process.env.AUTH0_AUDIENCE ?? '',
+    },
+  };
+  res.writeHead(200, {
+    'content-type': 'application/json',
+    'cache-control': 'no-store',
+  });
+  res.end(JSON.stringify(config));
+}
 
 function proxyToApi(req, res, pathname) {
   const upstream = http.request(
