@@ -26,8 +26,6 @@ class Settings(BaseSettings):
     # Namespace for custom (profile) claims the API may read off the access
     # token, e.g. "https://exam-studio/email". Matches the Auth0 Action.
     auth0_namespace: str = "https://exam-studio/"
-    # Allowed clock skew (seconds) for the DPoP proof `iat` freshness check.
-    dpop_iat_leeway_seconds: int = 300
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

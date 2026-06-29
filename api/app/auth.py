@@ -4,8 +4,7 @@ The API is an OAuth2 resource server: every GraphQL request must carry a valid
 Auth0-issued access token for the configured audience. Tokens are RS256-signed
 and the signing keys are fetched (and cached) from the tenant JWKS endpoint.
 
-DPoP sender-constraining is handled separately in :mod:`app.dpop`; this module
-only validates the access token itself and maps it to a local ``User`` row.
+This module validates the access token and maps it to a local ``User`` row.
 """
 
 from __future__ import annotations

@@ -6,24 +6,7 @@ from strawberry.fastapi import GraphQLRouter
 from app.auth import AuthError, get_or_create_user, verify_access_token
 from app.config import settings
 from app.database import get_db_session
-from app.dpop import verify_dpop_proof
 from app.graphql.schema import schema
-
-
-def _reconstruct_htu(request: Request) -> str:
-    """The absolute request URL as the browser issued it (for DPoP ``htu``).
-
-    Behind the nginx reverse proxy the API is reached as ``api:8000`` but the
-    client signs the proof against the public origin, so prefer the forwarded
-    headers nginx sets (see ``client/nginx.conf``).
-    """
-    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
-    host = (
-        request.headers.get("x-forwarded-host")
-        or request.headers.get("host")
-        or request.url.netloc
-    )
-    return f"{proto}://{host}{request.url.path}"
 
 
 async def get_context(
@@ -31,42 +14,26 @@ async def get_context(
 ) -> dict:
     """Authenticate the request and expose db + user to GraphQL resolvers.
 
-    Requires a valid Auth0 access token (``Bearer`` or ``DPoP``). A sender-
-    constrained token (one carrying a ``cnf.jkt`` claim) additionally requires a
-    valid DPoP proof, so it can be neither replayed nor downgraded to a plain
-    bearer token. Authentication failures become HTTP 401 before any resolver
-    runs.
+    Requires a valid Auth0 Bearer access token for the configured audience.
+    Authentication failures become HTTP 401 before any resolver runs.
     """
     authorization = request.headers.get("authorization", "")
     scheme, _, token = authorization.partition(" ")
-    scheme = scheme.lower()
-    if not token or scheme not in ("bearer", "dpop"):
+    if not token or scheme.lower() != "bearer":
         raise HTTPException(
             status_code=401,
             detail="Missing or malformed Authorization header.",
-            headers={"WWW-Authenticate": "Bearer, DPoP"},
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     try:
         claims = verify_access_token(token)
-        cnf_jkt = (claims.get("cnf") or {}).get("jkt")
-        if scheme == "dpop" or cnf_jkt:
-            proof = request.headers.get("dpop")
-            if not proof:
-                raise AuthError("A DPoP proof is required for this token.")
-            verify_dpop_proof(
-                proof,
-                access_token=token,
-                htm=request.method,
-                htu=_reconstruct_htu(request),
-                cnf_jkt=cnf_jkt,
-            )
         user = await get_or_create_user(db, claims)
     except AuthError as exc:
         raise HTTPException(
             status_code=401,
             detail=exc.detail,
-            headers={"WWW-Authenticate": f'DPoP error="{exc.error}"'},
+            headers={"WWW-Authenticate": f'Bearer error="{exc.error}"'},
         ) from exc
 
     return {"db": db, "user": user, "claims": claims}

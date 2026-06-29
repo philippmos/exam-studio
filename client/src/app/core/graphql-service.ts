@@ -10,18 +10,17 @@ interface GraphqlResponse<T> {
 }
 
 /**
- * Absolute GraphQL endpoint URL. It must be absolute (and deterministic) so the
- * DPoP proof's `htu` claim the SDK generates matches what the API reconstructs.
+ * Resolves the GraphQL endpoint to an absolute URL, handling both the relative
+ * `/graphql` used behind nginx and the dev server's absolute URL.
  */
 function resolveGraphqlUrl(): string {
   return new URL(environment.graphqlUrl, window.location.origin).toString();
 }
 
 /**
- * Thin GraphQL client. Requests go through {@link AuthService.fetchApi}, i.e.
- * the auth0-spa-js fetcher, so each call carries the access token and a
- * per-request DPoP proof. Every call posts a query + variables and unwraps
- * `data` / surfaces errors; a 401 bounces the user through Auth0 again.
+ * Thin GraphQL client. Requests go through {@link AuthService.fetchApi}, which
+ * attaches the Bearer access token. Every call posts a query + variables and
+ * unwraps `data` / surfaces errors; a 401 bounces the user through Auth0 again.
  */
 @Injectable({ providedIn: 'root' })
 export class GraphqlService {

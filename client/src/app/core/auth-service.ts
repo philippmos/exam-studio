@@ -3,33 +3,24 @@ import { Auth0Client, User, createAuth0Client } from '@auth0/auth0-spa-js';
 
 import { environment } from '../../environments/environment';
 
-/** Namespaces DPoP nonce storage for our API in the auth0-spa-js fetcher. */
-const API_NONCE_ID = 'exam-studio-api';
-
-/** The slice of the auth0-spa-js fetcher this app relies on. */
-interface ApiFetcher {
-  fetchWithAuth(url: string, init?: RequestInit): Promise<Response>;
-}
-
 /**
  * Thin, signal-based wrapper around the framework-agnostic `@auth0/auth0-spa-js`
  * SDK (chosen over `@auth0/auth0-angular`, which still targets Angular 19).
  *
  * Configured for modern SPA best practice: Authorization Code + PKCE, refresh
- * token rotation, an **in-memory** token cache (no localStorage, so XSS cannot
- * read tokens) and **DPoP** (`useDpop`) so access tokens are sender-constrained.
- * API calls go through the SDK's fetcher (`fetchApi`), which mints a per-request
- * DPoP proof and manages the DPoP nonce/retry handshake automatically.
+ * token rotation and an **in-memory** token cache (no localStorage, so XSS
+ * cannot read tokens). Access tokens are sent to the API as Bearer tokens.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private client?: Auth0Client;
-  private fetcher?: ApiFetcher;
 
   /** True until the initial Auth0 bootstrap (and any redirect) has settled. */
   readonly isLoading = signal(true);
   readonly isAuthenticated = signal(false);
   readonly user = signal<User | null>(null);
+  /** Set when login/redirect fails, so the UI can show it instead of looping. */
+  readonly error = signal<string | null>(null);
 
   /**
    * Bootstraps the Auth0 client and consumes a login redirect if present.
@@ -52,31 +43,42 @@ export class AuthService {
       // Best-practice token handling: rotated refresh tokens, in-memory cache.
       useRefreshTokens: true,
       cacheLocation: 'memory',
-      // Sender-constrain tokens with DPoP (RFC 9449).
-      useDpop: true,
     });
 
-    if (this.hasRedirectParams()) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('code') || params.has('error')) {
       let target = '/';
-      try {
-        const result = await this.client.handleRedirectCallback();
-        target = (result?.appState as { target?: string })?.target || '/';
-      } catch (err) {
-        console.error('Auth0 redirect callback failed', err);
+      if (params.has('error')) {
+        // Auth0 redirected back with an error (e.g. the SPA is not authorized
+        // for the API audience). Surface it rather than re-triggering login.
+        this.error.set(
+          params.get('error_description') ||
+            params.get('error') ||
+            'Login failed.',
+        );
+      } else {
+        try {
+          const result = await this.client.handleRedirectCallback();
+          target = (result?.appState as { target?: string })?.target || '/';
+        } catch (err) {
+          this.error.set(err instanceof Error ? err.message : 'Login failed.');
+        }
       }
-      // Restore the originally requested URL and drop ?code/&state, no reload.
-      window.history.replaceState({}, document.title, target);
+      // Drop ?code/&state (or the error params); restore the deep link on success.
+      window.history.replaceState(
+        {},
+        document.title,
+        this.error() ? window.location.pathname : target,
+      );
     }
 
-    this.fetcher = this.client.createFetcher({
-      dpopNonceId: API_NONCE_ID,
-    }) as ApiFetcher;
     await this.refreshState();
     this.isLoading.set(false);
   }
 
   /** Start the login (and self-service registration) redirect to Auth0. */
   async login(targetUrl?: string): Promise<void> {
+    this.error.set(null);
     await this.client?.loginWithRedirect({
       appState: {
         target: targetUrl ?? window.location.pathname + window.location.search,
@@ -91,22 +93,15 @@ export class AuthService {
     });
   }
 
-  /**
-   * Authenticated, DPoP-bound fetch to our API. The SDK fetcher attaches the
-   * access token (`Authorization: DPoP …`) and a fresh DPoP proof per request.
-   */
-  async fetchApi(url: string, init?: RequestInit): Promise<Response> {
-    if (!this.fetcher) {
+  /** Authenticated fetch to our API: attaches the Bearer access token. */
+  async fetchApi(url: string, init: RequestInit = {}): Promise<Response> {
+    if (!this.client) {
       throw new Error('AuthService is not initialised yet.');
     }
-    return this.fetcher.fetchWithAuth(url, init);
-  }
-
-  private hasRedirectParams(): boolean {
-    const search = window.location.search;
-    return (
-      /[?&](code|error)=/.test(search) && /[?&]state=/.test(search)
-    );
+    const token = await this.client.getTokenSilently();
+    const headers = new Headers(init.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+    return fetch(url, { ...init, headers });
   }
 
   private async refreshState(): Promise<void> {

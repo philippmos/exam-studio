@@ -14,6 +14,11 @@ export const authGuard: CanActivateFn = (_route, state) => {
   if (auth.isAuthenticated()) {
     return true;
   }
+  // A prior login attempt failed (e.g. misconfigured Auth0); don't loop — the
+  // app shell shows the error and offers a retry.
+  if (auth.error()) {
+    return false;
+  }
   void auth.login(state.url);
   return false;
 };

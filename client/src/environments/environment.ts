@@ -7,8 +7,8 @@ export const environment = {
   // Auth0 SPA configuration. Fill these in from your Auth0 tenant — see
   // docs/auth0-setup.md. `audience` MUST match the API's AUTH0_AUDIENCE.
   auth0: {
-    domain: 'YOUR_AUTH0_DOMAIN', // e.g. your-tenant.eu.auth0.com
-    clientId: 'YOUR_AUTH0_CLIENT_ID',
+    domain: 'pmo-software.eu.auth0.com', // e.g. your-tenant.eu.auth0.com
+    clientId: 'AMJWQLhfVXM86RrxAKDZIwLhwDbw99rt',
     audience: 'https://api.exam-studio',
   },
 };

@@ -85,13 +85,13 @@ ExamSession ──< SessionItem ──< SessionItemAnswer (the chosen answers)
 * Starting an exam snapshots an ordered **ExamSession** of **SessionItem**s.
   Every answer you give is persisted on its item.
 
-## Authentication (Auth0 + DPoP)
+## Authentication (Auth0)
 
 Users sign in / register through **Auth0** (OpenID Connect). The SPA uses the
-Authorization Code flow with PKCE, keeps tokens **in memory** with refresh-token
-rotation, and sender-constrains them with **DPoP (RFC 9449)**. The API is an
-OAuth2 resource server that validates the access token (RS256/JWKS) and the DPoP
-proof, then scopes **every** exam and session to the authenticated user.
+Authorization Code flow with PKCE and keeps tokens **in memory** with
+refresh-token rotation. The API is an OAuth2 resource server that validates the
+Bearer access token (RS256/JWKS), then scopes **every** exam and session to the
+authenticated user.
 
 Before the app works you must configure an Auth0 tenant and fill in the
 placeholders:

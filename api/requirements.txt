@@ -5,7 +5,6 @@ sqlalchemy[asyncio]>=2.0.36
 asyncpg>=0.30
 alembic>=1.14
 pydantic-settings>=2.6
-# Auth0 access-token (RS256/JWKS) and DPoP proof validation. The [crypto] extra
-# pulls in `cryptography`, which also covers EC/RSA DPoP-proof verification and
-# RFC 7638 JWK thumbprints, so no further dependency is needed.
+# Auth0 access-token validation (RS256/JWKS). The [crypto] extra pulls in
+# `cryptography`, required for RS256 signature verification.
 pyjwt[crypto]>=2.10

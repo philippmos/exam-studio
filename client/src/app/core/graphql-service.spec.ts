@@ -18,7 +18,7 @@ describe('GraphqlService', () => {
 
   beforeEach(() => {
     fetchApi = vi.fn();
-    // GraphqlService posts through the auth-aware (DPoP) fetcher, not HttpClient.
+    // GraphqlService posts through the auth-aware fetch (Bearer token), not HttpClient.
     TestBed.configureTestingModule({
       providers: [{ provide: AuthService, useValue: { fetchApi } }],
     });

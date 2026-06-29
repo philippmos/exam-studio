@@ -10,7 +10,6 @@ instance, exactly like the Angular client does.
 > needs an access token for the API audience. The simplest path (no interactive
 > login) is a **machine-to-machine** Auth0 application: fetch a token via the
 > `client_credentials` grant and send it as `Authorization: Bearer <token>`.
-> A plain Bearer token works because M2M tokens are not DPoP-bound.
 >
 > This token wiring is **not yet implemented in the test code** (the OAuth change
 > was scoped document-only). To enable the suite, read a token from an env var

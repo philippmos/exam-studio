@@ -94,7 +94,7 @@ cp .env.example .env
 
 Adjust `DATABASE_URL` / `CORS_ORIGINS` if needed, and set `AUTH0_DOMAIN` /
 `AUTH0_AUDIENCE` so the API can validate access tokens (see
-[Authentication](#authentication-auth0--dpop) and `docs/auth0-setup.md`). The
+[Authentication](#authentication-auth0) and `docs/auth0-setup.md`). The
 API rejects every GraphQL request with **HTTP 401** until these are configured
 and a valid token is supplied.
 
@@ -114,22 +114,15 @@ uvicorn app.main:app --reload
   token; the in-browser IDE is only served when `DEBUG=true`)
 * Health check: <http://localhost:8000/health> (public)
 
-## Authentication (Auth0 + DPoP)
+## Authentication (Auth0)
 
 The API is an OAuth2 **resource server**. Every `/graphql` request must present a
-valid Auth0 access token for the configured audience; `/health` stays public.
+valid Auth0 Bearer access token for the configured audience; `/health` stays
+public.
 
 * **Token validation** — the access token is RS256-verified against the tenant
   JWKS (`app/auth.py`), checking issuer, audience and expiry. Only `RS256` is
   accepted (`alg: none` and key-confusion attacks are rejected).
-* **DPoP (RFC 9449)** — access tokens are sender-constrained. When a token
-  carries a `cnf.jkt` claim (or is sent as `Authorization: DPoP …`) the request
-  must also include a valid `DPoP` proof, validated in `app/dpop.py`: proof
-  signature (embedded public `jwk`), `htm`/`htu` binding to the request, `ath`
-  binding to the token, `iat` freshness and single-use `jti` (in-memory replay
-  cache). A captured access token is therefore useless without the client's
-  private key. Plain `Bearer` tokens are still accepted for non-DPoP callers
-  (e.g. M2M test tokens), but a `cnf`-bound token can never be downgraded.
 * **Users & ownership** — on first login a `User` row is provisioned from the
   token's `sub` (`get_or_create_user`). Every `Exam` (and everything cascading
   from it) has a `user_id`, and all queries/mutations are scoped to the caller,
@@ -144,11 +137,7 @@ Required env vars (`.env`):
 | `DEBUG`          | `false`                    | `true` also serves the GraphQL IDE. |
 
 See [`docs/auth0-setup.md`](../docs/auth0-setup.md) for the full Auth0 tenant
-setup (API, SPA application, DPoP, optional M2M client for tests).
-
-> **Note:** the DPoP `jti` replay cache is in-process. Running more than one API
-> worker/instance needs a shared store (Redis/DB) for replay protection to hold
-> across the fleet.
+setup (API, SPA application, optional M2M client for tests).
 
 ## Database migrations (Alembic, code-first)
 
