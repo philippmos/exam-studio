@@ -196,12 +196,20 @@ The JSON carries no ids — sections are referenced by their `key` and question
 numbers follow the order in the file. Every import generates fresh UUIDs, so
 you can import the same file multiple times.
 
+To grow an exam that already exists, the `addExamQuestions(examId, payload)`
+mutation merges a document (same format) into it (client: exam detail →
+**Add questions**). Only questions whose text is not already present are added;
+duplicates are skipped and nothing is ever removed. Sections are matched by
+`name` (a referenced module that does not exist yet is created). The result
+reports how many questions were `added` versus `skipped`.
+
 ## GraphQL API overview
 
 **Queries**
 
 | Field                 | Description                                          |
 | --------------------- | ---------------------------------------------------- |
+| `userSettings`        | The signed-in user's account settings (theme, ...).  |
 | `exams`               | All exams (dashboard).                               |
 | `exam(id)`            | A single exam with its sections and counts.          |
 | `session(id)`         | A session with its ordered questions.                |
@@ -212,7 +220,9 @@ you can import the same file multiple times.
 
 | Field                                              | Description                              |
 | -------------------------------------------------- | ---------------------------------------- |
+| `setThemePreference(themePreference)`              | Persist the user's colour scheme (`SYSTEM` / `LIGHT` / `DARK`). |
 | `importExam(payload)`                              | Import an exam from a JSON string.       |
+| `addExamQuestions(examId, payload)`                | Add new questions from a JSON document to an existing exam; returns `{exam, added, skipped}`. |
 | `deleteExam(id)`                                   | Delete an exam (cascades).               |
 | `startSession(examId, mode, sectionId)`            | Start a run; snapshots the questions.    |
 | `submitAnswer(sessionItemId, selectedAnswerIds, allocations, tzOffsetMinutes)` | Persist the answer; returns correctness and the question's updated review schedule. Choice questions pass `selectedAnswerIds`, allocation questions pass `allocations` (`{answerId, categoryId}` per item). |

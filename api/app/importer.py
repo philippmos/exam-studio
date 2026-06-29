@@ -38,10 +38,17 @@ The JSON carries no ids: sections are referenced by their ``key``. Fresh UUIDs
 are generated for every row, so the same file can be imported more than once as
 independent exams. The question numbers used in error messages refer to the
 position in the file.
+
+``merge_questions_into_exam`` additively imports the same document format into
+an *existing* exam: it adds only the questions that are not already present and
+never removes anything. Duplicates are detected by exact question text, and
+sections are matched by ``name`` (the JSON ``key`` is not persisted), with any
+referenced-but-missing module created on the fly.
 """
 
 import html
 import json
+from dataclasses import dataclass
 
 from app.enums import QuestionType
 from app.models import Answer, Exam, Question, QuestionCategory, Section
@@ -49,6 +56,14 @@ from app.models import Answer, Exam, Question, QuestionCategory, Section
 
 class ImportError_(ValueError):
     """Raised when the uploaded payload is not a valid exam document."""
+
+
+@dataclass
+class ImportSummary:
+    """Outcome of a merge import: how many questions were added vs. skipped."""
+
+    added: int
+    skipped: int
 
 
 def _parse_question_type(raw_question: dict, number: int) -> QuestionType:
@@ -201,3 +216,49 @@ def build_exam_from_payload(payload: str) -> Exam:
             _build_choice_answers(question, raw_question, number, question_type)
 
     return exam
+
+
+def merge_questions_into_exam(exam: Exam, payload: str) -> ImportSummary:
+    """Additively import a document's questions into an existing exam.
+
+    The payload is parsed and fully validated by :func:`build_exam_from_payload`
+    (same rules as a fresh import); the resulting graph is transient and only the
+    new questions are grafted onto ``exam``. A question is "new" when its text is
+    not already present in the exam (exact match); existing ones are skipped and
+    nothing is ever removed. Incoming sections are matched to the exam's modules
+    by ``name``, and a referenced module that does not exist yet is created.
+
+    ``exam`` must be loaded with its ``sections`` and each section's
+    ``questions`` so the existing texts can be read. Returns the add/skip counts;
+    the caller is responsible for committing.
+    """
+    incoming = build_exam_from_payload(payload)
+
+    existing_texts = {
+        question.text for section in exam.sections for question in section.questions
+    }
+    section_by_name = {section.name: section for section in exam.sections}
+    next_position = max((section.position for section in exam.sections), default=-1) + 1
+
+    added = 0
+    skipped = 0
+    for incoming_section in incoming.sections:
+        target = section_by_name.get(incoming_section.name)
+        for incoming_question in list(incoming_section.questions):
+            if incoming_question.text in existing_texts:
+                skipped += 1
+                continue
+            if target is None:
+                target = Section(
+                    name=incoming_section.name, position=next_position, exam=exam
+                )
+                section_by_name[incoming_section.name] = target
+                next_position += 1
+            # Reassigning the relationship moves the question (with its answers
+            # and categories, which hang off the question) into the persistent
+            # exam graph; the transient incoming exam/sections are left behind.
+            incoming_question.section = target
+            existing_texts.add(incoming_question.text)
+            added += 1
+
+    return ImportSummary(added=added, skipped=skipped)

@@ -31,9 +31,10 @@ src/app/
 │   └── question-view/        # a question + its options (feedback + explanation)
 └── features/                 # routed pages + their dialogs
     ├── dashboard/            # exam list + import dialog
-    ├── exam-detail/          # exam overview + start-mode dialog
+    ├── exam-detail/          # exam overview + start-mode / add-questions dialogs
     ├── exam-progress/        # per-exam learning-progress dashboard
-    └── quiz/                 # the question-by-question runner + summary
+    ├── quiz/                 # the question-by-question runner + summary
+    └── settings/            # user settings (appearance / light-dark theme)
 ```
 
 ## User flow
@@ -41,7 +42,8 @@ src/app/
 1. **Dashboard** (`/`) – lists all exams. **Import exam** uploads a JSON file
    (e.g. `exam.json`) and creates a new exam.
 2. **Exam detail** (`/exams/:id`) – shows the modules and a **Start exam mode**
-   button.
+   button. **Add questions** uploads an exam JSON to merge new questions into the
+   exam (existing questions are skipped; nothing is removed).
 3. **Start dialog** – choose a mode:
    - _All questions, shuffled_
    - _A specific module_

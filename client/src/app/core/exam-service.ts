@@ -367,6 +367,31 @@ export class ExamService {
       .pipe(map((data) => data.importExam));
   }
 
+  /**
+   * Add new questions to an existing exam from an exam JSON document (same
+   * format as `importExam`). Only questions not already present are imported;
+   * `added`/`skipped` report how many were imported versus skipped.
+   */
+  addExamQuestions(
+    examId: string,
+    payload: string,
+  ): Observable<{ exam: Exam; added: number; skipped: number }> {
+    return this.graphql
+      .request<{
+        addExamQuestions: { exam: Exam; added: number; skipped: number };
+      }>(
+        `mutation AddQuestions($examId: UUID!, $payload: String!) {
+          addExamQuestions(examId: $examId, payload: $payload) {
+            exam { ${EXAM_FIELDS} }
+            added
+            skipped
+          }
+        }`,
+        { examId, payload },
+      )
+      .pipe(map((data) => data.addExamQuestions));
+  }
+
   deleteExam(id: string): Observable<boolean> {
     return this.graphql
       .request<{

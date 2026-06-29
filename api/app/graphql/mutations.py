@@ -15,6 +15,7 @@ from app.enums import GoalPeriod, QuestionType, SessionMode, StudyGoalSource
 from app.graphql import loaders, planning, review
 from app.graphql.context import current_user
 from app.graphql.types import (
+    AddQuestionsResult,
     AllocationInput,
     AllocationType,
     AnswerResult,
@@ -27,7 +28,11 @@ from app.graphql.types import (
     UserSettingsType,
     to_user_settings,
 )
-from app.importer import ImportError_, build_exam_from_payload
+from app.importer import (
+    ImportError_,
+    build_exam_from_payload,
+    merge_questions_into_exam,
+)
 
 
 async def _select_question_ids(
@@ -209,6 +214,36 @@ class Mutation:
         await db.commit()
         result = await loaders.load_exams(db, user.id, exam_id=exam.id)
         return result[0]
+
+    @strawberry.mutation
+    async def add_exam_questions(
+        self, info: Info, exam_id: uuid.UUID, payload: str
+    ) -> AddQuestionsResult:
+        """Add new questions from an exam JSON document to an existing exam.
+
+        The payload uses the same format as ``import_exam``. Only questions whose
+        text is not already in the exam are imported; existing ones are skipped
+        and nothing is removed. A referenced module that does not exist yet is
+        created. Returns the updated exam with the added/skipped counts.
+        """
+        db: AsyncSession = info.context["db"]
+        user = current_user(info)
+        exam = await loaders.load_owned_exam_with_questions(db, user.id, exam_id)
+        if exam is None:
+            raise ValueError("Exam not found.")
+        try:
+            summary = merge_questions_into_exam(exam, payload)
+        except ImportError_ as exc:
+            raise ValueError(str(exc)) from exc
+
+        # The question count may have changed, so keep an automatic study goal
+        # in sync (a manual goal is left untouched).
+        await _apply_auto_goal(db, exam)
+        await db.commit()
+        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
+        return AddQuestionsResult(
+            exam=result[0], added=summary.added, skipped=summary.skipped
+        )
 
     @strawberry.mutation
     async def delete_exam(self, info: Info, id: uuid.UUID) -> bool:

@@ -162,6 +162,24 @@ async def get_owned_exam(
     )
 
 
+async def load_owned_exam_with_questions(
+    db: AsyncSession, user_id: uuid.UUID, exam_id: uuid.UUID
+) -> models.Exam | None:
+    """The owned exam with its sections and their questions eager-loaded.
+
+    Used by the merge import, which needs the existing question texts (to detect
+    duplicates) and the modules (to match by name). Returns ``None`` for a
+    foreign or missing id, like :func:`get_owned_exam`.
+    """
+    return await db.scalar(
+        select(models.Exam)
+        .where(models.Exam.id == exam_id, models.Exam.user_id == user_id)
+        .options(
+            selectinload(models.Exam.sections).selectinload(models.Section.questions)
+        )
+    )
+
+
 async def get_owned_session(
     db: AsyncSession, user_id: uuid.UUID, session_id: uuid.UUID
 ) -> models.ExamSession | None:

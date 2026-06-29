@@ -41,6 +41,13 @@ export interface Exam {
   sections: Section[];
 }
 
+/** Outcome of merging new questions into an existing exam. */
+export interface AddQuestionsResult {
+  exam: Exam;
+  added: number;
+  skipped: number;
+}
+
 /** Progress of one exam's study goal within the current period. */
 export interface StudyGoalProgress {
   examId: string;

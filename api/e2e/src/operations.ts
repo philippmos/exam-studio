@@ -1,5 +1,6 @@
 import { GraphqlClient } from './graphql-client';
 import {
+  AddQuestionsResult,
   Allocation,
   AnswerResult,
   Exam,
@@ -135,6 +136,24 @@ export async function importExam(gql: GraphqlClient, payload: string): Promise<E
     { payload },
   );
   return data.importExam;
+}
+
+export async function addExamQuestions(
+  gql: GraphqlClient,
+  examId: string,
+  payload: string,
+): Promise<AddQuestionsResult> {
+  const data = await gql.query<{ addExamQuestions: AddQuestionsResult }>(
+    `mutation AddQuestions($examId: UUID!, $payload: String!) {
+      addExamQuestions(examId: $examId, payload: $payload) {
+        exam { ${EXAM_FIELDS} }
+        added
+        skipped
+      }
+    }`,
+    { examId, payload },
+  );
+  return data.addExamQuestions;
 }
 
 export async function deleteExam(gql: GraphqlClient, id: string): Promise<boolean> {

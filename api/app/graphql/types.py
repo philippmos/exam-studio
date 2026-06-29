@@ -139,6 +139,20 @@ class ExamType:
 
 
 @strawberry.type
+class AddQuestionsResult:
+    """Outcome of merging new questions into an existing exam.
+
+    ``exam`` is the updated exam (with the new question counts); ``added`` and
+    ``skipped`` report how many of the uploaded questions were imported versus
+    skipped because they were already present.
+    """
+
+    exam: ExamType
+    added: int
+    skipped: int
+
+
+@strawberry.type
 class SessionItemType:
     id: uuid.UUID
     position: int

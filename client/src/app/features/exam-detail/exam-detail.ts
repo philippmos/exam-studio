@@ -21,6 +21,7 @@ import { ExamService } from '../../core/exam-service';
 import { Exam, SessionSetup } from '../../core/models';
 import { StudyGoalDialog } from '../../shared/study-goal-dialog/study-goal-dialog';
 import { SessionSetupDialog } from './session-setup-dialog';
+import { AddQuestionsDialog, AddQuestionsResult } from './add-questions-dialog';
 
 @Component({
   selector: 'app-exam-detail',
@@ -65,6 +66,9 @@ import { SessionSetupDialog } from './session-setup-dialog';
                 <mat-icon>autorenew</mat-icon> Review due ({{ dueCount() }})
               </button>
             }
+            <button mat-stroked-button (click)="addQuestions(exam)">
+              <mat-icon>playlist_add</mat-icon> Add questions
+            </button>
             <button mat-stroked-button (click)="editGoal(exam)">
               <mat-icon>flag</mat-icon>
               {{ exam.studyGoal ? 'Edit study goal' : 'Set study goal' }}
@@ -437,6 +441,41 @@ export class ExamDetail {
           this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
       });
     });
+  }
+
+  /** Merge new questions from an uploaded exam JSON into this exam. */
+  addQuestions(exam: Exam): void {
+    this.dialog
+      .open(AddQuestionsDialog, {
+        data: { examId: exam.id },
+        width: '480px',
+      })
+      .afterClosed()
+      .subscribe((result: AddQuestionsResult | undefined) => {
+        if (!result) {
+          return; // cancelled
+        }
+        // Reflect the new question counts in the header and module table.
+        this.exam.set(result.exam);
+        this.statsResource.reload();
+        this.snackBar.open(this.addQuestionsMessage(result), 'OK', {
+          duration: 5000,
+        });
+      });
+  }
+
+  /** Snackbar text summarising how many questions were added vs. skipped. */
+  private addQuestionsMessage(result: AddQuestionsResult): string {
+    const added = `Added ${result.added} ${
+      result.added === 1 ? 'question' : 'questions'
+    }.`;
+    if (result.skipped === 0) {
+      return added;
+    }
+    const skipped = `${result.skipped} already-imported ${
+      result.skipped === 1 ? 'question was' : 'questions were'
+    } skipped.`;
+    return `${added} ${skipped}`;
   }
 
   openSetup(exam: Exam): void {
