@@ -27,6 +27,12 @@ class User(Base):
     )
     email: Mapped[str | None] = mapped_column(String(320))
     name: Mapped[str | None] = mapped_column(String(255))
+    # Preferred colour scheme: a ThemePreference value ("SYSTEM" / "LIGHT" /
+    # "DARK"). "SYSTEM" follows the browser preference. The first user setting;
+    # more may join it here as the settings page grows.
+    theme_preference: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="SYSTEM", server_default="SYSTEM"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

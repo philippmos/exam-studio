@@ -19,14 +19,26 @@ import strawberry
 from app import models
 from app.enums import GoalPeriod
 from app.enums import QuestionType as QuestionTypeValue
-from app.enums import SessionMode, StudyGoalSource
+from app.enums import SessionMode, StudyGoalSource, ThemePreference
 
 SessionModeEnum = strawberry.enum(SessionMode)
 GoalPeriodEnum = strawberry.enum(GoalPeriod)
 StudyGoalSourceEnum = strawberry.enum(StudyGoalSource)
+ThemePreferenceEnum = strawberry.enum(ThemePreference)
 # The GraphQL object type below is already called "QuestionType", so the enum
 # gets a distinct schema name.
 QuestionTypeEnum = strawberry.enum(QuestionTypeValue, name="QuestionKind")
+
+
+@strawberry.type
+class UserSettingsType:
+    """The signed-in user's account settings.
+
+    Currently just the colour-scheme preference; this is the place to add
+    further per-user settings as the settings page grows.
+    """
+
+    theme_preference: ThemePreferenceEnum
 
 
 @strawberry.type
@@ -289,6 +301,12 @@ class ExamStats:
 # --------------------------------------------------------------------------- #
 # Converters: ORM -> GraphQL types (relationships must be loaded beforehand)   #
 # --------------------------------------------------------------------------- #
+
+
+def to_user_settings(user: models.User) -> UserSettingsType:
+    return UserSettingsType(
+        theme_preference=ThemePreference(user.theme_preference),
+    )
 
 
 def to_answer(answer: models.Answer) -> AnswerType:

@@ -198,6 +198,8 @@ import { Allocation, Answer, Question } from '../../core/models';
         border-radius: 10px;
         overflow-x: auto;
         font-size: 14px;
+        /* Delineate the (intentionally dark) code block on a dark surface. */
+        border: 1px solid color-mix(in srgb, #f8f8f2 12%, transparent);
       }
       .multi-hint {
         display: flex;
@@ -358,6 +360,8 @@ import { Allocation, Answer, Question } from '../../core/models';
         border-radius: 10px;
         overflow-x: auto;
         font-size: 14px;
+        /* Delineate the (intentionally dark) code block on a dark surface. */
+        border: 1px solid color-mix(in srgb, #f8f8f2 12%, transparent);
       }
 
       /* ---- Allocation (drag & drop into baskets) ---- */

@@ -93,6 +93,10 @@ import { AuthService } from '../../core/auth-service';
                 }
               </div>
               <div class="menu-divider"></div>
+              <a mat-menu-item routerLink="/settings">
+                <mat-icon>settings</mat-icon>
+                <span>Settings</span>
+              </a>
               <button mat-menu-item (click)="logout()">
                 <mat-icon>logout</mat-icon>
                 <span>Logout</span>

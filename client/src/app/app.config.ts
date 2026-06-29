@@ -11,6 +11,7 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { routes } from './app.routes';
 import { AuthService } from './core/auth-service';
 import { ConfigService } from './core/config-service';
+import { ThemeService } from './core/theme-service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -21,7 +22,11 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       const config = inject(ConfigService);
       const auth = inject(AuthService);
-      return config.load().then(() => auth.init());
+      const theme = inject(ThemeService);
+      return config
+        .load()
+        .then(() => auth.init())
+        .then(() => theme.syncFromServer());
     }),
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withFetch()),

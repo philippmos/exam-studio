@@ -15,8 +15,8 @@ import { MatIconModule } from '@angular/material/icon';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <mat-card class="stat-card" appearance="outlined">
-      <div class="icon" [style.background]="tint()">
-        <mat-icon [style.color]="color()">{{ icon() }}</mat-icon>
+      <div class="icon" [style.--sc-color]="color()" [style.--sc-tint]="tint()">
+        <mat-icon>{{ icon() }}</mat-icon>
       </div>
       <div class="body">
         <div class="value">{{ value() }}</div>
@@ -45,6 +45,26 @@ import { MatIconModule } from '@angular/material/icon';
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        /*
+         * Light mode keeps the caller's hand-picked pastel tint; dark mode
+         * derives a deep, low-chroma badge from the same hue so it sits on the
+         * dark card without glaring.
+         */
+        background: light-dark(
+          var(--sc-tint, var(--mat-sys-surface-container-high)),
+          color-mix(
+            in srgb,
+            var(--sc-color, var(--mat-sys-primary)) 22%,
+            var(--mat-sys-surface-container-high)
+          )
+        );
+      }
+      .icon mat-icon {
+        /* Brighten the hue in dark mode for contrast against the dark badge. */
+        color: light-dark(
+          var(--sc-color, var(--mat-sys-primary)),
+          color-mix(in srgb, var(--sc-color, var(--mat-sys-primary)) 62%, white)
+        );
       }
       .value {
         font-size: 26px;

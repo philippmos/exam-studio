@@ -14,6 +14,21 @@
       href="https://fonts.googleapis.com/icon?family=Material+Icons"
       rel="stylesheet"
     />
+    <!--
+      Apply the saved dark/light choice before first paint so the page never
+      flashes the wrong mode. Mirrors ThemeService (key: exam-studio.theme).
+    -->
+    <script>
+      (function () {
+        try {
+          var pref = localStorage.getItem('exam-studio.theme');
+          document.documentElement.style.colorScheme =
+            pref === 'LIGHT' ? 'light' : pref === 'DARK' ? 'dark' : 'light dark';
+        } catch (e) {
+          /* localStorage unavailable — fall back to the CSS default. */
+        }
+      })();
+    </script>
   </head>
   <body class="mat-typography">
     <app-root></app-root>

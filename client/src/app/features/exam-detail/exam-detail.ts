@@ -273,7 +273,7 @@ import { SessionSetupDialog } from './session-setup-dialog';
         height: 12px;
         border-radius: 999px;
         overflow: hidden;
-        background: #eceff1;
+        background: var(--app-track);
       }
       .progress-bar {
         height: 14px;
