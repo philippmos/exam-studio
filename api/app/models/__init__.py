@@ -9,3 +9,4 @@ from app.models.question_review_state import QuestionReviewState
 from app.models.section import Section
 from app.models.session_item import SessionItem
 from app.models.session_item_answer import SessionItemAnswer
+from app.models.user import User

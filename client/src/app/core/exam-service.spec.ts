@@ -1,18 +1,21 @@
-import { provideHttpClient } from '@angular/common/http';
-import {
-  HttpTestingController,
-  provideHttpClientTesting,
-} from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { firstValueFrom } from 'rxjs';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { environment } from '../../environments/environment';
+import { AuthService } from './auth-service';
 import { ExamService } from './exam-service';
 import { Exam } from './models';
 
 interface GraphqlBody {
   query: string;
   variables: Record<string, unknown>;
+}
+
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
 }
 
 function makeExam(): Exam {
@@ -31,48 +34,49 @@ function makeExam(): Exam {
 
 describe('ExamService', () => {
   let service: ExamService;
-  let httpMock: HttpTestingController;
+  let fetchApi: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    fetchApi = vi.fn();
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [{ provide: AuthService, useValue: { fetchApi } }],
     });
     service = TestBed.inject(ExamService);
-    httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  function lastBody(): GraphqlBody {
+    const init = fetchApi.mock.calls.at(-1)![1] as RequestInit;
+    return JSON.parse(init.body as string) as GraphqlBody;
+  }
 
-  it('getExams queries the exams field and unwraps the list', () => {
+  it('getExams queries the exams field and unwraps the list', async () => {
     const exam = makeExam();
-    let result: Exam[] | undefined;
-    service.getExams().subscribe((exams) => (result = exams));
+    fetchApi.mockResolvedValue(jsonResponse({ data: { exams: [exam] } }));
 
-    const req = httpMock.expectOne(environment.graphqlUrl);
-    expect((req.request.body as GraphqlBody).query).toContain('exams');
-    req.flush({ data: { exams: [exam] } });
+    const result = await firstValueFrom(service.getExams());
 
+    expect(lastBody().query).toContain('exams');
     expect(result).toEqual([exam]);
   });
 
-  it('getExam passes the id variable and unwraps the exam', () => {
-    let result: Exam | null | undefined;
-    service.getExam('abc').subscribe((exam) => (result = exam));
+  it('getExam passes the id variable and unwraps the exam', async () => {
+    fetchApi.mockResolvedValue(jsonResponse({ data: { exam: null } }));
 
-    const req = httpMock.expectOne(environment.graphqlUrl);
-    expect((req.request.body as GraphqlBody).variables).toEqual({ id: 'abc' });
-    req.flush({ data: { exam: null } });
+    const result = await firstValueFrom(service.getExam('abc'));
 
+    expect(lastBody().variables).toEqual({ id: 'abc' });
     expect(result).toBeNull();
   });
 
-  it('setExamArchived maps id -> examId in the mutation variables', () => {
-    service.setExamArchived('abc', true).subscribe();
+  it('setExamArchived maps id -> examId in the mutation variables', async () => {
+    fetchApi.mockResolvedValue(
+      jsonResponse({ data: { setExamArchived: makeExam() } }),
+    );
 
-    const req = httpMock.expectOne(environment.graphqlUrl);
-    const body = req.request.body as GraphqlBody;
+    await firstValueFrom(service.setExamArchived('abc', true));
+
+    const body = lastBody();
     expect(body.query).toContain('setExamArchived');
     expect(body.variables).toEqual({ id: 'abc', archived: true });
-    req.flush({ data: { setExamArchived: makeExam() } });
   });
 });

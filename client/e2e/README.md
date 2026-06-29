@@ -5,6 +5,19 @@ Browser end-to-end tests for the Angular client. By default they test the
 fallback and proxies `/graphql` to the API — the same role nginx has in the
 shipped image — and Chromium drives the real UI against a real API.
 
+> ## Authentication required
+>
+> The app now sits behind Auth0: every route is guarded and `/graphql` requires
+> a DPoP-bound access token. The tests therefore need an **authenticated browser
+> session**. The recommended approach is a Playwright global setup that logs in
+> once and saves the [`storageState`](https://playwright.dev/docs/auth), reused
+> by all specs; the seeding/cleanup that talks to the API directly needs a token
+> too (see the M2M approach in `api/e2e/README.md`).
+>
+> This is **not yet wired in the test code** (the OAuth change was scoped
+> document-only). Configure the SPA + a test user/M2M app per
+> [`docs/auth0-setup.md`](../../docs/auth0-setup.md) before enabling the suite.
+
 ## What is covered
 
 | Spec                         | Covers                                                       |

@@ -4,6 +4,21 @@ Black-box tests for the GraphQL API. They use Playwright's HTTP request
 context only — **no browser is involved** — and talk to a *running* API
 instance, exactly like the Angular client does.
 
+> ## Authentication required
+>
+> The API now rejects unauthenticated requests with **HTTP 401**, so this suite
+> needs an access token for the API audience. The simplest path (no interactive
+> login) is a **machine-to-machine** Auth0 application: fetch a token via the
+> `client_credentials` grant and send it as `Authorization: Bearer <token>`.
+> A plain Bearer token works because M2M tokens are not DPoP-bound.
+>
+> This token wiring is **not yet implemented in the test code** (the OAuth change
+> was scoped document-only). To enable the suite, read a token from an env var
+> (e.g. `E2E_ACCESS_TOKEN`) and attach it as a default header in
+> `src/graphql-client.ts` and `global-setup.ts`. See
+> [`docs/auth0-setup.md`](../../docs/auth0-setup.md) §5 for creating the M2M app
+> and fetching the token.
+
 ## What is covered
 
 | Spec                        | Covers                                                        |

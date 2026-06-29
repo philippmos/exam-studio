@@ -4,4 +4,11 @@
 export const environment = {
   production: true,
   graphqlUrl: '/graphql',
+  // Auth0 SPA configuration. Fill these in from your Auth0 tenant — see
+  // docs/auth0-setup.md. `audience` MUST match the API's AUTH0_AUDIENCE.
+  auth0: {
+    domain: 'YOUR_AUTH0_DOMAIN', // e.g. your-tenant.eu.auth0.com
+    clientId: 'YOUR_AUTH0_CLIENT_ID',
+    audience: 'https://api.exam-studio',
+  },
 };
