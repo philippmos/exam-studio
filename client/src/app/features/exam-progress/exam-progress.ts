@@ -274,7 +274,7 @@ import { StudyHistoryChart } from '../../shared/study-history-chart/study-histor
         height: 18px;
         border-radius: 9px;
         overflow: hidden;
-        background: #eceff1;
+        background: var(--app-track);
       }
       .bar.small {
         height: 10px;
@@ -316,7 +316,7 @@ import { StudyHistoryChart } from '../../shared/study-history-chart/study-histor
         background: var(--app-warning);
       }
       .dot.untouched {
-        background: #cfd8dc;
+        background: var(--mat-sys-outline-variant);
       }
       .modules {
         display: flex;

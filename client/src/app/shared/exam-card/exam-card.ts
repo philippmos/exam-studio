@@ -235,7 +235,7 @@ import { Exam, StudyGoalProgress } from '../../core/models';
       .goal-bar {
         height: 6px;
         border-radius: 3px;
-        background: #eceff1;
+        background: var(--app-track);
         overflow: hidden;
       }
       .goal-fill {
