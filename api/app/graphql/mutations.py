@@ -23,6 +23,9 @@ from app.graphql.types import (
     GoalPeriodEnum,
     SessionModeEnum,
     StudyGoalSourceEnum,
+    ThemePreferenceEnum,
+    UserSettingsType,
+    to_user_settings,
 )
 from app.importer import ImportError_, build_exam_from_payload
 
@@ -180,6 +183,17 @@ def _shuffle_answer_order(question: models.Question) -> list[str] | None:
 
 @strawberry.type
 class Mutation:
+    @strawberry.mutation
+    async def set_theme_preference(
+        self, info: Info, theme_preference: ThemePreferenceEnum
+    ) -> UserSettingsType:
+        """Persist the user's colour-scheme preference (SYSTEM / LIGHT / DARK)."""
+        db: AsyncSession = info.context["db"]
+        user = current_user(info)
+        user.theme_preference = theme_preference.value
+        await db.commit()
+        return to_user_settings(user)
+
     @strawberry.mutation
     async def import_exam(self, info: Info, payload: str) -> ExamType:
         """Import an exam from the JSON produced in the `exam.json` format."""

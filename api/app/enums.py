@@ -31,3 +31,11 @@ class StudyGoalSource(str, enum.Enum):
 
     MANUAL = "MANUAL"  # the user entered the target by hand
     AUTO = "AUTO"  # derived from the certification exam date (recomputed on change)
+
+
+class ThemePreference(str, enum.Enum):
+    """A user's chosen colour scheme for the app."""
+
+    SYSTEM = "SYSTEM"  # follow the OS / browser preference (prefers-color-scheme)
+    LIGHT = "LIGHT"
+    DARK = "DARK"

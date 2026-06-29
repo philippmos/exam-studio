@@ -20,11 +20,18 @@ from app.graphql.types import (
     StudyGoalProgress,
     StudyStreak,
     SuggestedStudyGoal,
+    UserSettingsType,
+    to_user_settings,
 )
 
 
 @strawberry.type
 class Query:
+    @strawberry.field
+    async def user_settings(self, info: Info) -> UserSettingsType:
+        """The signed-in user's account settings (colour scheme, ...)."""
+        return to_user_settings(current_user(info))
+
     @strawberry.field
     async def exams(self, info: Info) -> list[ExamType]:
         """Active (non-archived) exams for the dashboard."""

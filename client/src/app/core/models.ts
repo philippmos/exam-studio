@@ -45,6 +45,14 @@ export type GoalPeriod = 'DAILY' | 'WEEKLY';
 /** Whether a study goal was typed by hand or derived from the exam date. */
 export type StudyGoalSource = 'MANUAL' | 'AUTO';
 
+/** A user's chosen colour scheme. `SYSTEM` follows the browser preference. */
+export type ThemePreference = 'SYSTEM' | 'LIGHT' | 'DARK';
+
+/** The signed-in user's account settings (grows as more settings are added). */
+export interface UserSettings {
+  themePreference: ThemePreference;
+}
+
 /** Per-exam study goal: answer `target` questions per `period`. */
 export interface StudyGoal {
   period: GoalPeriod;

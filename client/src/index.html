@@ -23,7 +23,7 @@
         try {
           var pref = localStorage.getItem('exam-studio.theme');
           document.documentElement.style.colorScheme =
-            pref === 'light' || pref === 'dark' ? pref : 'light dark';
+            pref === 'LIGHT' ? 'light' : pref === 'DARK' ? 'dark' : 'light dark';
         } catch (e) {
           /* localStorage unavailable — fall back to the CSS default. */
         }

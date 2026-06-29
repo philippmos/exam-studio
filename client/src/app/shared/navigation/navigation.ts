@@ -12,7 +12,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 
 import { AuthService } from '../../core/auth-service';
-import { ThemeService } from '../../core/theme-service';
 
 @Component({
   selector: 'app-navigation',
@@ -71,50 +70,6 @@ import { ThemeService } from '../../core/theme-service';
           </div>
         </nav>
         <div class="header-actions">
-          <button
-            type="button"
-            class="icon-button"
-            [matMenuTriggerFor]="themeMenu"
-            aria-label="Darstellung auswählen (hell, dunkel, System)"
-          >
-            <mat-icon>{{ themeIcon() }}</mat-icon>
-          </button>
-          <mat-menu #themeMenu="matMenu" xPosition="before">
-            <div class="menu-heading">Appearance</div>
-            <button
-              mat-menu-item
-              (click)="theme.setPreference('light')"
-              [class.selected]="theme.preference() === 'light'"
-            >
-              <mat-icon>light_mode</mat-icon>
-              <span>Light</span>
-              @if (theme.preference() === 'light') {
-                <mat-icon class="menu-check">check</mat-icon>
-              }
-            </button>
-            <button
-              mat-menu-item
-              (click)="theme.setPreference('dark')"
-              [class.selected]="theme.preference() === 'dark'"
-            >
-              <mat-icon>dark_mode</mat-icon>
-              <span>Dark</span>
-              @if (theme.preference() === 'dark') {
-                <mat-icon class="menu-check">check</mat-icon>
-              }
-            </button>
-            <button
-              mat-menu-item
-              (click)="theme.setPreference('system')"
-              [class.selected]="theme.preference() === 'system'"
-            >
-              <mat-icon>brightness_auto</mat-icon>
-              <span>System</span>
-              @if (theme.preference() === 'system') {
-                <mat-icon class="menu-check">check</mat-icon>
-              }
-            </button>
-          </mat-menu>
           @if (auth.isAuthenticated()) {
             <button
               type="button"
@@ -138,6 +93,10 @@ import { ThemeService } from '../../core/theme-service';
                 }
               </div>
               <div class="menu-divider"></div>
+              <a mat-menu-item routerLink="/settings">
+                <mat-icon>settings</mat-icon>
+                <span>Settings</span>
+              </a>
               <button mat-menu-item (click)="logout()">
                 <mat-icon>logout</mat-icon>
                 <span>Logout</span>
@@ -213,8 +172,7 @@ import { ThemeService } from '../../core/theme-service';
         gap: 8px;
       }
 
-      .user-button,
-      .icon-button {
+      .user-button {
         width: 36px;
         height: 36px;
         padding: 0;
@@ -227,41 +185,8 @@ import { ThemeService } from '../../core/theme-service';
         justify-content: center;
       }
 
-      .user-button:hover,
-      .icon-button:hover {
+      .user-button:hover {
         background: var(--mat-sys-surface-container);
-      }
-
-      .icon-button {
-        color: var(--mat-sys-on-surface-variant);
-      }
-
-      .icon-button mat-icon {
-        font-size: 21px;
-        width: 21px;
-        height: 21px;
-      }
-
-      .menu-heading {
-        padding: 8px 16px 4px;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        color: var(--mat-sys-on-surface-variant);
-      }
-
-      .menu-check {
-        margin-left: auto;
-        color: var(--mat-sys-primary);
-      }
-
-      [mat-menu-item].selected {
-        color: var(--mat-sys-primary);
-      }
-
-      [mat-menu-item].selected mat-icon {
-        color: var(--mat-sys-primary);
       }
 
       .user-avatar {
@@ -447,19 +372,6 @@ export class Navigation {
   readonly mobileMenuOpen = signal(false);
 
   readonly auth = inject(AuthService);
-  readonly theme = inject(ThemeService);
-
-  /** Icon for the appearance toggle, reflecting the current preference. */
-  readonly themeIcon = computed(() => {
-    switch (this.theme.preference()) {
-      case 'light':
-        return 'light_mode';
-      case 'dark':
-        return 'dark_mode';
-      default:
-        return 'brightness_auto';
-    }
-  });
 
   /** Best display label for the signed-in user. */
   readonly displayName = computed(

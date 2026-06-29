@@ -1,9 +1,11 @@
-import { Injectable, computed, effect, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
-/** What the user picked. `system` defers to the OS / browser preference. */
-export type ThemePreference = 'system' | 'light' | 'dark';
+import { AuthService } from './auth-service';
+import { SettingsService } from './settings-service';
+import { ThemePreference } from './models';
 
-/** The mode that is actually showing once `system` has been resolved. */
+/** The mode that is actually showing once `SYSTEM` has been resolved. */
 export type ResolvedTheme = 'light' | 'dark';
 
 const STORAGE_KEY = 'exam-studio.theme';
@@ -16,32 +18,37 @@ const STORAGE_KEY = 'exam-studio.theme';
  * `color-scheme` on `<html>` switches every token at once. This service is the
  * single writer of that property:
  *
- * - `system` → `color-scheme: light dark`, letting the browser follow
+ * - `SYSTEM` → `color-scheme: light dark`, letting the browser follow
  *   `prefers-color-scheme`.
- * - `light` / `dark` → forces that scheme regardless of the OS setting.
+ * - `LIGHT` / `DARK` → forces that scheme regardless of the OS setting.
  *
- * The choice is persisted to `localStorage`; `index.html` reads the same key in
- * a tiny inline script to apply it before first paint (no flash of light mode).
+ * The preference is **persisted server-side** (so it follows the user across
+ * devices); see {@link SettingsService}. A `localStorage` cache mirrors it so
+ * `index.html` can apply the choice before first paint (no flash of light mode)
+ * and anonymous visitors still get a sensible default.
  */
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
+  private readonly auth = inject(AuthService);
+  private readonly settings = inject(SettingsService);
+
   private readonly mediaQuery = window.matchMedia?.(
     '(prefers-color-scheme: dark)',
   );
 
-  /** The user's explicit choice (`system` by default). */
+  /** The user's explicit choice (`SYSTEM` by default). */
   readonly preference = signal<ThemePreference>(this.readStoredPreference());
 
-  /** Tracks the OS preference so `resolved` stays correct while on `system`. */
+  /** Tracks the OS preference so `resolved` stays correct while on `SYSTEM`. */
   private readonly systemPrefersDark = signal(this.mediaQuery?.matches ?? false);
 
   /** The mode actually rendered — useful for picking the right toggle icon. */
   readonly resolved = computed<ResolvedTheme>(() => {
     const preference = this.preference();
-    if (preference === 'system') {
+    if (preference === 'SYSTEM') {
       return this.systemPrefersDark() ? 'dark' : 'light';
     }
-    return preference;
+    return preference === 'DARK' ? 'dark' : 'light';
   });
 
   constructor() {
@@ -53,8 +60,36 @@ export class ThemeService {
     effect(() => this.applyColorScheme(this.preference()));
   }
 
-  /** Persist and apply a new preference. */
+  /** A user-initiated change: apply it instantly, cache it, and persist it. */
   setPreference(preference: ThemePreference): void {
+    this.applyLocally(preference);
+    if (this.auth.isAuthenticated()) {
+      this.settings.setThemePreference(preference).subscribe({
+        error: (err) => console.error('Failed to save theme preference', err),
+      });
+    }
+  }
+
+  /**
+   * Load the stored preference from the server and apply it (without writing it
+   * back). Called once after authentication settles; a no-op for anonymous
+   * visitors, who keep the localStorage / system default.
+   */
+  async syncFromServer(): Promise<void> {
+    if (!this.auth.isAuthenticated()) {
+      return;
+    }
+    try {
+      const settings = await firstValueFrom(this.settings.getUserSettings());
+      this.applyLocally(settings.themePreference);
+    } catch (err) {
+      // A failed load just leaves the cached/default preference in place.
+      console.error('Failed to load theme preference', err);
+    }
+  }
+
+  /** Update the signal + localStorage cache (no server round-trip). */
+  private applyLocally(preference: ThemePreference): void {
     this.preference.set(preference);
     try {
       localStorage.setItem(STORAGE_KEY, preference);
@@ -65,18 +100,22 @@ export class ThemeService {
 
   private applyColorScheme(preference: ThemePreference): void {
     document.documentElement.style.colorScheme =
-      preference === 'system' ? 'light dark' : preference;
+      preference === 'LIGHT'
+        ? 'light'
+        : preference === 'DARK'
+          ? 'dark'
+          : 'light dark';
   }
 
   private readStoredPreference(): ThemePreference {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === 'light' || stored === 'dark' || stored === 'system') {
+      if (stored === 'LIGHT' || stored === 'DARK' || stored === 'SYSTEM') {
         return stored;
       }
     } catch {
       /* Ignore unreadable storage and fall back to following the system. */
     }
-    return 'system';
+    return 'SYSTEM';
   }
 }
