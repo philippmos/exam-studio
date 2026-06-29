@@ -6,6 +6,7 @@ import { ThemePreference, UserSettings } from './models';
 
 const USER_SETTINGS_FIELDS = `
   themePreference
+  dailyStreakGoal
 `;
 
 /**
@@ -26,7 +27,9 @@ export class SettingsService {
       .pipe(map((data) => data.userSettings));
   }
 
-  setThemePreference(themePreference: ThemePreference): Observable<UserSettings> {
+  setThemePreference(
+    themePreference: ThemePreference,
+  ): Observable<UserSettings> {
     return this.graphql
       .request<{ setThemePreference: UserSettings }>(
         `mutation SetTheme($themePreference: ThemePreference!) {
@@ -37,5 +40,18 @@ export class SettingsService {
         { themePreference },
       )
       .pipe(map((data) => data.setThemePreference));
+  }
+
+  setDailyStreakGoal(goal: number): Observable<UserSettings> {
+    return this.graphql
+      .request<{ setDailyStreakGoal: UserSettings }>(
+        `mutation SetDailyStreakGoal($goal: Int!) {
+          setDailyStreakGoal(goal: $goal) {
+            ${USER_SETTINGS_FIELDS}
+          }
+        }`,
+        { goal },
+      )
+      .pipe(map((data) => data.setDailyStreakGoal));
   }
 }

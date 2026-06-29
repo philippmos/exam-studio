@@ -10,3 +10,8 @@ from app.models.section import Section
 from app.models.session_item import SessionItem
 from app.models.session_item_answer import SessionItemAnswer
 from app.models.user import User
+from app.models.user_settings import (
+    DAILY_STREAK_GOAL_CHOICES,
+    DEFAULT_DAILY_STREAK_GOAL,
+    UserSettings,
+)

@@ -41,6 +41,26 @@ async def count_questions(db: AsyncSession, exam_id: uuid.UUID) -> int:
     return total or 0
 
 
+async def get_or_create_settings(
+    db: AsyncSession, user: models.User
+) -> models.UserSettings:
+    """The user's settings row, creating it with defaults on first access.
+
+    New users get a row at provisioning time, but users that predate the
+    settings table (or were created via a login race) may lack one; this
+    backfills it lazily so every resolver can rely on the row existing.
+    """
+    settings = await db.scalar(
+        select(models.UserSettings).where(models.UserSettings.user_id == user.id)
+    )
+    if settings is None:
+        settings = models.UserSettings(user_id=user.id)
+        db.add(settings)
+        await db.commit()
+        await db.refresh(settings)
+    return settings
+
+
 async def load_exams(
     db: AsyncSession,
     user_id: uuid.UUID,

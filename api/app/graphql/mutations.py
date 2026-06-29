@@ -12,6 +12,7 @@ from strawberry.types import Info
 
 from app import models
 from app.enums import GoalPeriod, QuestionType, SessionMode, StudyGoalSource
+from app.models import DAILY_STREAK_GOAL_CHOICES
 from app.graphql import loaders, planning, review
 from app.graphql.context import current_user
 from app.graphql.types import (
@@ -194,10 +195,27 @@ class Mutation:
     ) -> UserSettingsType:
         """Persist the user's colour-scheme preference (SYSTEM / LIGHT / DARK)."""
         db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        user.theme_preference = theme_preference.value
+        settings = await loaders.get_or_create_settings(db, current_user(info))
+        settings.theme_preference = theme_preference.value
         await db.commit()
-        return to_user_settings(user)
+        return to_user_settings(settings)
+
+    @strawberry.mutation
+    async def set_daily_streak_goal(
+        self, info: Info, goal: int
+    ) -> UserSettingsType:
+        """Set how many questions a day needs for it to count towards the streak.
+
+        ``goal`` must be one of the offered values (5, 10, 15, 25, 50).
+        """
+        if goal not in DAILY_STREAK_GOAL_CHOICES:
+            allowed = ", ".join(str(choice) for choice in DAILY_STREAK_GOAL_CHOICES)
+            raise ValueError(f"The daily streak goal must be one of: {allowed}.")
+        db: AsyncSession = info.context["db"]
+        settings = await loaders.get_or_create_settings(db, current_user(info))
+        settings.daily_streak_goal = goal
+        await db.commit()
+        return to_user_settings(settings)
 
     @strawberry.mutation
     async def import_exam(self, info: Info, payload: str) -> ExamType:

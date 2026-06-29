@@ -103,6 +103,9 @@ async def get_or_create_user(db: AsyncSession, claims: dict) -> models.User:
 
     if user is None:
         user = models.User(auth0_sub=sub, email=email, name=name, last_login_at=now)
+        # Give every new user a settings row up front (cascades on commit) so
+        # resolvers always find their preferences.
+        user.settings = models.UserSettings()
         db.add(user)
         try:
             await db.commit()

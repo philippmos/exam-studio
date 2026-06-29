@@ -169,13 +169,16 @@ async def compute_study_history(
     ]
 
 
-def _summarise_streak(active_days: set[date], today: date) -> StudyStreak:
-    """Build the streak summary from the set of local days that had activity.
+def _summarise_streak(
+    active_days: set[date], today: date, daily_goal: int, answered_today: int
+) -> StudyStreak:
+    """Build the streak summary from the set of local days that met the goal.
 
     Pure (no DB) so the calendar logic can be reasoned about and tested on its
-    own. The current streak walks back over consecutive active days, ending on
-    today (already secured) or -- when today is still open -- on yesterday, so a
-    day is only "lost" once both today and yesterday are missing.
+    own. ``active_days`` are the days that reached ``daily_goal``; the current
+    streak walks back over consecutive ones, ending on today (already secured)
+    or -- when today is still open -- on yesterday, so a day is only "lost" once
+    both today and yesterday are missing.
     """
     studied_today = today in active_days
 
@@ -200,26 +203,32 @@ def _summarise_streak(active_days: set[date], today: date) -> StudyStreak:
         current=current,
         longest=longest,
         studied_today=studied_today,
+        daily_goal=daily_goal,
+        answered_today=answered_today,
         recent_days=recent_days,
     )
 
 
 async def compute_study_streak(
-    db: AsyncSession, user_id: uuid.UUID, tz_offset_minutes: int = 0
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    tz_offset_minutes: int = 0,
+    daily_goal: int = 1,
 ) -> StudyStreak:
     """The consecutive-day study streak across all exams.
 
-    Derived entirely from the answered-question history: the set of local
-    calendar days that have at least one answer drives the current streak, the
-    longest run ever and the recent-activity strip. ``tz_offset_minutes`` shifts
-    UTC timestamps into the caller's local time (same convention as the
-    study-history and goal queries) so "today" lines up with their calendar.
+    Derived entirely from the answered-question history: a day counts once at
+    least ``daily_goal`` questions were answered on it, and the set of such local
+    calendar days drives the current streak, the longest run ever and the
+    recent-activity strip. ``tz_offset_minutes`` shifts UTC timestamps into the
+    caller's local time (same convention as the study-history and goal queries)
+    so "today" lines up with their calendar.
     """
     offset = timedelta(minutes=tz_offset_minutes)
     day = func.date(models.SessionItem.answered_at + offset)
     rows = (
         await db.execute(
-            select(day)
+            select(day, func.count(models.SessionItem.id))
             .join(
                 models.ExamSession,
                 models.SessionItem.session_id == models.ExamSession.id,
@@ -234,11 +243,14 @@ async def compute_study_streak(
     ).all()
     # ``func.date`` yields ``date`` on PostgreSQL; coerce defensively so the set
     # arithmetic also holds on backends that return ISO strings.
-    active_days = {
-        d if isinstance(d, date) else date.fromisoformat(str(d)) for (d,) in rows
+    counts = {
+        (d if isinstance(d, date) else date.fromisoformat(str(d))): count
+        for d, count in rows
     }
     today = (datetime.now(timezone.utc) + offset).date()
-    return _summarise_streak(active_days, today)
+    active_days = {d for d, count in counts.items() if count >= daily_goal}
+    answered_today = counts.get(today, 0)
+    return _summarise_streak(active_days, today, daily_goal, answered_today)
 
 
 async def compute_exam_stats(

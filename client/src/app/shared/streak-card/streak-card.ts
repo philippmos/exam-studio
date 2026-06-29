@@ -266,15 +266,18 @@ export class StreakCard {
     if (s.studiedToday) {
       return s.current >= 3
         ? `You're on a roll — ${s.current} days in a row. Keep it up!`
-        : 'Done for today. Come back tomorrow to grow your streak.';
+        : 'Goal reached for today. Come back tomorrow to grow your streak.';
     }
+    // Today's goal is not met yet: nudge with the number of questions still to go.
+    const remaining = Math.max(s.dailyGoal - s.answeredToday, 0);
+    const todo = `${remaining} ${remaining === 1 ? 'question' : 'questions'}`;
     if (s.current > 0) {
-      return `Answer one question today to keep your ${s.current}-day streak alive.`;
+      return `Answer ${todo} today to keep your ${s.current}-day streak alive.`;
     }
     if (s.longest > 0) {
-      return `Your streak reset. Answer a question today to start a new one — your best is ${s.longest}.`;
+      return `Your streak reset. Answer ${todo} today to start a new one — your best is ${s.longest}.`;
     }
-    return 'Answer a question today to start your study streak.';
+    return `Answer ${s.dailyGoal} questions today to start your study streak.`;
   });
 
   weekAriaLabel(): string {

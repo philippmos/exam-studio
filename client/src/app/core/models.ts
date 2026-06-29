@@ -48,9 +48,14 @@ export type StudyGoalSource = 'MANUAL' | 'AUTO';
 /** A user's chosen colour scheme. `SYSTEM` follows the browser preference. */
 export type ThemePreference = 'SYSTEM' | 'LIGHT' | 'DARK';
 
+/** Selectable daily-streak goals (questions/day) offered on the settings page. */
+export const DAILY_STREAK_GOAL_CHOICES = [5, 10, 15, 25, 50] as const;
+
 /** The signed-in user's account settings (grows as more settings are added). */
 export interface UserSettings {
   themePreference: ThemePreference;
+  /** Questions to answer in a day before it counts towards the study streak. */
+  dailyStreakGoal: number;
 }
 
 /** Per-exam study goal: answer `target` questions per `period`. */
@@ -94,8 +99,12 @@ export interface StudyStreak {
   current: number;
   /** Best run ever, shown as a personal-best target. */
   longest: number;
-  /** Whether today already has activity (an at-risk streak if not). */
+  /** Whether today has already met the goal (an at-risk streak if not). */
   studiedToday: boolean;
+  /** Questions/day needed for a day to count towards the streak. */
+  dailyGoal: number;
+  /** Questions answered so far today (progress towards the goal). */
+  answeredToday: number;
   /** Last seven local days, oldest first; the last entry is today. */
   recentDays: StreakDay[];
 }

@@ -217,6 +217,8 @@ export class ExamService {
             current
             longest
             studiedToday
+            dailyGoal
+            answeredToday
             recentDays {
               day
               active

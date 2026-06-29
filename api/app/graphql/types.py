@@ -32,13 +32,15 @@ QuestionTypeEnum = strawberry.enum(QuestionTypeValue, name="QuestionKind")
 
 @strawberry.type
 class UserSettingsType:
-    """The signed-in user's account settings.
+    """The signed-in user's account settings (the ``user_settings`` row).
 
-    Currently just the colour-scheme preference; this is the place to add
-    further per-user settings as the settings page grows.
+    This is the place to expose further per-user preferences as the settings
+    page grows.
     """
 
     theme_preference: ThemePreferenceEnum
+    # Questions to answer in a day before it counts towards the study streak.
+    daily_streak_goal: int
 
 
 @strawberry.type
@@ -275,16 +277,19 @@ class StreakDay:
 class StudyStreak:
     """Consecutive-day study streak across all exams (a habit metric).
 
-    A streak counts calendar days with at least one answered question. It stays
-    alive as long as the chain reaches yesterday: ``current`` includes today once
-    something has been answered, and otherwise still counts the run through
-    yesterday so the day is not yet "lost". ``studied_today`` lets the UI tell an
-    already-secured streak from one that is still at risk today.
+    A streak counts calendar days that reach the user's ``daily_goal`` (number
+    of questions answered that day). It stays alive as long as the chain reaches
+    yesterday: ``current`` includes today once the goal is met, and otherwise
+    still counts the run through yesterday so the day is not yet "lost".
+    ``studied_today`` tells an already-secured streak from one still at risk
+    today, and ``answered_today`` lets the UI show progress towards the goal.
     """
 
     current: int  # length of the running streak (0 if broken)
     longest: int  # best run ever, for a personal-best target
-    studied_today: bool  # whether today already has activity
+    studied_today: bool  # whether today has already met the goal
+    daily_goal: int  # questions/day needed for a day to count
+    answered_today: int  # questions answered so far today (progress to the goal)
     # The last seven local days, oldest first (the last entry is today), for a
     # compact week strip.
     recent_days: list[StreakDay]
@@ -317,9 +322,10 @@ class ExamStats:
 # --------------------------------------------------------------------------- #
 
 
-def to_user_settings(user: models.User) -> UserSettingsType:
+def to_user_settings(settings: models.UserSettings) -> UserSettingsType:
     return UserSettingsType(
-        theme_preference=ThemePreference(user.theme_preference),
+        theme_preference=ThemePreference(settings.theme_preference),
+        daily_streak_goal=settings.daily_streak_goal,
     )
 
 

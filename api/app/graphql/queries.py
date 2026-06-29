@@ -29,8 +29,11 @@ from app.graphql.types import (
 class Query:
     @strawberry.field
     async def user_settings(self, info: Info) -> UserSettingsType:
-        """The signed-in user's account settings (colour scheme, ...)."""
-        return to_user_settings(current_user(info))
+        """The signed-in user's account settings (colour scheme, streak goal)."""
+        settings = await loaders.get_or_create_settings(
+            info.context["db"], current_user(info)
+        )
+        return to_user_settings(settings)
 
     @strawberry.field
     async def exams(self, info: Info) -> list[ExamType]:
@@ -112,9 +115,11 @@ class Query:
         self, info: Info, tz_offset_minutes: int = 0
     ) -> StudyStreak:
         """Consecutive-day study streak across all exams (habit/gamification)."""
+        db = info.context["db"]
         user = current_user(info)
+        settings = await loaders.get_or_create_settings(db, user)
         return await stats.compute_study_streak(
-            info.context["db"], user.id, tz_offset_minutes
+            db, user.id, tz_offset_minutes, settings.daily_streak_goal
         )
 
     @strawberry.field
