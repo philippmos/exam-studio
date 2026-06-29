@@ -7,9 +7,12 @@ import { environment } from '../../environments/environment';
  * Thin, signal-based wrapper around the framework-agnostic `@auth0/auth0-spa-js`
  * SDK (chosen over `@auth0/auth0-angular`, which still targets Angular 19).
  *
- * Configured for modern SPA best practice: Authorization Code + PKCE, refresh
- * token rotation and an **in-memory** token cache (no localStorage, so XSS
- * cannot read tokens). Access tokens are sent to the API as Bearer tokens.
+ * Configured for Authorization Code + PKCE with rotating refresh tokens. The
+ * token cache uses localStorage so a full page reload restores the session via
+ * the refresh-token grant — no interactive redirect/consent, and no dependency
+ * on the (often blocked) third-party-cookie silent iframe. Refresh-token
+ * rotation + reuse detection (enabled in Auth0) mitigate the localStorage
+ * exposure. Access tokens are sent to the API as Bearer tokens.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -40,9 +43,10 @@ export class AuthService {
         redirect_uri: window.location.origin,
         audience: environment.auth0.audience,
       },
-      // Best-practice token handling: rotated refresh tokens, in-memory cache.
+      // Persist the rotating refresh token so a full page reload restores the
+      // session via the refresh-token grant (no redirect/consent, no iframe).
       useRefreshTokens: true,
-      cacheLocation: 'memory',
+      cacheLocation: 'localstorage',
     });
 
     const params = new URLSearchParams(window.location.search);
@@ -70,6 +74,14 @@ export class AuthService {
         document.title,
         this.error() ? window.location.pathname : target,
       );
+    } else {
+      // Not a redirect — restore an existing session after a full page reload.
+      // The route guard only starts an interactive login if this finds none.
+      try {
+        await this.client.getTokenSilently();
+      } catch {
+        /* No active session to restore. */
+      }
     }
 
     await this.refreshState();
