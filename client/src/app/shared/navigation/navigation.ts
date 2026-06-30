@@ -58,15 +58,6 @@ import { AuthService } from '../../core/auth-service';
               <mat-icon>monitoring</mat-icon>
               <span>Statistics</span>
             </a>
-            <a
-              routerLink="/archive"
-              class="nav-link"
-              [class.active]="section() === 'archive'"
-              (click)="closeMobileMenu()"
-            >
-              <mat-icon>inventory_2</mat-icon>
-              <span>Archive</span>
-            </a>
           </div>
         </nav>
         <div class="header-actions">
@@ -93,10 +84,17 @@ import { AuthService } from '../../core/auth-service';
                 }
               </div>
               <div class="menu-divider"></div>
+
+              <a mat-menu-item routerLink="/archive">
+                <mat-icon>inventory_2</mat-icon>
+                <span>Archive</span>
+              </a>
+
               <a mat-menu-item routerLink="/settings">
                 <mat-icon>settings</mat-icon>
                 <span>Settings</span>
               </a>
+              
               <button mat-menu-item (click)="logout()">
                 <mat-icon>logout</mat-icon>
                 <span>Logout</span>
