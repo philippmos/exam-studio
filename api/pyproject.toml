@@ -1,0 +1,95 @@
+[project]
+name = "exam-studio-api"
+version = "0.1.0"
+description = "Exam Studio GraphQL API — FastAPI + Strawberry + SQLAlchemy (async)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # --- Web / API ---------------------------------------------------------
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "strawberry-graphql[fastapi]>=0.250",
+    # --- Persistence -------------------------------------------------------
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    # --- Configuration -----------------------------------------------------
+    "pydantic-settings>=2.6",
+    # --- Auth0 access-token validation (RS256/JWKS) ------------------------
+    "pyjwt[crypto]>=2.10",
+    # --- Observability -----------------------------------------------------
+    "structlog>=24.4",
+    "prometheus-fastapi-instrumentator>=7.0",
+    "opentelemetry-sdk>=1.27",
+    # HTTP/protobuf OTLP exporter — avoids the heavy grpcio dependency (no
+    # win_arm64 wheels) and works everywhere; point it at any OTLP collector.
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.48b0",
+    "opentelemetry-instrumentation-asyncpg>=0.48b0",
+    # Error tracking; inert unless SENTRY_DSN is set.
+    "sentry-sdk[fastapi]>=2.16",
+]
+
+[dependency-groups]
+# Installed with `uv sync` (dev is the default group), excluded from the image.
+dev = [
+    "ruff>=0.7",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+]
+
+[tool.uv]
+# This is a deployable application, not a distributable library: uv manages the
+# environment but never builds/installs the `app` package itself (it is imported
+# from the working directory, exactly as `uvicorn app.main:app` expects).
+package = false
+
+# --------------------------------------------------------------------------- #
+# Ruff — linter + formatter (replaces black, isort, flake8, ...)              #
+# --------------------------------------------------------------------------- #
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+extend-exclude = ["alembic/versions", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort (import ordering)
+    "UP",   # pyupgrade (modern syntax)
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "ASYNC",# flake8-async (correct async usage)
+    "RUF",  # Ruff-specific rules
+]
+# Line length is enforced by the formatter, not the linter, so long strings and
+# comments do not fail the lint.
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+# --------------------------------------------------------------------------- #
+# mypy — static type checking                                                 #
+# --------------------------------------------------------------------------- #
+[tool.mypy]
+python_version = "3.12"
+plugins = ["strawberry.ext.mypy_plugin"]
+files = ["app"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unused_configs = true
+no_implicit_optional = true
+
+# Third-party libraries that ship without type information.
+[[tool.mypy.overrides]]
+module = [
+    "prometheus_fastapi_instrumentator.*",
+    "opentelemetry.*",
+]
+ignore_missing_imports = true

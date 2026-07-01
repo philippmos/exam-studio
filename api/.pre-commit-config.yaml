@@ -1,0 +1,18 @@
+# Run `pre-commit install` once, then Ruff (lint + format) and mypy run on every
+# commit. mypy runs through uv so it uses the exact project environment.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
