@@ -154,7 +154,10 @@ def _build_allocation(question: Question, raw_question: dict, number: int) -> No
             raise ImportError_(
                 f"Question {number}, item {position + 1} is missing its 'text'."
             )
-        category = category_by_key.get(raw_item.get("correct_category"))
+        raw_category = raw_item.get("correct_category")
+        category = (
+            category_by_key.get(raw_category) if isinstance(raw_category, str) else None
+        )
         if category is None:
             raise ImportError_(
                 f"Question {number}, item {position + 1} references unknown "
@@ -193,8 +196,11 @@ def build_exam_from_payload(payload: str) -> Exam:
         section_by_key[raw_section["key"]] = section
 
     for number, raw_question in enumerate(exam_data.get("questions", []), start=1):
-        section = section_by_key.get(raw_question.get("section_key"))
-        if section is None:
+        section_key = raw_question.get("section_key")
+        matched_section = (
+            section_by_key.get(section_key) if isinstance(section_key, str) else None
+        )
+        if matched_section is None:
             raise ImportError_(
                 f"Question {number} references unknown "
                 f"section '{raw_question.get('section_key')}'."
@@ -207,7 +213,7 @@ def build_exam_from_payload(payload: str) -> Exam:
             text=raw_question["question"],
             explanation=raw_question.get("explanation"),
             question_type=question_type.value,
-            section=section,
+            section=matched_section,
         )
 
         if question_type is QuestionType.ALLOCATION:
