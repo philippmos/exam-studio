@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from strawberry.types import Info
 
 from app import models
-from app.enums import GoalPeriod, QuestionType, SessionMode, StudyGoalSource
+from app.domain.enums import GoalPeriod, QuestionType, SessionMode, StudyGoalSource
 from app.models import DAILY_STREAK_GOAL_CHOICES
 from app.graphql import loaders, planning, review
 from app.graphql.context import current_user

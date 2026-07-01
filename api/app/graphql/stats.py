@@ -22,7 +22,7 @@ from sqlalchemy import case, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import models
-from app.enums import GoalPeriod
+from app.domain.enums import GoalPeriod
 from app.graphql.types import (
     ExamStats,
     SectionStats,

@@ -2,11 +2,25 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, UniqueConstraint, Uuid
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.exam_session import ExamSession
+    from app.models.question import Question
+    from app.models.session_item_answer import SessionItemAnswer
 
 
 class SessionItem(Base):
@@ -39,9 +53,9 @@ class SessionItem(Base):
     is_correct: Mapped[bool | None] = mapped_column(Boolean)
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    session: Mapped["ExamSession"] = relationship(back_populates="items")
-    question: Mapped["Question"] = relationship()
+    session: Mapped[ExamSession] = relationship(back_populates="items")
+    question: Mapped[Question] = relationship()
     # The user's selection: one row for single choice, several for multiple choice.
-    selected_answers: Mapped[list["SessionItemAnswer"]] = relationship(
+    selected_answers: Mapped[list[SessionItemAnswer]] = relationship(
         back_populates="session_item", cascade="all, delete-orphan"
     )

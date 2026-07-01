@@ -5,10 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from strawberry.fastapi import GraphQLRouter
 
-from app.auth import AuthError, get_or_create_user, verify_access_token
-from app.config import settings
-from app.database import get_db_session
+from app.auth import get_or_create_user
+from app.core.config import get_settings
+from app.core.security import AuthError, verify_access_token
+from app.db.session import get_db_session
 from app.graphql.schema import schema
+
+settings = get_settings()
 
 logger = logging.getLogger("app.auth")
 

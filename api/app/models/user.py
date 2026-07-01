@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.exam import Exam
+    from app.models.user_settings import UserSettings
 
 
 class User(Base):
@@ -34,12 +39,12 @@ class User(Base):
 
     # Account preferences (colour scheme, daily-streak goal, ...) live in a 1:1
     # companion table rather than here, so this identity row stays stable.
-    settings: Mapped["UserSettings"] = relationship(
+    settings: Mapped[UserSettings] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
 
     # Deleting a user removes everything they own (exams cascade to sections,
     # questions, sessions, ...).
-    exams: Mapped[list["Exam"]] = relationship(
+    exams: Mapped[list[Exam]] = relationship(
         back_populates="owner", cascade="all, delete-orphan"
     )

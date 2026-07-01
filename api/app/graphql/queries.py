@@ -6,7 +6,7 @@ from datetime import datetime
 import strawberry
 from strawberry.types import Info
 
-from app.enums import GoalPeriod
+from app.domain.enums import GoalPeriod
 from app.graphql import loaders, planning, review, stats
 from app.graphql.context import current_user
 from app.graphql.types import (

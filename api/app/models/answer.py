@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, ForeignKey, Integer, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.question import Question
+    from app.models.question_category import QuestionCategory
 
 
 class Answer(Base):
@@ -30,5 +35,5 @@ class Answer(Base):
         ForeignKey("question_categories.id", ondelete="SET NULL"), nullable=True
     )
 
-    question: Mapped["Question"] = relationship(back_populates="answers")
-    correct_category: Mapped["QuestionCategory | None"] = relationship()
+    question: Mapped[Question] = relationship(back_populates="answers")
+    correct_category: Mapped[QuestionCategory | None] = relationship()

@@ -23,7 +23,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from app.enums import GoalPeriod
+from app.domain.enums import GoalPeriod
 from app.graphql.review import MAX_BOX
 
 # Tunables, kept together so the heuristic is easy to find and adjust.

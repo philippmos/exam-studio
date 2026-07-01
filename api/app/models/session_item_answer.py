@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.answer import Answer
+    from app.models.session_item import SessionItem
 
 
 class SessionItemAnswer(Base):
@@ -37,7 +42,5 @@ class SessionItemAnswer(Base):
         ForeignKey("question_categories.id", ondelete="CASCADE"), nullable=True
     )
 
-    session_item: Mapped["SessionItem"] = relationship(
-        back_populates="selected_answers"
-    )
-    answer: Mapped["Answer"] = relationship()
+    session_item: Mapped[SessionItem] = relationship(back_populates="selected_answers")
+    answer: Mapped[Answer] = relationship()

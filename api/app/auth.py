@@ -1,91 +1,35 @@
-"""Auth0 access-token validation and lazy user provisioning.
+"""Lazy provisioning of the local ``User`` row from validated token claims.
 
-The API is an OAuth2 resource server: every GraphQL request must carry a valid
-Auth0-issued access token for the configured audience. Tokens are RS256-signed
-and the signing keys are fetched (and cached) from the tenant JWKS endpoint.
-
-This module validates the access token and maps it to a local ``User`` row.
+Access-token *validation* lives in :mod:`app.core.security`; this module maps a
+set of validated claims to a local user, creating it on first login. The data
+access here is slated to move into the user repository/service in a later step.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
-import jwt
-from jwt import PyJWKClient
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import models
-from app.config import settings
+from app.core.config import get_settings
+from app.core.security import AuthError
 
 # Only refresh a user's last_login_at at most this often, to avoid a write on
 # every single GraphQL request.
 _LOGIN_REFRESH_SECONDS = 300
 
 
-class AuthError(Exception):
-    """Raised when authentication fails; surfaced to the client as HTTP 401."""
-
-    def __init__(self, detail: str, error: str = "invalid_token") -> None:
-        super().__init__(detail)
-        self.detail = detail
-        # OAuth2 error code for the WWW-Authenticate challenge.
-        self.error = error
-
-
-_jwks_client: PyJWKClient | None = None
-
-
-def _jwks() -> PyJWKClient:
-    """Process-wide JWKS client (caches signing keys between requests)."""
-    global _jwks_client
-    if _jwks_client is None:
-        if not settings.auth_configured:
-            raise AuthError(
-                "Auth0 is not configured (set AUTH0_DOMAIN and AUTH0_AUDIENCE).",
-                error="server_error",
-            )
-        _jwks_client = PyJWKClient(settings.auth0_jwks_url)
-    return _jwks_client
-
-
-def verify_access_token(token: str) -> dict:
-    """Validate an Auth0 access token and return its claims.
-
-    Verifies the RS256 signature against the tenant JWKS and checks the issuer,
-    audience and standard time claims. The algorithm is never taken from the
-    token header: only the configured algorithms (RS256) are accepted, so
-    ``alg: none`` and key-confusion attacks are rejected. Raises
-    :class:`AuthError` on any problem.
-    """
-    try:
-        signing_key = _jwks().get_signing_key_from_jwt(token)
-        return jwt.decode(
-            token,
-            signing_key.key,
-            algorithms=settings.auth0_algorithms_list,
-            audience=settings.auth0_audience,
-            issuer=settings.auth0_issuer,
-            # Tolerate small Auth0/host clock drift on iat/nbf/exp.
-            leeway=settings.auth0_leeway_seconds,
-            options={"require": ["exp", "iat", "iss", "aud", "sub"]},
-        )
-    except AuthError:
-        raise
-    except jwt.PyJWTError as exc:
-        raise AuthError(f"Invalid access token: {exc}") from exc
-    except Exception as exc:  # e.g. JWKS fetch / signing-key errors
-        raise AuthError(f"Could not validate access token: {exc}") from exc
-
-
-def _claim(claims: dict, name: str) -> str | None:
+def _claim(claims: dict[str, Any], name: str) -> str | None:
     """Read a (namespaced) custom claim such as the user's email/name."""
-    return claims.get(f"{settings.auth0_namespace}{name}") or claims.get(name)
+    namespace = get_settings().auth0_namespace
+    return claims.get(f"{namespace}{name}") or claims.get(name)
 
 
-async def get_or_create_user(db: AsyncSession, claims: dict) -> models.User:
+async def get_or_create_user(db: AsyncSession, claims: dict[str, Any]) -> models.User:
     """Find the user for these token claims, creating it on first login.
 
     Users are keyed by the immutable ``sub`` claim. Email/name are refreshed
@@ -99,7 +43,7 @@ async def get_or_create_user(db: AsyncSession, claims: dict) -> models.User:
     user = await db.scalar(select(models.User).where(models.User.auth0_sub == sub))
     email = _claim(claims, "email")
     name = _claim(claims, "name")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if user is None:
         user = models.User(auth0_sub=sub, email=email, name=name, last_login_at=now)

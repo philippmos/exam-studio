@@ -17,9 +17,9 @@ from datetime import date, datetime
 import strawberry
 
 from app import models
-from app.enums import GoalPeriod
-from app.enums import QuestionType as QuestionTypeValue
-from app.enums import SessionMode, StudyGoalSource, ThemePreference
+from app.domain.enums import GoalPeriod
+from app.domain.enums import QuestionType as QuestionTypeValue
+from app.domain.enums import SessionMode, StudyGoalSource, ThemePreference
 
 SessionModeEnum = strawberry.enum(SessionMode)
 GoalPeriodEnum = strawberry.enum(GoalPeriod)

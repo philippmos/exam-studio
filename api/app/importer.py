@@ -50,7 +50,7 @@ import html
 import json
 from dataclasses import dataclass
 
-from app.enums import QuestionType
+from app.domain.enums import QuestionType
 from app.models import Answer, Exam, Question, QuestionCategory, Section
 
 

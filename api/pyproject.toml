@@ -51,7 +51,7 @@ package = false
 [tool.ruff]
 target-version = "py312"
 line-length = 88
-extend-exclude = ["alembic/versions", ".venv"]
+extend-exclude = ["alembic", ".venv"]
 
 [tool.ruff.lint]
 select = [
@@ -66,7 +66,9 @@ select = [
 ]
 # Line length is enforced by the formatter, not the linter, so long strings and
 # comments do not fail the lint.
-ignore = ["E501"]
+# UP042: keep the explicit `(str, enum.Enum)` bases — switching to StrEnum would
+# change `__str__`/`__format__` semantics, and the code relies on `.value`.
+ignore = ["E501", "UP042"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
