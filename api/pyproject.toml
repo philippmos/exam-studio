@@ -73,6 +73,11 @@ ignore = ["E501", "UP042"]
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI/Strawberry inject dependencies via callables in argument defaults;
+# that is the intended idiom, not a mutable-default bug (B008).
+extend-immutable-calls = ["fastapi.Depends"]
+
 # --------------------------------------------------------------------------- #
 # mypy — static type checking                                                 #
 # --------------------------------------------------------------------------- #

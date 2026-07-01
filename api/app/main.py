@@ -5,11 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from strawberry.fastapi import GraphQLRouter
 
-from app.auth import get_or_create_user
 from app.core.config import get_settings
 from app.core.security import AuthError, verify_access_token
 from app.db.session import get_db_session
 from app.graphql.schema import schema
+from app.services.auth import get_or_create_user
 
 settings = get_settings()
 
@@ -50,7 +50,8 @@ async def get_context(
 
 graphql_app = GraphQLRouter(
     schema,
-    context_getter=get_context,
+    # strawberry types context_getter as returning None; ours returns the context.
+    context_getter=get_context,  # type: ignore[arg-type]
     # The in-browser IDE cannot attach an access token, so only expose it in
     # debug builds. The secured endpoint still serves POST operations.
     graphql_ide="graphiql" if settings.debug else None,
