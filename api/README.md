@@ -4,13 +4,33 @@ FastAPI + Strawberry (GraphQL) + SQLAlchemy (async) + Alembic + PostgreSQL.
 
 ## Tech stack
 
-| Concern        | Choice                                  |
-| -------------- | --------------------------------------- |
-| Web framework  | FastAPI                                 |
-| API style      | GraphQL via Strawberry                  |
-| ORM            | SQLAlchemy 2.0 (async, `asyncpg`)       |
-| Migrations     | Alembic (code-first)                    |
-| Database       | PostgreSQL                              |
+| Concern        | Choice                                          |
+| -------------- | ----------------------------------------------- |
+| Web framework  | FastAPI                                         |
+| API style      | GraphQL via Strawberry                          |
+| ORM            | SQLAlchemy 2.0 (async, `asyncpg`)               |
+| Migrations     | Alembic (code-first)                            |
+| Database       | PostgreSQL                                      |
+| Packaging      | uv (`pyproject.toml` + `uv.lock`)               |
+| Code quality   | Ruff (lint + format), mypy (strict), pre-commit |
+| Observability  | structlog (JSON), Prometheus, OpenTelemetry     |
+
+## Architecture
+
+The code is organised in layers with a strict dependency direction —
+`graphql → services → repositories → models/db`, and everything may use
+`domain` and `core`; `domain` depends on nothing (no SQLAlchemy, no Strawberry):
+
+| Layer               | Package              | Responsibility                                            |
+| ------------------- | -------------------- | --------------------------------------------------------- |
+| Presentation        | `app/graphql`        | Thin Strawberry resolvers + types/converters; no logic.   |
+| Application         | `app/services`       | Use cases, transaction boundaries, orchestration.         |
+| Data access         | `app/repositories`   | All SQLAlchemy queries; returns ORM objects / rows.       |
+| Domain              | `app/domain`         | Framework-free rules: grading, Leitner, planning, streak. |
+| Persistence / infra | `app/db`, `app/core` | Engine/session, config, logging, security, observability. |
+
+Business logic lives in `services`/`domain`, never in the resolvers, so it is
+testable in isolation and the GraphQL layer stays a thin adapter.
 
 ## Data model
 
@@ -77,13 +97,14 @@ docker compose up -d db
 
 This exposes Postgres on `localhost:5432` (db `examstudio`, user/password `exam`/`exam`).
 
-### 2. Create a virtual environment & install dependencies
+### 2. Install dependencies with uv
+
+[uv](https://docs.astral.sh/uv/) manages the virtualenv and dependencies from
+`pyproject.toml` / `uv.lock` (re-run `uv sync` whenever they change):
 
 ```bash
 cd api
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+uv sync
 ```
 
 ### 3. Configure environment
@@ -101,18 +122,20 @@ and a valid token is supplied.
 ### 4. Run the database migrations
 
 ```bash
-alembic upgrade head
+uv run alembic upgrade head
 ```
 
 ### 5. Start the API
 
 ```bash
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 * GraphQL endpoint: <http://localhost:8000/graphql> (requires a valid access
   token; the in-browser IDE is only served when `DEBUG=true`)
-* Health check: <http://localhost:8000/health> (public)
+* Liveness <http://localhost:8000/health/live> · Readiness (pings the DB)
+  <http://localhost:8000/health/ready> · `/health` is a liveness alias — all public
+* Metrics: <http://localhost:8000/metrics> (Prometheus; off with `METRICS_ENABLED=false`)
 
 ## Authentication (Auth0)
 
@@ -141,7 +164,7 @@ setup (API, SPA application, optional M2M client for tests).
 
 ## Database migrations (Alembic, code-first)
 
-The models in `app/models.py` are the source of truth. Workflow:
+The models in `app/models/` are the source of truth. Workflow:
 
 **Apply all pending migrations** (also the first-time setup):
 
@@ -236,6 +259,17 @@ Every `submitAnswer` advances the question's Leitner review box: a correct
 answer promotes it (longer interval), a wrong answer resets it to box 1.
 `tzOffsetMinutes` aligns the next due date to the caller's local day; the
 mutation returns `reviewBox` and `reviewIntervalDays` for immediate feedback.
+
+## Code quality
+
+Ruff (lint + format) and mypy (strict, with the Strawberry plugin) are
+configured in `pyproject.toml` and enforced in CI. Install the git hooks with
+`pre-commit install` to run them on every commit, or run them by hand:
+
+```bash
+uv run ruff check app && uv run ruff format --check app
+uv run mypy
+```
 
 ## API tests
 

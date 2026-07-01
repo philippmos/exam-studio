@@ -3,8 +3,9 @@
 # --- Builder: resolve & install dependencies with uv into a venv ----------- #
 FROM python:3.12-slim AS builder
 
-# Pull the uv binary from its published image (pinned tag for reproducibility).
-COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /uvx /bin/
+# Install uv from PyPI (pinned) rather than copying it from an external image,
+# so the build does not depend on a second registry being reachable.
+RUN pip install --no-cache-dir uv==0.11.17
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
