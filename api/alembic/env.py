@@ -5,11 +5,12 @@ from alembic import context
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy.pool import NullPool
 
-from app.config import settings
-from app.database import Base
-
 # Import models so they register on Base.metadata for autogenerate.
 from app import models  # noqa: F401
+from app.core.config import get_settings
+from app.db.base import Base
+
+settings = get_settings()
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

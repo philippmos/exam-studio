@@ -6,8 +6,7 @@ from datetime import datetime
 import strawberry
 from strawberry.types import Info
 
-from app.enums import GoalPeriod
-from app.graphql import loaders, planning, review, stats
+from app.domain.enums import GoalPeriod
 from app.graphql.context import current_user
 from app.graphql.types import (
     ExamSessionType,
@@ -21,8 +20,22 @@ from app.graphql.types import (
     StudyStreak,
     SuggestedStudyGoal,
     UserSettingsType,
+    to_exam,
+    to_exam_stats,
+    to_review_due,
+    to_session,
+    to_session_overview,
+    to_study_day,
+    to_study_goal_progress,
+    to_study_streak,
+    to_suggested_goal,
     to_user_settings,
 )
+from app.services import exams as exams_service
+from app.services import review as review_service
+from app.services import sessions as sessions_service
+from app.services import settings as settings_service
+from app.services import stats as stats_service
 
 
 @strawberry.type
@@ -30,7 +43,7 @@ class Query:
     @strawberry.field
     async def user_settings(self, info: Info) -> UserSettingsType:
         """The signed-in user's account settings (colour scheme, streak goal)."""
-        settings = await loaders.get_or_create_settings(
+        settings = await settings_service.get_or_create_settings(
             info.context["db"], current_user(info)
         )
         return to_user_settings(settings)
@@ -38,43 +51,52 @@ class Query:
     @strawberry.field
     async def exams(self, info: Info) -> list[ExamType]:
         """Active (non-archived) exams for the dashboard."""
-        user = current_user(info)
-        return await loaders.load_exams(info.context["db"], user.id, archived=False)
+        exams, counts = await exams_service.list_exams(
+            info.context["db"], current_user(info).id, archived=False
+        )
+        return [to_exam(exam, counts) for exam in exams]
 
     @strawberry.field
     async def archived_exams(self, info: Info) -> list[ExamType]:
         """Archived exams, for the archive page."""
-        user = current_user(info)
-        return await loaders.load_exams(info.context["db"], user.id, archived=True)
+        exams, counts = await exams_service.list_exams(
+            info.context["db"], current_user(info).id, archived=True
+        )
+        return [to_exam(exam, counts) for exam in exams]
 
     @strawberry.field
     async def exam(self, info: Info, id: uuid.UUID) -> ExamType | None:
         """A single exam by id (archived or not), e.g. for its progress page."""
-        user = current_user(info)
-        result = await loaders.load_exams(info.context["db"], user.id, exam_id=id)
-        return result[0] if result else None
+        result = await exams_service.get_exam(
+            info.context["db"], current_user(info).id, id
+        )
+        return to_exam(*result) if result is not None else None
 
     @strawberry.field
     async def session(self, info: Info, id: uuid.UUID) -> ExamSessionType | None:
         """A running (or finished) exam session with its ordered questions."""
-        user = current_user(info)
-        return await loaders.load_session_type(info.context["db"], id, user.id)
+        session = await sessions_service.get_session(
+            info.context["db"], current_user(info).id, id
+        )
+        return to_session(session) if session is not None else None
 
     @strawberry.field
     async def sessions(
         self, info: Info, exam_id: uuid.UUID | None = None
     ) -> list[SessionOverviewType]:
         """All sessions (optionally one exam's) with answer progress, newest first."""
-        user = current_user(info)
-        return await loaders.load_session_overviews(
-            info.context["db"], user.id, exam_id
+        rows = await sessions_service.list_overviews(
+            info.context["db"], current_user(info).id, exam_id
         )
+        return [to_session_overview(*row) for row in rows]
 
     @strawberry.field
     async def exam_stats(self, info: Info, exam_id: uuid.UUID) -> ExamStats | None:
         """Aggregated learning-progress statistics for an exam."""
-        user = current_user(info)
-        return await stats.compute_exam_stats(info.context["db"], exam_id, user.id)
+        data = await stats_service.compute_exam_stats(
+            info.context["db"], exam_id, current_user(info).id
+        )
+        return to_exam_stats(data) if data is not None else None
 
     @strawberry.field
     async def study_history(
@@ -84,10 +106,10 @@ class Query:
         tz_offset_minutes: int = 0,
     ) -> list[StudyDayStats]:
         """Questions answered per day -- all exams, or one exam's history."""
-        user = current_user(info)
-        return await stats.compute_study_history(
-            info.context["db"], user.id, exam_id, tz_offset_minutes
+        data = await stats_service.compute_study_history(
+            info.context["db"], current_user(info).id, exam_id, tz_offset_minutes
         )
+        return [to_study_day(day) for day in data]
 
     @strawberry.field
     async def study_goal_progress(
@@ -97,30 +119,31 @@ class Query:
         tz_offset_minutes: int = 0,
     ) -> list[StudyGoalProgress]:
         """Current-period progress of every exam that has a study goal."""
-        user = current_user(info)
-        return await stats.compute_study_goal_progress(
-            info.context["db"], user.id, exam_id, tz_offset_minutes
+        data = await stats_service.compute_study_goal_progress(
+            info.context["db"], current_user(info).id, exam_id, tz_offset_minutes
         )
+        return [to_study_goal_progress(item) for item in data]
 
     @strawberry.field
     async def review_due(
         self, info: Info, exam_id: uuid.UUID | None = None
     ) -> list[ReviewDueStatus]:
         """Questions currently due for spaced-repetition review, per exam."""
-        user = current_user(info)
-        return await review.compute_review_due(info.context["db"], user.id, exam_id)
+        data = await review_service.compute_review_due(
+            info.context["db"], current_user(info).id, exam_id
+        )
+        return [to_review_due(item) for item in data]
 
     @strawberry.field
-    async def study_streak(
-        self, info: Info, tz_offset_minutes: int = 0
-    ) -> StudyStreak:
+    async def study_streak(self, info: Info, tz_offset_minutes: int = 0) -> StudyStreak:
         """Consecutive-day study streak across all exams (habit/gamification)."""
         db = info.context["db"]
         user = current_user(info)
-        settings = await loaders.get_or_create_settings(db, user)
-        return await stats.compute_study_streak(
+        settings = await settings_service.get_or_create_settings(db, user)
+        summary = await stats_service.compute_study_streak(
             db, user.id, tz_offset_minutes, settings.daily_streak_goal
         )
+        return to_study_streak(summary)
 
     @strawberry.field
     async def suggested_study_goal(
@@ -134,27 +157,9 @@ class Query:
 
         Uses ``exam_at`` when given (to preview a date before it is saved),
         otherwise the exam's stored certification date. Returns ``None`` when no
-        date is known or the exam cannot be sensibly planned (see
-        :func:`app.graphql.planning.suggest`).
+        date is known or the exam cannot be sensibly planned.
         """
-        db = info.context["db"]
-        user = current_user(info)
-        exam = await loaders.get_owned_exam(db, user.id, exam_id)
-        if exam is None:
-            return None
-        when = exam_at or exam.certification_exam_at
-        if when is None:
-            return None
-
-        count = await loaders.count_questions(db, exam_id)
-        suggestion = planning.suggest(count, when, GoalPeriod(period.value))
-        if suggestion is None:
-            return None
-        return SuggestedStudyGoal(
-            period=suggestion.period,
-            target=suggestion.target,
-            question_count=suggestion.question_count,
-            repetition_factor=suggestion.repetition_factor,
-            days_until_exam=suggestion.days_until_exam,
-            usable_days=suggestion.usable_days,
+        suggestion = await stats_service.suggest_study_goal(
+            info.context["db"], current_user(info).id, exam_id, period, exam_at
         )
+        return to_suggested_goal(suggestion) if suggestion is not None else None

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Integer, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.question import Question
 
 
 class QuestionCategory(Base):
@@ -34,4 +38,4 @@ class QuestionCategory(Base):
     label: Mapped[str] = mapped_column(Text, nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    question: Mapped["Question"] = relationship(back_populates="categories")
+    question: Mapped[Question] = relationship(back_populates="categories")

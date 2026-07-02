@@ -3,7 +3,7 @@
 The naive "questions / days_left" split ignores that mastering a question takes
 several spaced repetitions, not a single pass. This module grounds the
 suggestion in the Leitner ladder used by the spaced-repetition scheduler (see
-:mod:`app.graphql.review`):
+:mod:`app.domain.scheduling`):
 
 * taking a question from the first box to the top box needs ``MAX_BOX - 1``
   correct reviews;
@@ -21,10 +21,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from app.enums import GoalPeriod
-from app.graphql.review import MAX_BOX
+from app.domain.enums import GoalPeriod
+from app.domain.scheduling import MAX_BOX
 
 # Tunables, kept together so the heuristic is easy to find and adjust.
 ASSUMED_ACCURACY = 0.8  # share of reviews answered correctly while learning
@@ -52,7 +52,7 @@ class StudyGoalSuggestion:
 def _days_until(exam_at: datetime, now: datetime) -> int:
     """Whole days from ``now`` to ``exam_at`` (naive datetimes assumed UTC)."""
     if exam_at.tzinfo is None:
-        exam_at = exam_at.replace(tzinfo=timezone.utc)
+        exam_at = exam_at.replace(tzinfo=UTC)
     return (exam_at - now).days
 
 
@@ -68,7 +68,7 @@ def suggest(
     full day away -- there is either nothing to spread or no runway to spread it
     over, and the user is better served setting a manual goal.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     days = _days_until(exam_at, now)
     if question_count <= 0 or days < 1:
         return None

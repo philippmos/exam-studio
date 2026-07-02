@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, Uuid
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.database import Base
+from app.db.base import Base
 
 
 class QuestionReviewState(Base):

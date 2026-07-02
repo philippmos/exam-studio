@@ -1,19 +1,12 @@
 from __future__ import annotations
 
-import random
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 import strawberry
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from strawberry.types import Info
 
-from app import models
-from app.enums import GoalPeriod, QuestionType, SessionMode, StudyGoalSource
-from app.models import DAILY_STREAK_GOAL_CHOICES
-from app.graphql import loaders, planning, review
+from app.domain.enums import StudyGoalSource
 from app.graphql.context import current_user
 from app.graphql.types import (
     AddQuestionsResult,
@@ -27,164 +20,13 @@ from app.graphql.types import (
     StudyGoalSourceEnum,
     ThemePreferenceEnum,
     UserSettingsType,
+    to_exam,
+    to_session,
     to_user_settings,
 )
-from app.importer import (
-    ImportError_,
-    build_exam_from_payload,
-    merge_questions_into_exam,
-)
-
-
-async def _select_question_ids(
-    db: AsyncSession,
-    exam_id: uuid.UUID,
-    mode: SessionMode,
-    section_id: uuid.UUID | None,
-) -> list[uuid.UUID]:
-    base = (
-        select(models.Question.id)
-        .join(models.Section, models.Question.section_id == models.Section.id)
-        .where(models.Section.exam_id == exam_id)
-    )
-
-    if mode is SessionMode.BY_SECTION:
-        if section_id is None:
-            raise ValueError("A sectionId is required for BY_SECTION mode.")
-        base = base.where(models.Question.section_id == section_id)
-    elif mode is SessionMode.UNANSWERED:
-        answered_incorrectly = (
-            select(models.SessionItem.question_id)
-            .join(
-                models.ExamSession,
-                models.SessionItem.session_id == models.ExamSession.id,
-            )
-            .where(
-                models.ExamSession.exam_id == exam_id,
-                models.SessionItem.is_correct.is_(False),
-            )
-        )
-        base = base.where(models.Question.id.in_(answered_incorrectly))
-    elif mode is SessionMode.DUE_REVIEW:
-        base = base.join(
-            models.QuestionReviewState,
-            models.QuestionReviewState.question_id == models.Question.id,
-        ).where(models.QuestionReviewState.due_at <= datetime.now(timezone.utc))
-
-    ids = list((await db.scalars(base)).all())
-    random.shuffle(ids)
-    return ids
-
-
-def _grade_choice(
-    question: models.Question,
-    answers: list[models.Answer],
-    selected_answer_ids: list[uuid.UUID] | None,
-) -> tuple[list[models.SessionItemAnswer], bool, list[uuid.UUID]]:
-    """Validate and grade a single/multiple-choice selection.
-
-    Returns the selection rows to persist, whether it was correct, and the
-    (sorted) ids of the correct answers for the feedback.
-    """
-    selected_ids = set(selected_answer_ids or [])
-    if not selected_ids:
-        raise ValueError("At least one answer must be selected.")
-    if (
-        question.question_type == QuestionType.SINGLE_CHOICE.value
-        and len(selected_ids) != 1
-    ):
-        raise ValueError(
-            "Exactly one answer must be selected for a single-choice question."
-        )
-
-    answer_ids = {a.id for a in answers}
-    if not selected_ids <= answer_ids:
-        raise ValueError("Selected answers do not belong to this question.")
-
-    correct_ids = {a.id for a in answers if a.is_correct}
-    if not correct_ids:
-        raise ValueError("This question has no correct answer configured.")
-
-    selection = [models.SessionItemAnswer(answer_id=aid) for aid in selected_ids]
-    return selection, selected_ids == correct_ids, sorted(correct_ids, key=str)
-
-
-def _grade_allocation(
-    answers: list[models.Answer],
-    categories: list[models.QuestionCategory],
-    allocations: list[AllocationInput] | None,
-) -> tuple[list[models.SessionItemAnswer], bool, list[AllocationType]]:
-    """Validate and grade an allocation (every item sorted into a basket).
-
-    The answer counts as correct only when every item sits in its own correct
-    category. Returns the selection rows to persist, the correctness, and the
-    full correct mapping (item -> basket) for the feedback.
-    """
-    answer_ids = {a.id for a in answers}
-    category_ids = {c.id for c in categories}
-
-    chosen: dict[uuid.UUID, uuid.UUID] = {}
-    for placement in allocations or []:
-        if placement.answer_id in chosen:
-            raise ValueError("Each item may be sorted into only one category.")
-        chosen[placement.answer_id] = placement.category_id
-
-    if not set(chosen) <= answer_ids:
-        raise ValueError("Selected answers do not belong to this question.")
-    if not set(chosen.values()) <= category_ids:
-        raise ValueError("Selected categories do not belong to this question.")
-    if set(chosen) != answer_ids:
-        raise ValueError("Every item must be sorted into a category.")
-
-    selection = [
-        models.SessionItemAnswer(answer_id=aid, category_id=cid)
-        for aid, cid in chosen.items()
-    ]
-    correct_by_answer = {a.id: a.correct_category_id for a in answers}
-    is_correct = all(chosen[aid] == correct_by_answer[aid] for aid in answer_ids)
-    correct_allocations = [
-        AllocationType(answer_id=a.id, category_id=a.correct_category_id)
-        for a in answers
-        if a.correct_category_id is not None
-    ]
-    return selection, is_correct, correct_allocations
-
-
-async def _apply_auto_goal(db: AsyncSession, exam: models.Exam) -> None:
-    """Recompute the exam's automatic study goal from its date (no commit).
-
-    A manually set goal is left untouched. An automatic goal is recomputed from
-    the current certification date, or cleared when there is no date or the exam
-    can no longer be sensibly planned. Call this whenever the date changes.
-    """
-    if exam.study_goal_source == StudyGoalSource.MANUAL.value:
-        return
-
-    # Keep an existing automatic goal's period; default to daily otherwise.
-    period = (
-        GoalPeriod(exam.study_goal_period)
-        if exam.study_goal_period is not None
-        else GoalPeriod.DAILY
-    )
-    suggestion = None
-    if exam.certification_exam_at is not None:
-        count = await loaders.count_questions(db, exam.id)
-        suggestion = planning.suggest(count, exam.certification_exam_at, period)
-
-    if suggestion is None:
-        exam.study_goal_period = None
-        exam.study_goal_target = None
-        exam.study_goal_source = None
-    else:
-        exam.study_goal_period = suggestion.period.value
-        exam.study_goal_target = suggestion.target
-        exam.study_goal_source = StudyGoalSource.AUTO.value
-
-
-def _shuffle_answer_order(question: models.Question) -> list[str] | None:
-    answer_ids = [str(answer.id) for answer in question.answers]
-    random.shuffle(answer_ids)
-    return answer_ids
+from app.services import exams as exams_service
+from app.services import sessions as sessions_service
+from app.services import settings as settings_service
 
 
 @strawberry.type
@@ -194,44 +36,29 @@ class Mutation:
         self, info: Info, theme_preference: ThemePreferenceEnum
     ) -> UserSettingsType:
         """Persist the user's colour-scheme preference (SYSTEM / LIGHT / DARK)."""
-        db: AsyncSession = info.context["db"]
-        settings = await loaders.get_or_create_settings(db, current_user(info))
-        settings.theme_preference = theme_preference.value
-        await db.commit()
+        settings = await settings_service.set_theme_preference(
+            info.context["db"], current_user(info), theme_preference
+        )
         return to_user_settings(settings)
 
     @strawberry.mutation
-    async def set_daily_streak_goal(
-        self, info: Info, goal: int
-    ) -> UserSettingsType:
+    async def set_daily_streak_goal(self, info: Info, goal: int) -> UserSettingsType:
         """Set how many questions a day needs for it to count towards the streak.
 
         ``goal`` must be one of the offered values (5, 10, 15, 25, 50).
         """
-        if goal not in DAILY_STREAK_GOAL_CHOICES:
-            allowed = ", ".join(str(choice) for choice in DAILY_STREAK_GOAL_CHOICES)
-            raise ValueError(f"The daily streak goal must be one of: {allowed}.")
-        db: AsyncSession = info.context["db"]
-        settings = await loaders.get_or_create_settings(db, current_user(info))
-        settings.daily_streak_goal = goal
-        await db.commit()
+        settings = await settings_service.set_daily_streak_goal(
+            info.context["db"], current_user(info), goal
+        )
         return to_user_settings(settings)
 
     @strawberry.mutation
     async def import_exam(self, info: Info, payload: str) -> ExamType:
         """Import an exam from the JSON produced in the `exam.json` format."""
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        try:
-            exam = build_exam_from_payload(payload)
-        except ImportError_ as exc:
-            raise ValueError(str(exc)) from exc
-
-        exam.user_id = user.id
-        db.add(exam)
-        await db.commit()
-        result = await loaders.load_exams(db, user.id, exam_id=exam.id)
-        return result[0]
+        exam, counts = await exams_service.import_exam(
+            info.context["db"], current_user(info), payload
+        )
+        return to_exam(exam, counts)
 
     @strawberry.mutation
     async def add_exam_questions(
@@ -241,38 +68,22 @@ class Mutation:
 
         The payload uses the same format as ``import_exam``. Only questions whose
         text is not already in the exam are imported; existing ones are skipped
-        and nothing is removed. A referenced module that does not exist yet is
-        created. Returns the updated exam with the added/skipped counts.
+        and nothing is removed.
         """
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        exam = await loaders.load_owned_exam_with_questions(db, user.id, exam_id)
-        if exam is None:
-            raise ValueError("Exam not found.")
-        try:
-            summary = merge_questions_into_exam(exam, payload)
-        except ImportError_ as exc:
-            raise ValueError(str(exc)) from exc
-
-        # The question count may have changed, so keep an automatic study goal
-        # in sync (a manual goal is left untouched).
-        await _apply_auto_goal(db, exam)
-        await db.commit()
-        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
+        outcome = await exams_service.add_exam_questions(
+            info.context["db"], current_user(info), exam_id, payload
+        )
         return AddQuestionsResult(
-            exam=result[0], added=summary.added, skipped=summary.skipped
+            exam=to_exam(outcome.exam, outcome.counts),
+            added=outcome.added,
+            skipped=outcome.skipped,
         )
 
     @strawberry.mutation
     async def delete_exam(self, info: Info, id: uuid.UUID) -> bool:
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        exam = await loaders.get_owned_exam(db, user.id, id)
-        if exam is None:
-            return False
-        await db.delete(exam)
-        await db.commit()
-        return True
+        return await exams_service.delete_exam(
+            info.context["db"], current_user(info), id
+        )
 
     @strawberry.mutation
     async def set_exam_archived(
@@ -281,20 +92,13 @@ class Mutation:
         """Archive or restore an exam.
 
         Archiving hides it from the dashboard and stops new sessions from being
-        started for it; restoring (``archived = false``) makes it active again.
-        The exam's history is untouched either way, so statistics and the study
-        streak keep accounting for it.
+        started for it; restoring makes it active again. The exam's history is
+        untouched either way.
         """
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        exam = await loaders.get_owned_exam(db, user.id, exam_id)
-        if exam is None:
-            raise ValueError("Exam not found.")
-
-        exam.archived = archived
-        await db.commit()
-        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
-        return result[0]
+        exam, counts = await exams_service.set_archived(
+            info.context["db"], current_user(info), exam_id, archived
+        )
+        return to_exam(exam, counts)
 
     @strawberry.mutation
     async def set_study_goal(
@@ -308,39 +112,20 @@ class Mutation:
         """Set (or replace) the exam's study goal: `target` questions per `period`.
 
         ``source`` records whether the target was entered by hand (``MANUAL``,
-        the default) or accepted from the exam-date suggestion (``AUTO``); only
-        ``AUTO`` goals are later recomputed when the exam date changes.
+        the default) or accepted from the exam-date suggestion (``AUTO``).
         """
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        exam = await loaders.get_owned_exam(db, user.id, exam_id)
-        if exam is None:
-            raise ValueError("Exam not found.")
-        if target < 1:
-            raise ValueError("The goal target must be at least 1 question.")
-
-        exam.study_goal_period = period.value
-        exam.study_goal_target = target
-        exam.study_goal_source = source.value
-        await db.commit()
-        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
-        return result[0]
+        exam, counts = await exams_service.set_study_goal(
+            info.context["db"], current_user(info), exam_id, period, target, source
+        )
+        return to_exam(exam, counts)
 
     @strawberry.mutation
     async def clear_study_goal(self, info: Info, exam_id: uuid.UUID) -> ExamType:
         """Remove the exam's study goal, if any."""
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        exam = await loaders.get_owned_exam(db, user.id, exam_id)
-        if exam is None:
-            raise ValueError("Exam not found.")
-
-        exam.study_goal_period = None
-        exam.study_goal_target = None
-        exam.study_goal_source = None
-        await db.commit()
-        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
-        return result[0]
+        exam, counts = await exams_service.clear_study_goal(
+            info.context["db"], current_user(info), exam_id
+        )
+        return to_exam(exam, counts)
 
     @strawberry.mutation
     async def set_certification_exam_date(
@@ -351,17 +136,10 @@ class Mutation:
         Recomputes the automatic study goal from the new date; a manual goal is
         kept as-is.
         """
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        exam = await loaders.get_owned_exam(db, user.id, exam_id)
-        if exam is None:
-            raise ValueError("Exam not found.")
-
-        exam.certification_exam_at = exam_at
-        await _apply_auto_goal(db, exam)
-        await db.commit()
-        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
-        return result[0]
+        exam, counts = await exams_service.set_certification_exam_date(
+            info.context["db"], current_user(info), exam_id, exam_at
+        )
+        return to_exam(exam, counts)
 
     @strawberry.mutation
     async def clear_certification_exam_date(
@@ -372,28 +150,16 @@ class Mutation:
         An automatic study goal loses its basis and is removed too; a manual
         goal is kept.
         """
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        exam = await loaders.get_owned_exam(db, user.id, exam_id)
-        if exam is None:
-            raise ValueError("Exam not found.")
-
-        exam.certification_exam_at = None
-        await _apply_auto_goal(db, exam)
-        await db.commit()
-        result = await loaders.load_exams(db, user.id, exam_id=exam_id)
-        return result[0]
+        exam, counts = await exams_service.clear_certification_exam_date(
+            info.context["db"], current_user(info), exam_id
+        )
+        return to_exam(exam, counts)
 
     @strawberry.mutation
     async def delete_session(self, info: Info, id: uuid.UUID) -> bool:
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        session = await loaders.get_owned_session(db, user.id, id)
-        if session is None:
-            return False
-        await db.delete(session)
-        await db.commit()
-        return True
+        return await sessions_service.delete_session(
+            info.context["db"], current_user(info), id
+        )
 
     @strawberry.mutation
     async def start_session(
@@ -403,44 +169,10 @@ class Mutation:
         mode: SessionModeEnum,
         section_id: uuid.UUID | None = None,
     ) -> ExamSessionType:
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-
-        exam = await loaders.get_owned_exam(db, user.id, exam_id)
-        if exam is None:
-            raise ValueError("Exam not found.")
-        if exam.archived:
-            raise ValueError("Cannot start a session for an archived exam.")
-
-        question_ids = await _select_question_ids(db, exam_id, mode, section_id)
-        questions = list(
-            (
-                await db.scalars(
-                    select(models.Question)
-                    .where(models.Question.id.in_(question_ids))
-                    .options(selectinload(models.Question.answers))
-                )
-            ).all()
+        session = await sessions_service.start_session(
+            info.context["db"], current_user(info), exam_id, mode, section_id
         )
-        questions_by_id = {question.id: question for question in questions}
-
-        session = models.ExamSession(
-            exam_id=exam_id,
-            mode=mode.value,
-            section_id=section_id if mode is SessionMode.BY_SECTION else None,
-        )
-        session.items = [
-            models.SessionItem(
-                question_id=qid,
-                position=position,
-                answer_order=_shuffle_answer_order(questions_by_id[qid]),
-            )
-            for position, qid in enumerate(question_ids)
-        ]
-        db.add(session)
-        await db.commit()
-
-        return await loaders.load_session_type(db, session.id, user.id)
+        return to_session(session)
 
     @strawberry.mutation
     async def submit_answer(
@@ -457,83 +189,36 @@ class Mutation:
         only counts as correct when exactly the set of correct answers was
         chosen); allocation questions pass ``allocations`` and are correct only
         when every item sits in its correct basket. Every answer also advances
-        the question's spaced-repetition schedule (``tz_offset_minutes`` aligns
-        the next due date to the caller's local day).
+        the question's spaced-repetition schedule.
         """
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-
-        item = await db.get(
-            models.SessionItem,
+        placements = (
+            [(placement.answer_id, placement.category_id) for placement in allocations]
+            if allocations is not None
+            else None
+        )
+        outcome = await sessions_service.submit_answer(
+            info.context["db"],
+            current_user(info),
             session_item_id,
-            options=(selectinload(models.SessionItem.selected_answers),),
+            selected_answer_ids,
+            placements,
+            tz_offset_minutes,
         )
-        if item is None:
-            raise ValueError("Session item not found.")
-        # Authorize: the item's session must belong to the current user.
-        if await loaders.get_owned_session(db, user.id, item.session_id) is None:
-            raise ValueError("Session item not found.")
-
-        question = await db.get(models.Question, item.question_id)
-        answers = list(
-            (
-                await db.scalars(
-                    select(models.Answer).where(
-                        models.Answer.question_id == item.question_id
-                    )
-                )
-            ).all()
-        )
-
-        if question.question_type == QuestionType.ALLOCATION.value:
-            categories = list(
-                (
-                    await db.scalars(
-                        select(models.QuestionCategory).where(
-                            models.QuestionCategory.question_id == item.question_id
-                        )
-                    )
-                ).all()
-            )
-            selection, is_correct, correct_allocations = _grade_allocation(
-                answers, categories, allocations
-            )
-            correct_answer_ids: list[uuid.UUID] = []
-        else:
-            selection, is_correct, correct_answer_ids = _grade_choice(
-                question, answers, selected_answer_ids
-            )
-            correct_allocations = []
-
-        # Clear the previous selection and flush the deletes before inserting
-        # the new rows: re-answering reuses the same (item, answer) pairs, which
-        # would otherwise trip the session_item_answers uniqueness constraint.
-        item.selected_answers = []
-        await db.flush()
-        item.selected_answers = selection
-        item.is_correct = is_correct
-        item.answered_at = datetime.now(timezone.utc)
-        outcome = await review.record_answer(
-            db, item.question_id, is_correct, tz_offset_minutes
-        )
-        await db.commit()
-
         return AnswerResult(
-            session_item_id=item.id,
-            is_correct=is_correct,
-            correct_answer_ids=correct_answer_ids,
-            correct_allocations=correct_allocations,
-            review_box=outcome.box,
-            review_interval_days=outcome.interval_days,
+            session_item_id=outcome.session_item_id,
+            is_correct=outcome.is_correct,
+            correct_answer_ids=outcome.correct_answer_ids,
+            correct_allocations=[
+                AllocationType(answer_id=answer_id, category_id=category_id)
+                for answer_id, category_id in outcome.correct_allocations
+            ],
+            review_box=outcome.review_box,
+            review_interval_days=outcome.review_interval_days,
         )
 
     @strawberry.mutation
     async def finish_session(self, info: Info, id: uuid.UUID) -> ExamSessionType:
-        db: AsyncSession = info.context["db"]
-        user = current_user(info)
-        session = await loaders.get_owned_session(db, user.id, id)
-        if session is None:
-            raise ValueError("Session not found.")
-        session.finished_at = datetime.now(timezone.utc)
-        await db.commit()
-        return await loaders.load_session_type(db, id, user.id)
+        session = await sessions_service.finish_session(
+            info.context["db"], current_user(info), id
+        )
+        return to_session(session)

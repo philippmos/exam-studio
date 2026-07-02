@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
-from app.enums import QuestionType
+from app.db.base import Base
+from app.domain.enums import QuestionType
+
+if TYPE_CHECKING:
+    from app.models.answer import Answer
+    from app.models.question_category import QuestionCategory
+    from app.models.section import Section
 
 
 class Question(Base):
@@ -25,16 +31,16 @@ class Question(Base):
         String(32), nullable=False, default=QuestionType.SINGLE_CHOICE.value
     )
 
-    section: Mapped["Section"] = relationship(back_populates="questions")
+    section: Mapped[Section] = relationship(back_populates="questions")
     # For allocation questions the answers are the items to be sorted; for
     # choice questions they are the options. Their order is the import order.
-    answers: Mapped[list["Answer"]] = relationship(
+    answers: Mapped[list[Answer]] = relationship(
         back_populates="question",
         cascade="all, delete-orphan",
         order_by="Answer.position",
     )
     # The target baskets of an allocation question (empty for choice questions).
-    categories: Mapped[list["QuestionCategory"]] = relationship(
+    categories: Mapped[list[QuestionCategory]] = relationship(
         back_populates="question",
         cascade="all, delete-orphan",
         order_by="QuestionCategory.position",

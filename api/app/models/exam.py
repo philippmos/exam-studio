@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
@@ -16,7 +17,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.exam_session import ExamSession
+    from app.models.section import Section
+    from app.models.user import User
 
 
 class Exam(Base):
@@ -72,12 +78,12 @@ class Exam(Base):
         Boolean, nullable=False, default=False, server_default=false()
     )
 
-    owner: Mapped["User"] = relationship(back_populates="exams")
-    sections: Mapped[list["Section"]] = relationship(
+    owner: Mapped[User] = relationship(back_populates="exams")
+    sections: Mapped[list[Section]] = relationship(
         back_populates="exam",
         cascade="all, delete-orphan",
         order_by="Section.position",
     )
-    sessions: Mapped[list["ExamSession"]] = relationship(
+    sessions: Mapped[list[ExamSession]] = relationship(
         back_populates="exam", cascade="all, delete-orphan"
     )

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 # Selectable daily-streak goals (questions answered per day) and the default.
 # A day only counts towards the study streak once this many questions have been
@@ -27,7 +31,9 @@ class UserSettings(Base):
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
-        ForeignKey("users.id", ondelete="CASCADE", name="fk_user_settings_user_id_users"),
+        ForeignKey(
+            "users.id", ondelete="CASCADE", name="fk_user_settings_user_id_users"
+        ),
         primary_key=True,
     )
     # Preferred colour scheme: a ThemePreference value ("SYSTEM"/"LIGHT"/"DARK").
@@ -44,4 +50,4 @@ class UserSettings(Base):
         server_default=str(DEFAULT_DAILY_STREAK_GOAL),
     )
 
-    user: Mapped["User"] = relationship(back_populates="settings")
+    user: Mapped[User] = relationship(back_populates="settings")

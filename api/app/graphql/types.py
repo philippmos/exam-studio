@@ -13,21 +13,40 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 import strawberry
 
 from app import models
-from app.enums import GoalPeriod
-from app.enums import QuestionType as QuestionTypeValue
-from app.enums import SessionMode, StudyGoalSource, ThemePreference
+from app.domain.analytics import (
+    ExamStatsData,
+    ReviewDueData,
+    SectionStatsData,
+    StudyDayData,
+    StudyGoalProgressData,
+)
+from app.domain.enums import GoalPeriod, SessionMode, StudyGoalSource, ThemePreference
+from app.domain.enums import QuestionType as QuestionTypeValue
+from app.domain.planning import StudyGoalSuggestion
+from app.domain.streak import StreakSummary
 
-SessionModeEnum = strawberry.enum(SessionMode)
-GoalPeriodEnum = strawberry.enum(GoalPeriod)
-StudyGoalSourceEnum = strawberry.enum(StudyGoalSource)
-ThemePreferenceEnum = strawberry.enum(ThemePreference)
-# The GraphQL object type below is already called "QuestionType", so the enum
-# gets a distinct schema name.
-QuestionTypeEnum = strawberry.enum(QuestionTypeValue, name="QuestionKind")
+# `strawberry.enum(...)` registers the (framework-free) domain enums as GraphQL
+# enums and returns the very same classes. For type-checkers we alias the names
+# to those enums (a call result is not usable as a type annotation); at runtime
+# the registration side effect is what matters. The GraphQL object type below is
+# already called "QuestionType", so its enum gets a distinct schema name.
+if TYPE_CHECKING:
+    type SessionModeEnum = SessionMode
+    type GoalPeriodEnum = GoalPeriod
+    type StudyGoalSourceEnum = StudyGoalSource
+    type ThemePreferenceEnum = ThemePreference
+    type QuestionTypeEnum = QuestionTypeValue
+else:
+    SessionModeEnum = strawberry.enum(SessionMode)
+    GoalPeriodEnum = strawberry.enum(GoalPeriod)
+    StudyGoalSourceEnum = strawberry.enum(StudyGoalSource)
+    ThemePreferenceEnum = strawberry.enum(ThemePreference)
+    QuestionTypeEnum = strawberry.enum(QuestionTypeValue, name="QuestionKind")
 
 
 @strawberry.type
@@ -474,4 +493,89 @@ def to_session(session: models.ExamSession) -> ExamSessionType:
         answered=answered,
         correct=correct,
         items=[to_session_item(i) for i in items],
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Converters: domain analytics results -> GraphQL types                        #
+# --------------------------------------------------------------------------- #
+
+
+def to_review_due(data: ReviewDueData) -> ReviewDueStatus:
+    return ReviewDueStatus(exam_id=data.exam_id, due_count=data.due_count)
+
+
+def to_study_day(data: StudyDayData) -> StudyDayStats:
+    return StudyDayStats(
+        day=data.day, total=data.total, correct=data.correct, incorrect=data.incorrect
+    )
+
+
+def to_study_goal_progress(data: StudyGoalProgressData) -> StudyGoalProgress:
+    return StudyGoalProgress(
+        exam_id=data.exam_id,
+        period=data.period,
+        target=data.target,
+        answered=data.answered,
+        period_start=data.period_start,
+    )
+
+
+def _to_section_stats(data: SectionStatsData) -> SectionStats:
+    return SectionStats(
+        section_id=data.section_id,
+        name=data.name,
+        total_questions=data.total_questions,
+        attempted_questions=data.attempted_questions,
+        mastered_questions=data.mastered_questions,
+        struggling_questions=data.struggling_questions,
+        correct_attempts=data.correct_attempts,
+        incorrect_attempts=data.incorrect_attempts,
+        accuracy=data.accuracy,
+        mastery=data.mastery,
+    )
+
+
+def to_exam_stats(data: ExamStatsData) -> ExamStats:
+    return ExamStats(
+        exam_id=data.exam_id,
+        exam_name=data.exam_name,
+        total_questions=data.total_questions,
+        attempted_questions=data.attempted_questions,
+        mastered_questions=data.mastered_questions,
+        struggling_questions=data.struggling_questions,
+        unattempted_questions=data.unattempted_questions,
+        total_attempts=data.total_attempts,
+        correct_attempts=data.correct_attempts,
+        incorrect_attempts=data.incorrect_attempts,
+        accuracy=data.accuracy,
+        coverage=data.coverage,
+        mastery=data.mastery,
+        sessions_count=data.sessions_count,
+        last_activity=data.last_activity,
+        sections=[_to_section_stats(section) for section in data.sections],
+    )
+
+
+def to_study_streak(summary: StreakSummary) -> StudyStreak:
+    return StudyStreak(
+        current=summary.current,
+        longest=summary.longest,
+        studied_today=summary.studied_today,
+        daily_goal=summary.daily_goal,
+        answered_today=summary.answered_today,
+        recent_days=[
+            StreakDay(day=day.day, active=day.active) for day in summary.recent_days
+        ],
+    )
+
+
+def to_suggested_goal(suggestion: StudyGoalSuggestion) -> SuggestedStudyGoal:
+    return SuggestedStudyGoal(
+        period=suggestion.period,
+        target=suggestion.target,
+        question_count=suggestion.question_count,
+        repetition_factor=suggestion.repetition_factor,
+        days_until_exam=suggestion.days_until_exam,
+        usable_days=suggestion.usable_days,
     )

@@ -1,5 +1,7 @@
 # Child pipeline for the Python GraphQL API.
 #
+#   lint     ruff (lint + format) and mypy (strict) — a quality gate that must
+#            pass before anything is built; plus an advisory dependency audit.
 #   build    builds the API image and pushes it as :$CI_COMMIT_SHORT_SHA
 #   test     runs the Playwright API tests against exactly that image:
 #            PostgreSQL + the API run as job services, the API container
@@ -12,6 +14,7 @@ include:
   - local: ci/e2e-services.gitlab-ci.yml
 
 stages:
+  - lint
   - build
   - test
   - release
@@ -21,6 +24,42 @@ default:
 
 variables:
   API_IMAGE: $CI_REGISTRY_IMAGE/api
+
+# --- Quality gate: shared uv setup for the lint stage -----------------------
+.uv-quality:
+  image: python:3.12-slim
+  variables:
+    UV_CACHE_DIR: .uv-cache
+  cache:
+    key:
+      files:
+        - api/uv.lock
+    paths:
+      - api/.uv-cache
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - pip install --no-cache-dir uv==0.11.17
+    - cd api
+
+api-lint:
+  extends: .uv-quality
+  stage: lint
+  script:
+    - uv sync --frozen
+    - uv run ruff check app
+    - uv run ruff format --check app
+    - uv run mypy
+
+api-audit:
+  extends: .uv-quality
+  stage: lint
+  # Advisory: a new advisory should surface but not block the pipeline.
+  allow_failure: true
+  script:
+    - uv export --frozen --no-dev --no-emit-project --format requirements-txt > audit-requirements.txt
+    - uvx pip-audit --requirement audit-requirements.txt
 
 docker-build:
   extends: .docker-build

@@ -15,3 +15,19 @@ from app.models.user_settings import (
     DEFAULT_DAILY_STREAK_GOAL,
     UserSettings,
 )
+
+__all__ = [
+    "DAILY_STREAK_GOAL_CHOICES",
+    "DEFAULT_DAILY_STREAK_GOAL",
+    "Answer",
+    "Exam",
+    "ExamSession",
+    "Question",
+    "QuestionCategory",
+    "QuestionReviewState",
+    "Section",
+    "SessionItem",
+    "SessionItemAnswer",
+    "User",
+    "UserSettings",
+]
