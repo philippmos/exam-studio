@@ -16,6 +16,7 @@ from app.graphql.types import (
     ExamSessionType,
     ExamType,
     GoalPeriodEnum,
+    PlacementType,
     SessionModeEnum,
     StudyGoalSourceEnum,
     ThemePreferenceEnum,
@@ -181,6 +182,7 @@ class Mutation:
         session_item_id: uuid.UUID,
         selected_answer_ids: list[uuid.UUID] | None = None,
         allocations: list[AllocationInput] | None = None,
+        placed_answer_ids: list[uuid.UUID] | None = None,
         tz_offset_minutes: int = 0,
     ) -> AnswerResult:
         """Persist the answer for a question and report correctness.
@@ -188,8 +190,10 @@ class Mutation:
         Choice questions pass ``selected_answer_ids`` (a multiple-choice answer
         only counts as correct when exactly the set of correct answers was
         chosen); allocation questions pass ``allocations`` and are correct only
-        when every item sits in its correct basket. Every answer also advances
-        the question's spaced-repetition schedule.
+        when every item sits in its correct basket; select-and-place questions
+        pass ``placed_answer_ids`` (the answer ids in the placed order) and are
+        correct only when that order matches the solution exactly. Every answer
+        also advances the question's spaced-repetition schedule.
         """
         placements = (
             [(placement.answer_id, placement.category_id) for placement in allocations]
@@ -202,6 +206,7 @@ class Mutation:
             session_item_id,
             selected_answer_ids,
             placements,
+            placed_answer_ids,
             tz_offset_minutes,
         )
         return AnswerResult(
@@ -211,6 +216,10 @@ class Mutation:
             correct_allocations=[
                 AllocationType(answer_id=answer_id, category_id=category_id)
                 for answer_id, category_id in outcome.correct_allocations
+            ],
+            correct_placements=[
+                PlacementType(answer_id=answer_id, position=position)
+                for answer_id, position in outcome.correct_placements
             ],
             review_box=outcome.review_box,
             review_interval_days=outcome.review_interval_days,

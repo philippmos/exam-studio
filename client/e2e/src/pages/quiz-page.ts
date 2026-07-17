@@ -114,6 +114,47 @@ export class QuizPage {
     await this.page.mouse.up();
   }
 
+  /**
+   * Answers a select-and-place question by dragging each option, in the given
+   * order, from the "Options" pool into the "Answer area", then submitting.
+   */
+  async answerSelectAndPlace(order: string[]): Promise<void> {
+    for (const itemText of order) {
+      await this.dragOptionIntoAnswerArea(itemText);
+    }
+    await this.checkAnswerButton.click();
+  }
+
+  private async dragOptionIntoAnswerArea(itemText: string): Promise<void> {
+    // Scope the source to the Options pool so an already-placed chip in the
+    // answer area is never matched.
+    const item = this.page
+      .locator('.basket', {
+        has: this.page.locator('.basket-title', { hasText: 'Options' }),
+      })
+      .locator('.dropzone .chip', { hasText: itemText });
+    const answerArea = this.page
+      .locator('.basket', {
+        has: this.page.locator('.basket-title', { hasText: 'Answer area' }),
+      })
+      .locator('.dropzone');
+
+    await item.scrollIntoViewIfNeeded();
+    const from = await item.boundingBox();
+    const to = await answerArea.boundingBox();
+    if (!from || !to) {
+      throw new Error(`Cannot drag "${itemText}" into the answer area (not visible).`);
+    }
+    await this.page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await this.page.mouse.down();
+    // Drop near the bottom edge so each option appends after the placed ones.
+    const targetX = to.x + to.width / 2;
+    const targetY = to.y + to.height - 8;
+    await this.page.mouse.move(targetX, targetY, { steps: 12 });
+    await this.page.mouse.move(targetX, targetY);
+    await this.page.mouse.up();
+  }
+
   /** The correct answer is highlighted after answering (review mode). */
   async expectSolutionHighlighted(): Promise<void> {
     await expect(

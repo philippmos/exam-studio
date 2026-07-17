@@ -58,10 +58,18 @@ export const SESSION_FIELDS = `
       answerId
       categoryId
     }
+    selectedPlacements {
+      answerId
+      position
+    }
     correctAnswerIds
     correctAllocations {
       answerId
       categoryId
+    }
+    correctPlacements {
+      answerId
+      position
     }
     isCorrect
     answeredAt
@@ -245,6 +253,10 @@ const SUBMIT_RESULT_FIELDS = `
     answerId
     categoryId
   }
+  correctPlacements {
+    answerId
+    position
+  }
   reviewBox
   reviewIntervalDays
 `;
@@ -291,6 +303,29 @@ export async function submitAllocation(
       ) { ${SUBMIT_RESULT_FIELDS} }
     }`,
     { sessionItemId, allocations, tzOffsetMinutes },
+  );
+  return data.submitAnswer;
+}
+
+export async function submitPlacement(
+  gql: GraphqlClient,
+  sessionItemId: string,
+  placedAnswerIds: string[],
+  tzOffsetMinutes = 0,
+): Promise<AnswerResult> {
+  const data = await gql.query<{ submitAnswer: AnswerResult }>(
+    `mutation Submit(
+      $sessionItemId: UUID!
+      $placedAnswerIds: [UUID!]
+      $tzOffsetMinutes: Int!
+    ) {
+      submitAnswer(
+        sessionItemId: $sessionItemId
+        placedAnswerIds: $placedAnswerIds
+        tzOffsetMinutes: $tzOffsetMinutes
+      ) { ${SUBMIT_RESULT_FIELDS} }
+    }`,
+    { sessionItemId, placedAnswerIds, tzOffsetMinutes },
   );
   return data.submitAnswer;
 }
@@ -535,4 +570,29 @@ export function withOneMisplaced(
       ? { ...alloc, categoryId: wrongCategory.id }
       : alloc,
   );
+}
+
+/**
+ * The fully correct placed order (answer ids) of a select-and-place question,
+ * reconstructed from an "item text -> 1-based rank" solution (undefined rank =
+ * distractor, never placed). The API hides the solution itself.
+ */
+export function correctOrderOf(
+  item: SessionItem,
+  solution: Record<string, number | undefined>,
+): string[] {
+  return item.question.answers
+    .filter((answer) => solution[answer.text] !== undefined)
+    .sort((a, b) => solution[a.text]! - solution[b.text]!)
+    .map((answer) => answer.id);
+}
+
+/** The correct order with the first two positions swapped (a wrong order). */
+export function withFirstTwoSwapped(order: string[]): string[] {
+  if (order.length < 2) {
+    return [...order];
+  }
+  const swapped = [...order];
+  [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
+  return swapped;
 }

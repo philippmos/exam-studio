@@ -3,16 +3,21 @@ import { randomUUID } from 'node:crypto';
 import {
   ALLOCATION_SOLUTION,
   allocationExamSpec,
+  SELECT_AND_PLACE_SOLUTION,
+  selectAndPlaceExamSpec,
   uniqueName,
 } from '../src/exam-payload';
 import { expect, test } from '../src/fixtures';
 import {
   correctAllocationsOf,
   correctAnswerIdsOf,
+  correctOrderOf,
   getSession,
   startSession,
   submitAllocation,
   submitAnswer,
+  submitPlacement,
+  withFirstTwoSwapped,
   withOneMisplaced,
   wrongAnswerIdOf,
 } from '../src/operations';
@@ -361,5 +366,161 @@ test.describe('submitAnswer (allocation)', () => {
       allocations: bogus,
     });
     expect(message).toContain('Selected categories do not belong to this question');
+  });
+});
+
+const SUBMIT_PLACE_MUTATION = `
+  mutation Submit($sessionItemId: UUID!, $placedAnswerIds: [UUID!]) {
+    submitAnswer(sessionItemId: $sessionItemId, placedAnswerIds: $placedAnswerIds) {
+      sessionItemId
+      isCorrect
+    }
+  }
+`;
+
+test.describe('submitAnswer (select-and-place)', () => {
+  test('serves the whole option pool including distractors', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectAndPlaceExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+
+    expect(item.question.questionType).toBe('SELECT_AND_PLACE');
+    // 6 options in the pool, only 4 of which make up the answer.
+    expect(item.question.answers).toHaveLength(6);
+    expect(correctOrderOf(item, SELECT_AND_PLACE_SOLUTION)).toHaveLength(4);
+  });
+
+  test('accepts the exact correct order', async ({ gql, examFactory }) => {
+    const exam = await examFactory.create(selectAndPlaceExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const order = correctOrderOf(item, SELECT_AND_PLACE_SOLUTION);
+
+    const result = await submitPlacement(gql, item.id, order);
+
+    expect(result.isCorrect).toBe(true);
+    // The solution (option -> slot) is returned for the feedback view.
+    expect(result.correctPlacements).toHaveLength(4);
+    expect(
+      [...result.correctPlacements]
+        .sort((a, b) => a.position - b.position)
+        .map((p) => p.answerId),
+    ).toEqual(order);
+  });
+
+  test('the right options in the wrong order is incorrect', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectAndPlaceExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const wrongOrder = withFirstTwoSwapped(
+      correctOrderOf(item, SELECT_AND_PLACE_SOLUTION),
+    );
+
+    const result = await submitPlacement(gql, item.id, wrongOrder);
+
+    expect(result.isCorrect).toBe(false);
+    expect(result.correctPlacements).toHaveLength(4);
+  });
+
+  test('placing a distractor is incorrect', async ({ gql, examFactory }) => {
+    const exam = await examFactory.create(selectAndPlaceExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const order = correctOrderOf(item, SELECT_AND_PLACE_SOLUTION);
+    const distractor = item.question.answers.find(
+      (a) => !order.includes(a.id),
+    )!;
+
+    // Replace the last placed option with a distractor.
+    const withDistractor = [...order.slice(0, -1), distractor.id];
+    const result = await submitPlacement(gql, item.id, withDistractor);
+
+    expect(result.isCorrect).toBe(false);
+  });
+
+  test('persists the placement for review and resume', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectAndPlaceExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const order = correctOrderOf(item, SELECT_AND_PLACE_SOLUTION);
+
+    await submitPlacement(gql, item.id, order);
+
+    const reloaded = (await getSession(gql, session.id))!;
+    expect(reloaded.answered).toBe(1);
+    expect(reloaded.correct).toBe(1);
+
+    const ri = reloaded.items.find((i) => i.id === item.id)!;
+    expect(ri.isCorrect).toBe(true);
+    expect(ri.answeredAt).not.toBeNull();
+    // The placement round-trips in the order it was submitted.
+    expect(
+      [...ri.selectedPlacements]
+        .sort((a, b) => a.position - b.position)
+        .map((p) => p.answerId),
+    ).toEqual(order);
+    expect(
+      [...ri.correctPlacements!]
+        .sort((a, b) => a.position - b.position)
+        .map((p) => p.answerId),
+    ).toEqual(order);
+  });
+
+  test('re-answering replaces the previous placement', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectAndPlaceExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const order = correctOrderOf(item, SELECT_AND_PLACE_SOLUTION);
+
+    const first = await submitPlacement(gql, item.id, withFirstTwoSwapped(order));
+    expect(first.isCorrect).toBe(false);
+
+    const second = await submitPlacement(gql, item.id, order);
+    expect(second.isCorrect).toBe(true);
+
+    const reloaded = (await getSession(gql, session.id))!;
+    expect(reloaded.answered).toBe(1);
+    const ri = reloaded.items.find((i) => i.id === item.id)!;
+    expect(ri.isCorrect).toBe(true);
+    expect(ri.selectedPlacements).toHaveLength(4);
+  });
+
+  test('rejects an empty placement', async ({ gql, examFactory }) => {
+    const exam = await examFactory.create(selectAndPlaceExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+
+    const message = await gql.expectError(SUBMIT_PLACE_MUTATION, {
+      sessionItemId: item.id,
+      placedAnswerIds: [],
+    });
+    expect(message).toContain('At least one option must be placed');
+  });
+
+  test('rejects an option that belongs to a different question', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectAndPlaceExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+
+    const message = await gql.expectError(SUBMIT_PLACE_MUTATION, {
+      sessionItemId: item.id,
+      placedAnswerIds: [randomUUID()],
+    });
+    expect(message).toContain('do not belong to this question');
   });
 });

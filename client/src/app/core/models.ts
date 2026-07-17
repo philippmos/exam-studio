@@ -18,7 +18,18 @@ export interface Allocation {
   categoryId: string;
 }
 
-export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'ALLOCATION';
+/** One option dropped into an ordered slot of a select-and-place question. */
+export interface Placement {
+  answerId: string;
+  /** 0-based slot in the answer area (the option's rank in the placement). */
+  position: number;
+}
+
+export type QuestionType =
+  | 'SINGLE_CHOICE'
+  | 'MULTIPLE_CHOICE'
+  | 'ALLOCATION'
+  | 'SELECT_AND_PLACE';
 
 export interface Question {
   id: string;
@@ -27,7 +38,10 @@ export interface Question {
   explanation: string | null;
   sectionId: string;
   questionType: QuestionType;
-  /** Choice options, or the items to sort for an allocation question. */
+  /**
+   * Choice options, the items to sort for an allocation question, or the
+   * (shuffled) option pool of a select-and-place question.
+   */
   answers: Answer[];
   /** Baskets for an allocation question; empty for choice questions. */
   categories: Category[];
@@ -142,9 +156,13 @@ export interface SessionItem {
   selectedAnswerIds: string[];
   /** The user's allocation placements (item -> basket); empty for choice. */
   selectedAllocations: Allocation[];
+  /** The user's ordered placements; empty for non select-and-place questions. */
+  selectedPlacements: Placement[];
   correctAnswerIds: string[] | null;
   /** Solution of an allocation question; empty for choice, null until answered. */
   correctAllocations: Allocation[] | null;
+  /** Solution order of a select-and-place question; empty otherwise, null until answered. */
+  correctPlacements: Placement[] | null;
   isCorrect: boolean | null;
   answeredAt: string | null;
 }
@@ -182,6 +200,8 @@ export interface AnswerResult {
   correctAnswerIds: string[];
   /** Solution of an allocation question (item -> basket); empty for choice. */
   correctAllocations: Allocation[];
+  /** Solution order of a select-and-place question; empty for other types. */
+  correctPlacements: Placement[];
   /** Leitner box the question landed in after this answer. */
   reviewBox: number;
   /** Days until the question is due for review again. */

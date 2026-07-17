@@ -17,6 +17,9 @@ class QuestionType(str, enum.Enum):
     MULTIPLE_CHOICE = "MULTIPLE_CHOICE"
     # Sort each item (an answer row) into one of the question's categories.
     ALLOCATION = "ALLOCATION"
+    # Drag a subset of the options (answer rows) into the answer area and put
+    # them into the correct order; the remaining options are distractors.
+    SELECT_AND_PLACE = "SELECT_AND_PLACE"
 
 
 class GoalPeriod(str, enum.Enum):

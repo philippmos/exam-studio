@@ -58,10 +58,18 @@ const SESSION_FIELDS = `
       answerId
       categoryId
     }
+    selectedPlacements {
+      answerId
+      position
+    }
     correctAnswerIds
     correctAllocations {
       answerId
       categoryId
+    }
+    correctPlacements {
+      answerId
+      position
     }
     isCorrect
     answeredAt
@@ -447,9 +455,21 @@ export class ExamService {
     return this.submit(sessionItemId, { allocations });
   }
 
+  /** Submit a select-and-place answer: the option ids in the placed order. */
+  submitPlacement(
+    sessionItemId: string,
+    placedAnswerIds: string[],
+  ): Observable<AnswerResult> {
+    return this.submit(sessionItemId, { placedAnswerIds });
+  }
+
   private submit(
     sessionItemId: string,
-    answer: { selectedAnswerIds?: string[]; allocations?: Allocation[] },
+    answer: {
+      selectedAnswerIds?: string[];
+      allocations?: Allocation[];
+      placedAnswerIds?: string[];
+    },
   ): Observable<AnswerResult> {
     return this.graphql
       .request<{ submitAnswer: AnswerResult }>(
@@ -457,12 +477,14 @@ export class ExamService {
           $sessionItemId: UUID!
           $selectedAnswerIds: [UUID!]
           $allocations: [AllocationInput!]
+          $placedAnswerIds: [UUID!]
           $tzOffsetMinutes: Int!
         ) {
           submitAnswer(
             sessionItemId: $sessionItemId
             selectedAnswerIds: $selectedAnswerIds
             allocations: $allocations
+            placedAnswerIds: $placedAnswerIds
             tzOffsetMinutes: $tzOffsetMinutes
           ) {
             sessionItemId
@@ -471,6 +493,10 @@ export class ExamService {
             correctAllocations {
               answerId
               categoryId
+            }
+            correctPlacements {
+              answerId
+              position
             }
             reviewBox
             reviewIntervalDays
@@ -481,6 +507,7 @@ export class ExamService {
           sessionItemId,
           selectedAnswerIds: answer.selectedAnswerIds ?? [],
           allocations: answer.allocations ?? [],
+          placedAnswerIds: answer.placedAnswerIds ?? [],
           tzOffsetMinutes: -new Date().getTimezoneOffset(),
         },
       )

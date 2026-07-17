@@ -15,6 +15,9 @@ export const WRONG_PREFIX = 'Wrong:';
 export interface AnswerSpec {
   text: string;
   is_correct?: boolean;
+  // Select-and-place options: the 1-based rank in the correct order (omitted
+  // for the distractor options that are never placed).
+  correct_position?: number;
 }
 
 export interface CategorySpec {
@@ -30,8 +33,13 @@ export interface ItemSpec {
 export interface QuestionSpec {
   question: string;
   section_key: string;
-  question_type?: 'single_choice' | 'multiple_choice' | 'allocation';
-  // Choice questions carry answers; allocation questions carry categories + items.
+  question_type?:
+    | 'single_choice'
+    | 'multiple_choice'
+    | 'allocation'
+    | 'select_and_place';
+  // Choice + select-and-place questions carry answers; allocation questions
+  // carry categories + items.
   answers?: AnswerSpec[];
   categories?: CategorySpec[];
   items?: ItemSpec[];
@@ -162,6 +170,42 @@ export function allocationExamSpec(name: string): ExamSpec {
         ],
         items: Object.entries(ALLOCATION_SOLUTION).map(
           ([text, correct_category]) => ({ text, correct_category }),
+        ),
+      },
+    ],
+  };
+}
+
+/**
+ * The intended order of the select-and-place question: item text -> its 1-based
+ * rank. Items with no rank are distractors that are never placed. The API never
+ * reveals the solution, so the tests reconstruct the (correct/wrong) order from
+ * this map.
+ */
+export const SELECT_AND_PLACE_SOLUTION: Record<string, number | undefined> = {
+  'Create the account.': 1,
+  'Sign in to the admin center.': 2,
+  'Respond to the become-admin message.': 3,
+  'Create a DNS TXT record.': 4,
+  'Delete the tenant.': undefined,
+  'Disable the account.': undefined,
+};
+
+/** 1 section, 1 select-and-place question (place 4 of 6 options in order). */
+export function selectAndPlaceExamSpec(name: string): ExamSpec {
+  return {
+    name,
+    issuer: 'Playwright Test Suite',
+    sections: [{ key: 'identity', name: 'Identity' }],
+    questions: [
+      {
+        question:
+          'Which four actions should you perform, in sequence, to become the ' +
+          'global administrator of the tenant?',
+        section_key: 'identity',
+        question_type: 'select_and_place',
+        answers: Object.entries(SELECT_AND_PLACE_SOLUTION).map(
+          ([text, correct_position]) => ({ text, correct_position }),
         ),
       },
     ],

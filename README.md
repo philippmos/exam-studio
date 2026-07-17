@@ -79,9 +79,12 @@ ExamSession ──< SessionItem ──< SessionItemAnswer (the chosen answers)
 * It is split into **Section**s (modules), each holding **Question**s.
 * Each question has several **Answer**s; correct ones carry a boolean flag.
   A question is `single_choice` (exactly one correct answer),
-  `multiple_choice` (one or more correct answers) or `allocation` (sort every
+  `multiple_choice` (one or more correct answers), `allocation` (sort every
   item into one of the question's **categories** / baskets — the items are
-  stored as answer rows that point at their correct category).
+  stored as answer rows that point at their correct category) or
+  `select_and_place` (drag a subset of the options into the answer area and put
+  them in the right order — the options are answer rows that carry their rank in
+  the solution, the rest are distractors).
 * Starting an exam snapshots an ordered **ExamSession** of **SessionItem**s.
   Every answer you give is persisted on its item.
 
@@ -224,10 +227,13 @@ Create a json file with your desired exam content. The file carries no ids:
 sections are referenced by their `key`, question numbers follow the order in
 the file, and the database generates fresh UUIDs on import. `question_type`
 is `single_choice` (exactly one answer with `is_correct: true`),
-`multiple_choice` (one or more correct answers) or `allocation`. An allocation
-question replaces `answers` with `categories` (the baskets, `{key, label}`) and
-`items` (`{text, correct_category}`, the `correct_category` referencing a
-category `key`); see the third question below and `exam.schema.json`. Every
+`multiple_choice` (one or more correct answers), `allocation` or
+`select_and_place`. An allocation question replaces `answers` with `categories`
+(the baskets, `{key, label}`) and `items` (`{text, correct_category}`, the
+`correct_category` referencing a category `key`). A select-and-place question
+keeps `answers` but the options that make up the answer flag their rank with
+`correct_position` (1-based, contiguous from 1); the remaining options are
+distractors. See the last two questions below and `exam.schema.json`. Every
 question may carry an optional `explanation` — a description of the question or
 answer that the app reveals once the question has been answered.
 
@@ -278,6 +284,17 @@ answer that the app reveals once the question has been answered.
         ],
         "section_key": "dummy_section",
         "question_type": "allocation"
+      },
+      {
+        "question": "Put the deployment steps in the correct order.",
+        "answers": [
+          { "text": "Provision the server.", "correct_position": 1 },
+          { "text": "Deploy the application.", "correct_position": 2 },
+          { "text": "Run a smoke test.", "correct_position": 3 },
+          { "text": "Delete the server (a distractor)." }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "select_and_place"
       }
     ]
   }

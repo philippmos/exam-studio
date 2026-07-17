@@ -48,6 +48,20 @@
         "section_key": "dummy_section",
         "question_type": "allocation",
         "explanation": "Dummy explanation text."
+      },
+      {
+        "question": "You need to gain global administrator privileges to the Azure AD tenant that contains the self-signed users. Which four actions should you perform, in sequence?",
+        "answers": [
+          { "text": "Sign in to the Microsoft 365 admin center.", "correct_position": 2 },
+          { "text": "Create a self-signed user account in the Azure AD tenant.", "correct_position": 1 },
+          { "text": "From the Microsoft 365 admin center, add the domain name." },
+          { "text": "Respond to the Become the admin message.", "correct_position": 3 },
+          { "text": "From the Microsoft 365 admin center, remove the domain name." },
+          { "text": "Create a TXT record in the contoso.com DNS zone.", "correct_position": 4 }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "select_and_place",
+        "explanation": "Dummy explanation text. The two unused options are distractors that are never placed."
       }
     ]
   }

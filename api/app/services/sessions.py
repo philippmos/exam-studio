@@ -34,6 +34,8 @@ class AnswerOutcome:
     correct_answer_ids: list[uuid.UUID] = field(default_factory=list)
     # (answer id, correct category id) pairs for allocation questions.
     correct_allocations: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    # (answer id, 0-based slot) pairs for select-and-place questions.
+    correct_placements: list[tuple[uuid.UUID, int]] = field(default_factory=list)
 
 
 def _shuffle_answer_order(question: models.Question) -> list[str]:
@@ -107,13 +109,15 @@ async def submit_answer(
     session_item_id: uuid.UUID,
     selected_answer_ids: list[uuid.UUID] | None,
     placements: list[tuple[uuid.UUID, uuid.UUID]] | None,
+    placed_answer_ids: list[uuid.UUID] | None,
     tz_offset_minutes: int,
 ) -> AnswerOutcome:
     """Persist the answer for a question and report correctness.
 
     Choice questions pass ``selected_answer_ids``; allocation questions pass
-    ``placements`` (answer id, category id). Every answer also advances the
-    question's spaced-repetition schedule.
+    ``placements`` (answer id, category id); select-and-place questions pass
+    ``placed_answer_ids`` (the answer ids in the order they were placed). Every
+    answer also advances the question's spaced-repetition schedule.
     """
     item = await sessions_repo.get_item_with_selection(db, session_item_id)
     if item is None:
@@ -128,6 +132,7 @@ async def submit_answer(
 
     correct_answer_ids: list[uuid.UUID] = []
     correct_allocations: list[tuple[uuid.UUID, uuid.UUID]] = []
+    correct_placements: list[tuple[uuid.UUID, int]] = []
     if question.question_type == QuestionType.ALLOCATION.value:
         categories = await sessions_repo.categories_for_question(db, item.question_id)
         allocation = grading.grade_allocation(
@@ -141,6 +146,27 @@ async def submit_answer(
         ]
         is_correct = allocation.is_correct
         correct_allocations = allocation.correct_allocations
+    elif question.question_type == QuestionType.SELECT_AND_PLACE.value:
+        # Sort (rank, answer id) tuples so the ids come out in solution order.
+        ordered_ids = [
+            answer_id
+            for _, answer_id in sorted(
+                (answer.correct_position, answer.id)
+                for answer in answers
+                if answer.correct_position is not None
+            )
+        ]
+        placement = grading.grade_select_and_place(
+            ordered_ids,
+            {answer.id for answer in answers},
+            placed_answer_ids or [],
+        )
+        selection = [
+            models.SessionItemAnswer(answer_id=aid, position=slot)
+            for aid, slot in placement.chosen.items()
+        ]
+        is_correct = placement.is_correct
+        correct_placements = placement.correct_placements
     else:
         choice = grading.grade_choice(
             QuestionType(question.question_type),
@@ -175,6 +201,7 @@ async def submit_answer(
         review_interval_days=outcome.interval_days,
         correct_answer_ids=correct_answer_ids,
         correct_allocations=correct_allocations,
+        correct_placements=correct_placements,
     )
 
 

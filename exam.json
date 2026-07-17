@@ -82,6 +82,19 @@
         "section_key": "basics",
         "question_type": "allocation",
         "explanation": "HTTP and SSH need the reliable, connection-oriented delivery of TCP. DHCP and TFTP use the lightweight, connectionless UDP."
+      },
+      {
+        "question": "Put the steps of establishing a TCP connection (the three-way handshake) in the correct order.",
+        "answers": [
+          { "text": "The client sends a SYN segment to the server.", "correct_position": 1 },
+          { "text": "The server replies with a SYN-ACK segment.", "correct_position": 2 },
+          { "text": "The client sends an ACK segment back to the server.", "correct_position": 3 },
+          { "text": "The client sends a FIN segment to close the connection." },
+          { "text": "The server floods the client with unsolicited data." }
+        ],
+        "section_key": "basics",
+        "question_type": "select_and_place",
+        "explanation": "TCP opens a connection with a three-way handshake: SYN, then SYN-ACK, then ACK. A FIN closes an existing connection, and unsolicited flooding is not part of the handshake."
       }
     ]
   }

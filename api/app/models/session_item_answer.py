@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, UniqueConstraint, Uuid
+from sqlalchemy import ForeignKey, Integer, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -19,6 +19,8 @@ class SessionItemAnswer(Base):
     Single-choice questions have at most one row per item, multiple-choice
     questions can have several. Allocation questions store one row per item
     (answer), with ``category_id`` recording the basket it was dropped into.
+    Select-and-place questions store one row per placed option, with ``position``
+    recording the 0-based slot it was dropped into.
     """
 
     __tablename__ = "session_item_answers"
@@ -41,6 +43,9 @@ class SessionItemAnswer(Base):
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("question_categories.id", ondelete="CASCADE"), nullable=True
     )
+    # Select-and-place questions only: the 0-based slot the option was placed
+    # into. Null for choice and allocation selections.
+    position: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     session_item: Mapped[SessionItem] = relationship(back_populates="selected_answers")
     answer: Mapped[Answer] = relationship()

@@ -21,6 +21,15 @@ Expected document shape:
             "question_type": "allocation",
             "categories": [{"key": "...", "label": "..."}],
             "items": [{"text": "...", "correct_category": "<category key>"}]
+          },
+          {
+            "question": "...",
+            "section_key": "...",
+            "question_type": "select_and_place",
+            "answers": [
+              {"text": "...", "correct_position": 1},
+              {"text": "... (a distractor, never placed)"}
+            ]
           }
         ]
       }
@@ -29,7 +38,10 @@ Expected document shape:
 Choice questions carry an ``answers`` list (correct options flagged with
 ``is_correct``). Allocation questions instead carry ``categories`` (the baskets)
 and ``items`` (each pointing at the ``correct_category`` it belongs to); the
-items are stored as answer rows.
+items are stored as answer rows. Select-and-place questions also carry an
+``answers`` list (the option pool); the options that make up the answer flag
+their rank with ``correct_position`` (1-based, contiguous from 1), and the
+remaining options are distractors that are never placed.
 
 Every question may carry an optional ``explanation`` (a description of the
 question/answer) that the UI reveals once the question has been answered.
@@ -73,7 +85,8 @@ def _parse_question_type(raw_question: dict, number: int) -> QuestionType:
     except ValueError:
         raise ImportError_(
             f"Question {number} has unknown question_type '{raw_type}' "
-            "(expected 'single_choice', 'multiple_choice' or 'allocation')."
+            "(expected 'single_choice', 'multiple_choice', 'allocation' or "
+            "'select_and_place')."
         ) from None
 
 
@@ -173,6 +186,59 @@ def _build_allocation(question: Question, raw_question: dict, number: int) -> No
         )
 
 
+def _build_select_and_place(
+    question: Question, raw_question: dict, number: int
+) -> None:
+    """Attach the option pool of a select-and-place question.
+
+    Every option is stored as an answer row; the options that make up the
+    answer carry a 1-based ``correct_position`` (contiguous from 1), the rest
+    are distractors. The pool is shuffled per session at run time.
+    """
+    raw_answers = raw_question.get("answers")
+    if not isinstance(raw_answers, list) or not raw_answers:
+        raise ImportError_(
+            f"Question {number} is a select-and-place question and needs a "
+            "non-empty 'answers' list."
+        )
+
+    positions: list[int] = []
+    for index, raw_answer in enumerate(raw_answers):
+        if not isinstance(raw_answer, dict) or not raw_answer.get("text"):
+            raise ImportError_(
+                f"Question {number}, answer {index + 1} is missing its 'text'."
+            )
+        raw_position = raw_answer.get("correct_position")
+        correct_position: int | None = None
+        if raw_position is not None:
+            if not isinstance(raw_position, int) or isinstance(raw_position, bool):
+                raise ImportError_(
+                    f"Question {number}, answer {index + 1} has a non-integer "
+                    "'correct_position'."
+                )
+            correct_position = raw_position
+            positions.append(raw_position)
+
+        Answer(
+            text=html.unescape(raw_answer["text"]),
+            is_correct=False,
+            position=index,
+            question=question,
+            correct_position=correct_position,
+        )
+
+    if not positions:
+        raise ImportError_(
+            f"Question {number} is a select-and-place question and needs at "
+            "least one answer with a 'correct_position'."
+        )
+    if sorted(positions) != list(range(1, len(positions) + 1)):
+        raise ImportError_(
+            f"Question {number} must number its placed answers 1..N with "
+            f"'correct_position' (no gaps or duplicates), found {sorted(positions)}."
+        )
+
+
 def build_exam_from_payload(payload: str) -> Exam:
     try:
         data = json.loads(payload)
@@ -218,6 +284,8 @@ def build_exam_from_payload(payload: str) -> Exam:
 
         if question_type is QuestionType.ALLOCATION:
             _build_allocation(question, raw_question, number)
+        elif question_type is QuestionType.SELECT_AND_PLACE:
+            _build_select_and_place(question, raw_question, number)
         else:
             _build_choice_answers(question, raw_question, number, question_type)
 

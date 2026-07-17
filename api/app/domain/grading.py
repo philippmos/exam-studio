@@ -37,6 +37,17 @@ class AllocationGrade:
     correct_allocations: list[tuple[uuid.UUID, uuid.UUID]]
 
 
+@dataclass(frozen=True)
+class PlacementGrade:
+    """Graded select-and-place answer (an ordered subset of the options)."""
+
+    # answer id -> the 0-based slot it was placed into, the selection to persist.
+    chosen: dict[uuid.UUID, int]
+    is_correct: bool
+    # The solution as (answer id, 0-based slot) pairs, in correct order.
+    correct_placements: list[tuple[uuid.UUID, int]]
+
+
 def grade_choice(
     question_type: QuestionType,
     answer_ids: set[uuid.UUID],
@@ -101,4 +112,35 @@ def grade_allocation(
     ]
     return AllocationGrade(
         chosen=chosen, is_correct=is_correct, correct_allocations=correct_allocations
+    )
+
+
+def grade_select_and_place(
+    correct_order: list[uuid.UUID],
+    answer_ids: set[uuid.UUID],
+    placed_answer_ids: Iterable[uuid.UUID],
+) -> PlacementGrade:
+    """Validate and grade a select-and-place answer (an ordered placement).
+
+    ``placed_answer_ids`` is the user's placement, in the order they arranged
+    it. It is correct only when it matches ``correct_order`` exactly (same
+    options, same sequence); placing too few, too many, a distractor or a wrong
+    order all count as incorrect. Only structurally invalid input is rejected.
+    """
+    placed = list(placed_answer_ids)
+    if not placed:
+        raise ValidationError("At least one option must be placed.")
+    if len(set(placed)) != len(placed):
+        raise ValidationError("Each option may be placed only once.")
+    if not set(placed) <= answer_ids:
+        raise ValidationError("Selected answers do not belong to this question.")
+    if not correct_order:
+        raise ValidationError("This question has no correct order configured.")
+
+    chosen = {answer_id: slot for slot, answer_id in enumerate(placed)}
+    correct_placements = list(enumerate(correct_order))
+    return PlacementGrade(
+        chosen=chosen,
+        is_correct=placed == correct_order,
+        correct_placements=[(answer_id, slot) for slot, answer_id in correct_placements],
     )
