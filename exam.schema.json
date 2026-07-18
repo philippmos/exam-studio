@@ -62,6 +62,17 @@
         "section_key": "dummy_section",
         "question_type": "select_and_place",
         "explanation": "Dummy explanation text. The two unused options are distractors that are never placed."
+      },
+      {
+        "question": "For each of the following statements, decide whether it is true (yes) or false (no).",
+        "answers": [
+          { "text": "A black-box description hides the internal structure.", "answer": "yes" },
+          { "text": "A black-box description must list every private field.", "answer": "no" },
+          { "text": "Interfaces belong in a black-box description.", "answer": "yes" }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "yes_no",
+        "explanation": "Dummy explanation text. Each statement is answered with yes or no; the question is correct only when every verdict matches."
       }
     ]
   }

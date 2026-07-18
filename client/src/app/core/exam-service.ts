@@ -17,6 +17,7 @@ import {
   StudyGoalSource,
   StudyStreak,
   SuggestedStudyGoal,
+  Verdict,
 } from './models';
 
 const EXAM_FIELDS = `
@@ -62,6 +63,10 @@ const SESSION_FIELDS = `
       answerId
       position
     }
+    selectedVerdicts {
+      answerId
+      value
+    }
     correctAnswerIds
     correctAllocations {
       answerId
@@ -70,6 +75,10 @@ const SESSION_FIELDS = `
     correctPlacements {
       answerId
       position
+    }
+    correctVerdicts {
+      answerId
+      value
     }
     isCorrect
     answeredAt
@@ -463,12 +472,21 @@ export class ExamService {
     return this.submit(sessionItemId, { placedAnswerIds });
   }
 
+  /** Submit a yes/no answer: a Yes/No verdict for every statement. */
+  submitVerdicts(
+    sessionItemId: string,
+    verdicts: Verdict[],
+  ): Observable<AnswerResult> {
+    return this.submit(sessionItemId, { verdicts });
+  }
+
   private submit(
     sessionItemId: string,
     answer: {
       selectedAnswerIds?: string[];
       allocations?: Allocation[];
       placedAnswerIds?: string[];
+      verdicts?: Verdict[];
     },
   ): Observable<AnswerResult> {
     return this.graphql
@@ -478,6 +496,7 @@ export class ExamService {
           $selectedAnswerIds: [UUID!]
           $allocations: [AllocationInput!]
           $placedAnswerIds: [UUID!]
+          $verdicts: [VerdictInput!]
           $tzOffsetMinutes: Int!
         ) {
           submitAnswer(
@@ -485,6 +504,7 @@ export class ExamService {
             selectedAnswerIds: $selectedAnswerIds
             allocations: $allocations
             placedAnswerIds: $placedAnswerIds
+            verdicts: $verdicts
             tzOffsetMinutes: $tzOffsetMinutes
           ) {
             sessionItemId
@@ -498,6 +518,10 @@ export class ExamService {
               answerId
               position
             }
+            correctVerdicts {
+              answerId
+              value
+            }
             reviewBox
             reviewIntervalDays
           }
@@ -508,6 +532,7 @@ export class ExamService {
           selectedAnswerIds: answer.selectedAnswerIds ?? [],
           allocations: answer.allocations ?? [],
           placedAnswerIds: answer.placedAnswerIds ?? [],
+          verdicts: answer.verdicts ?? [],
           tzOffsetMinutes: -new Date().getTimezoneOffset(),
         },
       )

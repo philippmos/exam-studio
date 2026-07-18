@@ -105,6 +105,23 @@ class PlacementType:
 
 
 @strawberry.type
+class VerdictType:
+    """A Yes/No answer given to one statement of a yes/no question."""
+
+    answer_id: uuid.UUID
+    # The verdict: True = "Yes", False = "No".
+    value: bool
+
+
+@strawberry.input
+class VerdictInput:
+    """One statement's Yes/No answer submitted for a yes/no question."""
+
+    answer_id: uuid.UUID
+    value: bool
+
+
+@strawberry.type
 class QuestionType:
     id: uuid.UUID
     text: str
@@ -194,6 +211,9 @@ class SessionItemType:
     # The user's select-and-place placements (option -> ordered slot); empty for
     # other question types.
     selected_placements: list[PlacementType]
+    # The user's yes/no verdicts (statement -> Yes/No); empty for other question
+    # types.
+    selected_verdicts: list[VerdictType]
     # Only revealed once the question has been answered, so the solution can be
     # shown when reviewing/resuming without leaking it beforehand.
     correct_answer_ids: list[uuid.UUID] | None
@@ -203,6 +223,9 @@ class SessionItemType:
     # The solution of a select-and-place question (option -> correct slot);
     # empty for other question types, null until answered.
     correct_placements: list[PlacementType] | None
+    # The solution of a yes/no question (statement -> correct verdict); empty for
+    # other question types, null until answered.
+    correct_verdicts: list[VerdictType] | None
     is_correct: bool | None
     answered_at: datetime | None
 
@@ -251,6 +274,9 @@ class AnswerResult:
     # The solution of a select-and-place question (option -> correct slot);
     # empty for other question types.
     correct_placements: list[PlacementType]
+    # The solution of a yes/no question (statement -> correct verdict); empty for
+    # other question types.
+    correct_verdicts: list[VerdictType]
     # Spaced-repetition outcome: the Leitner box the question landed in and how
     # many days until it is due again. Lets the UI confirm the review schedule.
     review_box: int
@@ -450,6 +476,7 @@ def to_session_item(item: models.SessionItem) -> SessionItemType:
     correct_answer_ids = None
     correct_allocations = None
     correct_placements = None
+    correct_verdicts = None
     if answered:
         correct_answer_ids = [a.id for a in item.question.answers if a.is_correct]
         correct_allocations = [
@@ -468,6 +495,11 @@ def to_session_item(item: models.SessionItem) -> SessionItemType:
             PlacementType(answer_id=answer_id, position=slot)
             for slot, (_, answer_id) in enumerate(placed)
         ]
+        correct_verdicts = [
+            VerdictType(answer_id=a.id, value=a.correct_verdict)
+            for a in item.question.answers
+            if a.correct_verdict is not None
+        ]
     selected_placements = sorted(
         (
             PlacementType(answer_id=sa.answer_id, position=sa.position)
@@ -476,6 +508,11 @@ def to_session_item(item: models.SessionItem) -> SessionItemType:
         ),
         key=lambda p: p.position,
     )
+    selected_verdicts = [
+        VerdictType(answer_id=sa.answer_id, value=sa.verdict)
+        for sa in item.selected_answers
+        if sa.verdict is not None
+    ]
     return SessionItemType(
         id=item.id,
         position=item.position,
@@ -487,9 +524,11 @@ def to_session_item(item: models.SessionItem) -> SessionItemType:
             if sa.category_id is not None
         ],
         selected_placements=selected_placements,
+        selected_verdicts=selected_verdicts,
         correct_answer_ids=correct_answer_ids,
         correct_allocations=correct_allocations,
         correct_placements=correct_placements,
+        correct_verdicts=correct_verdicts,
         is_correct=item.is_correct,
         answered_at=item.answered_at,
     )

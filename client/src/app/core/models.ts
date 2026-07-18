@@ -25,11 +25,19 @@ export interface Placement {
   position: number;
 }
 
+/** One statement's Yes/No answer of a yes/no question. */
+export interface Verdict {
+  answerId: string;
+  /** The verdict: `true` = "Yes", `false` = "No". */
+  value: boolean;
+}
+
 export type QuestionType =
   | 'SINGLE_CHOICE'
   | 'MULTIPLE_CHOICE'
   | 'ALLOCATION'
-  | 'SELECT_AND_PLACE';
+  | 'SELECT_AND_PLACE'
+  | 'YES_NO';
 
 export interface Question {
   id: string;
@@ -39,8 +47,9 @@ export interface Question {
   sectionId: string;
   questionType: QuestionType;
   /**
-   * Choice options, the items to sort for an allocation question, or the
-   * (shuffled) option pool of a select-and-place question.
+   * Choice options, the items to sort for an allocation question, the
+   * (shuffled) option pool of a select-and-place question, or the statements of
+   * a yes/no question.
    */
   answers: Answer[];
   /** Baskets for an allocation question; empty for choice questions. */
@@ -158,11 +167,15 @@ export interface SessionItem {
   selectedAllocations: Allocation[];
   /** The user's ordered placements; empty for non select-and-place questions. */
   selectedPlacements: Placement[];
+  /** The user's Yes/No verdicts; empty for non yes/no questions. */
+  selectedVerdicts: Verdict[];
   correctAnswerIds: string[] | null;
   /** Solution of an allocation question; empty for choice, null until answered. */
   correctAllocations: Allocation[] | null;
   /** Solution order of a select-and-place question; empty otherwise, null until answered. */
   correctPlacements: Placement[] | null;
+  /** Solution of a yes/no question; empty otherwise, null until answered. */
+  correctVerdicts: Verdict[] | null;
   isCorrect: boolean | null;
   answeredAt: string | null;
 }
@@ -202,6 +215,8 @@ export interface AnswerResult {
   correctAllocations: Allocation[];
   /** Solution order of a select-and-place question; empty for other types. */
   correctPlacements: Placement[];
+  /** Solution of a yes/no question; empty for other types. */
+  correctVerdicts: Verdict[];
   /** Leitner box the question landed in after this answer. */
   reviewBox: number;
   /** Days until the question is due for review again. */

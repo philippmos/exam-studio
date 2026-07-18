@@ -15,7 +15,13 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-import { Allocation, Answer, Placement, Question } from '../../core/models';
+import {
+  Allocation,
+  Answer,
+  Placement,
+  Question,
+  Verdict,
+} from '../../core/models';
 
 @Component({
   selector: 'app-question-view',
@@ -26,7 +32,73 @@ import { Allocation, Answer, Placement, Question } from '../../core/models';
     <!-- Question text is imported, trusted content; Angular sanitises innerHTML. -->
     <div class="question-text" [innerHTML]="question().text"></div>
 
-    @if (isSelectAndPlace()) {
+    @if (isYesNo()) {
+      @if (!answered()) {
+        <p class="multi-hint">
+          <mat-icon>rule</mat-icon> Answer each statement with Yes or No.
+        </p>
+        <div class="statements">
+          @for (stmt of question().answers; track stmt.id) {
+            <div class="statement">
+              <span class="statement-text">{{ stmt.text }}</span>
+              <div class="yn-group" role="group">
+                <button
+                  type="button"
+                  class="yn-btn yes"
+                  [class.active]="verdictValue(stmt.id) === true"
+                  (click)="setVerdict(stmt.id, true)"
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  class="yn-btn no"
+                  [class.active]="verdictValue(stmt.id) === false"
+                  (click)="setVerdict(stmt.id, false)"
+                >
+                  No
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+        <div class="submit-row">
+          <button
+            mat-flat-button
+            [disabled]="!allVerdictsSet()"
+            (click)="submitYesNo()"
+          >
+            Check answer
+          </button>
+        </div>
+      } @else {
+        <!-- Answered: show each statement's verdict with right/wrong feedback. -->
+        <div class="statements">
+          @for (stmt of question().answers; track stmt.id) {
+            <div
+              class="statement graded"
+              [class.correct]="isVerdictCorrect(stmt.id)"
+              [class.wrong]="!isVerdictCorrect(stmt.id)"
+            >
+              <mat-icon class="state-icon">{{
+                isVerdictCorrect(stmt.id) ? 'check_circle' : 'cancel'
+              }}</mat-icon>
+              <span class="statement-text">{{ stmt.text }}</span>
+              <span class="yn-result">
+                <span class="yn-badge">{{
+                  verdictLabel(selectedVerdictOf(stmt.id))
+                }}</span>
+                @if (!isVerdictCorrect(stmt.id)) {
+                  <span class="correction">
+                    → {{ verdictLabel(correctVerdictOf(stmt.id)) }}
+                  </span>
+                }
+              </span>
+            </div>
+          }
+        </div>
+      }
+    } @else if (isSelectAndPlace()) {
       @if (!answered()) {
         <p class="multi-hint">
           <mat-icon>drag_indicator</mat-icon> Drag the answers into the answer
@@ -585,6 +657,82 @@ import { Allocation, Answer, Placement, Question } from '../../core/models';
         color: var(--mat-sys-on-surface-variant);
         text-align: center;
       }
+
+      /* ---- Yes/No (a verdict per statement) ---- */
+      .statements {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .statement {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border: 2px solid
+          color-mix(in srgb, var(--mat-sys-outline-variant) 55%, transparent);
+        border-radius: 12px;
+        background: var(--mat-sys-surface);
+        font-size: 15px;
+        line-height: 1.45;
+      }
+      .statement-text {
+        flex: 1;
+      }
+      .yn-group,
+      .yn-result {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .yn-btn {
+        min-width: 52px;
+        padding: 7px 14px;
+        border: 2px solid
+          color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent);
+        border-radius: 999px;
+        background: var(--mat-sys-surface);
+        color: var(--mat-sys-on-surface-variant);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .yn-btn:hover {
+        border-color: var(--mat-sys-primary);
+      }
+      .yn-btn.yes.active,
+      .statement.correct {
+        border-color: var(--app-success);
+        background: var(--app-success-bg);
+      }
+      .yn-btn.no.active,
+      .statement.wrong {
+        border-color: var(--app-danger);
+        background: var(--app-danger-bg);
+      }
+      .yn-btn.yes.active,
+      .statement.correct .state-icon {
+        color: var(--app-success);
+      }
+      .yn-btn.no.active,
+      .statement.wrong .state-icon {
+        color: var(--app-danger);
+      }
+      .statement .state-icon {
+        flex: 0 0 auto;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+      .yn-badge {
+        padding: 4px 12px;
+        border-radius: 999px;
+        background: var(--mat-sys-surface-container-high);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
       /* CDK drag visuals */
       .cdk-drag-preview {
         border-radius: 10px;
@@ -612,12 +760,18 @@ export class QuestionView {
   readonly selectedPlacements = input<Placement[]>([]);
   /** Select-and-place solution order; revealed after answering. */
   readonly correctPlacements = input<Placement[] | null>(null);
+  /** Yes/No verdicts the user gave (statement -> Yes/No); for review/resume. */
+  readonly selectedVerdicts = input<Verdict[]>([]);
+  /** Yes/No solution (statement -> correct verdict); revealed after answering. */
+  readonly correctVerdicts = input<Verdict[] | null>(null);
   /** Emits the chosen answer ids: one for single choice, several for multiple. */
   readonly submitAnswers = output<string[]>();
   /** Emits the placements of an allocation question once every item is sorted. */
   readonly submitAllocations = output<Allocation[]>();
   /** Emits the placed option ids, in order, for a select-and-place question. */
   readonly submitPlacements = output<string[]>();
+  /** Emits a Yes/No verdict per statement once every statement is answered. */
+  readonly submitVerdicts = output<Verdict[]>();
 
   readonly letters = ['A', 'B', 'C', 'D', 'E', 'F'];
 
@@ -630,6 +784,7 @@ export class QuestionView {
   readonly isSelectAndPlace = computed(
     () => this.question().questionType === 'SELECT_AND_PLACE',
   );
+  readonly isYesNo = computed(() => this.question().questionType === 'YES_NO');
 
   /**
    * Local multiple-choice selection before submit. A linkedSignal so it resets
@@ -665,6 +820,15 @@ export class QuestionView {
   readonly placed = linkedSignal<Question, Answer[]>({
     source: this.question,
     computation: () => [],
+  });
+
+  /**
+   * Local yes/no selection before submit (answer id -> chosen verdict). A
+   * linkedSignal so it clears whenever a new question is bound.
+   */
+  readonly verdicts = linkedSignal<Question, Record<string, boolean>>({
+    source: this.question,
+    computation: () => ({}),
   });
 
   // ---- Choice questions ---------------------------------------------------
@@ -841,4 +1005,66 @@ export class QuestionView {
       placed.every((answer, index) => answer.id === correct[index].id)
     );
   });
+
+  // ---- Yes/No questions ---------------------------------------------------
+
+  /** Record the user's Yes/No verdict for one statement. */
+  setVerdict(answerId: string, value: boolean): void {
+    if (this.answered()) {
+      return;
+    }
+    this.verdicts.update((current) => ({ ...current, [answerId]: value }));
+  }
+
+  /** The local verdict for a statement, or undefined if not answered yet. */
+  verdictValue(answerId: string): boolean | undefined {
+    return this.verdicts()[answerId];
+  }
+
+  /** Whether every statement has been given a Yes/No verdict. */
+  allVerdictsSet(): boolean {
+    const chosen = this.verdicts();
+    return this.question().answers.every((answer) => answer.id in chosen);
+  }
+
+  submitYesNo(): void {
+    if (!this.allVerdictsSet()) {
+      return;
+    }
+    const chosen = this.verdicts();
+    this.submitVerdicts.emit(
+      this.question().answers.map((answer) => ({
+        answerId: answer.id,
+        value: chosen[answer.id],
+      })),
+    );
+  }
+
+  /** The user's verdict for a statement (answered view, from the inputs). */
+  selectedVerdictOf(answerId: string): boolean | null {
+    return (
+      this.selectedVerdicts().find((v) => v.answerId === answerId)?.value ?? null
+    );
+  }
+
+  /** The correct verdict for a statement (answered view, from the inputs). */
+  correctVerdictOf(answerId: string): boolean | null {
+    return (
+      this.correctVerdicts()?.find((v) => v.answerId === answerId)?.value ?? null
+    );
+  }
+
+  /** Whether the user's verdict for a statement matches the solution. */
+  isVerdictCorrect(answerId: string): boolean {
+    const chosen = this.selectedVerdictOf(answerId);
+    return chosen !== null && chosen === this.correctVerdictOf(answerId);
+  }
+
+  /** Render a verdict as a Yes/No label ("—" when unanswered). */
+  verdictLabel(value: boolean | null): string {
+    if (value === null) {
+      return '—';
+    }
+    return value ? 'Yes' : 'No';
+  }
 }

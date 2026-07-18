@@ -20,6 +20,9 @@ class QuestionType(str, enum.Enum):
     # Drag a subset of the options (answer rows) into the answer area and put
     # them into the correct order; the remaining options are distractors.
     SELECT_AND_PLACE = "SELECT_AND_PLACE"
+    # Answer each statement (an answer row) with Yes or No; correct only when
+    # every statement's verdict matches its expected answer.
+    YES_NO = "YES_NO"
 
 
 class GoalPeriod(str, enum.Enum):

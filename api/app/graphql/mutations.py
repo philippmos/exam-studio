@@ -21,6 +21,8 @@ from app.graphql.types import (
     StudyGoalSourceEnum,
     ThemePreferenceEnum,
     UserSettingsType,
+    VerdictInput,
+    VerdictType,
     to_exam,
     to_session,
     to_user_settings,
@@ -183,6 +185,7 @@ class Mutation:
         selected_answer_ids: list[uuid.UUID] | None = None,
         allocations: list[AllocationInput] | None = None,
         placed_answer_ids: list[uuid.UUID] | None = None,
+        verdicts: list[VerdictInput] | None = None,
         tz_offset_minutes: int = 0,
     ) -> AnswerResult:
         """Persist the answer for a question and report correctness.
@@ -192,12 +195,19 @@ class Mutation:
         chosen); allocation questions pass ``allocations`` and are correct only
         when every item sits in its correct basket; select-and-place questions
         pass ``placed_answer_ids`` (the answer ids in the placed order) and are
-        correct only when that order matches the solution exactly. Every answer
-        also advances the question's spaced-repetition schedule.
+        correct only when that order matches the solution exactly; yes/no
+        questions pass ``verdicts`` (a Yes/No answer per statement) and are
+        correct only when every verdict matches. Every answer also advances the
+        question's spaced-repetition schedule.
         """
         placements = (
             [(placement.answer_id, placement.category_id) for placement in allocations]
             if allocations is not None
+            else None
+        )
+        verdict_pairs = (
+            [(verdict.answer_id, verdict.value) for verdict in verdicts]
+            if verdicts is not None
             else None
         )
         outcome = await sessions_service.submit_answer(
@@ -207,6 +217,7 @@ class Mutation:
             selected_answer_ids,
             placements,
             placed_answer_ids,
+            verdict_pairs,
             tz_offset_minutes,
         )
         return AnswerResult(
@@ -220,6 +231,10 @@ class Mutation:
             correct_placements=[
                 PlacementType(answer_id=answer_id, position=position)
                 for answer_id, position in outcome.correct_placements
+            ],
+            correct_verdicts=[
+                VerdictType(answer_id=answer_id, value=value)
+                for answer_id, value in outcome.correct_verdicts
             ],
             review_box=outcome.review_box,
             review_interval_days=outcome.review_interval_days,

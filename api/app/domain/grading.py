@@ -48,6 +48,17 @@ class PlacementGrade:
     correct_placements: list[tuple[uuid.UUID, int]]
 
 
+@dataclass(frozen=True)
+class VerdictGrade:
+    """Graded yes/no answer (a Yes/No verdict on every statement)."""
+
+    # answer id -> the chosen verdict (True = Yes), the selection to persist.
+    chosen: dict[uuid.UUID, bool]
+    is_correct: bool
+    # The solution as (answer id, correct verdict) pairs, in statement order.
+    correct_verdicts: list[tuple[uuid.UUID, bool]]
+
+
 def grade_choice(
     question_type: QuestionType,
     answer_ids: set[uuid.UUID],
@@ -143,4 +154,39 @@ def grade_select_and_place(
         chosen=chosen,
         is_correct=placed == correct_order,
         correct_placements=[(answer_id, slot) for slot, answer_id in correct_placements],
+    )
+
+
+def grade_yes_no(
+    correct_verdict_by_answer: dict[uuid.UUID, bool],
+    verdicts: Iterable[tuple[uuid.UUID, bool]],
+) -> VerdictGrade:
+    """Validate and grade a yes/no answer (a Yes/No verdict per statement).
+
+    Every statement must be answered, and the answer is correct only when every
+    statement's verdict matches the solution. Pass ``correct_verdict_by_answer``
+    in statement order so the returned solution keeps that order.
+    """
+    answer_ids = set(correct_verdict_by_answer)
+    if not answer_ids:
+        raise ValidationError("This question has no statements configured.")
+
+    chosen: dict[uuid.UUID, bool] = {}
+    for answer_id, value in verdicts:
+        if answer_id in chosen:
+            raise ValidationError("Each statement may be answered only once.")
+        chosen[answer_id] = value
+
+    if not set(chosen) <= answer_ids:
+        raise ValidationError("Selected answers do not belong to this question.")
+    if set(chosen) != answer_ids:
+        raise ValidationError("Every statement must be answered yes or no.")
+
+    is_correct = all(
+        chosen[aid] == correct_verdict_by_answer[aid] for aid in answer_ids
+    )
+    return VerdictGrade(
+        chosen=chosen,
+        is_correct=is_correct,
+        correct_verdicts=list(correct_verdict_by_answer.items()),
     )

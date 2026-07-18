@@ -36,6 +36,8 @@ class AnswerOutcome:
     correct_allocations: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     # (answer id, 0-based slot) pairs for select-and-place questions.
     correct_placements: list[tuple[uuid.UUID, int]] = field(default_factory=list)
+    # (answer id, correct verdict) pairs for yes/no questions.
+    correct_verdicts: list[tuple[uuid.UUID, bool]] = field(default_factory=list)
 
 
 def _shuffle_answer_order(question: models.Question) -> list[str]:
@@ -110,13 +112,15 @@ async def submit_answer(
     selected_answer_ids: list[uuid.UUID] | None,
     placements: list[tuple[uuid.UUID, uuid.UUID]] | None,
     placed_answer_ids: list[uuid.UUID] | None,
+    verdicts: list[tuple[uuid.UUID, bool]] | None,
     tz_offset_minutes: int,
 ) -> AnswerOutcome:
     """Persist the answer for a question and report correctness.
 
     Choice questions pass ``selected_answer_ids``; allocation questions pass
     ``placements`` (answer id, category id); select-and-place questions pass
-    ``placed_answer_ids`` (the answer ids in the order they were placed). Every
+    ``placed_answer_ids`` (the answer ids in the order they were placed); yes/no
+    questions pass ``verdicts`` (answer id, Yes/No value per statement). Every
     answer also advances the question's spaced-repetition schedule.
     """
     item = await sessions_repo.get_item_with_selection(db, session_item_id)
@@ -133,6 +137,7 @@ async def submit_answer(
     correct_answer_ids: list[uuid.UUID] = []
     correct_allocations: list[tuple[uuid.UUID, uuid.UUID]] = []
     correct_placements: list[tuple[uuid.UUID, int]] = []
+    correct_verdicts: list[tuple[uuid.UUID, bool]] = []
     if question.question_type == QuestionType.ALLOCATION.value:
         categories = await sessions_repo.categories_for_question(db, item.question_id)
         allocation = grading.grade_allocation(
@@ -167,6 +172,21 @@ async def submit_answer(
         ]
         is_correct = placement.is_correct
         correct_placements = placement.correct_placements
+    elif question.question_type == QuestionType.YES_NO.value:
+        verdict_grade = grading.grade_yes_no(
+            {
+                answer.id: answer.correct_verdict
+                for answer in answers
+                if answer.correct_verdict is not None
+            },
+            verdicts or [],
+        )
+        selection = [
+            models.SessionItemAnswer(answer_id=aid, verdict=value)
+            for aid, value in verdict_grade.chosen.items()
+        ]
+        is_correct = verdict_grade.is_correct
+        correct_verdicts = verdict_grade.correct_verdicts
     else:
         choice = grading.grade_choice(
             QuestionType(question.question_type),
@@ -202,6 +222,7 @@ async def submit_answer(
         correct_answer_ids=correct_answer_ids,
         correct_allocations=correct_allocations,
         correct_placements=correct_placements,
+        correct_verdicts=correct_verdicts,
     )
 
 

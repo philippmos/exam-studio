@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, ForeignKey, Integer, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -20,7 +20,8 @@ class SessionItemAnswer(Base):
     questions can have several. Allocation questions store one row per item
     (answer), with ``category_id`` recording the basket it was dropped into.
     Select-and-place questions store one row per placed option, with ``position``
-    recording the 0-based slot it was dropped into.
+    recording the 0-based slot it was dropped into. Yes/No questions store one
+    row per statement, with ``verdict`` recording the Yes/No answer given.
     """
 
     __tablename__ = "session_item_answers"
@@ -46,6 +47,9 @@ class SessionItemAnswer(Base):
     # Select-and-place questions only: the 0-based slot the option was placed
     # into. Null for choice and allocation selections.
     position: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Yes/No questions only: the verdict the user gave (True = "Yes", False =
+    # "No"). Null for choice, allocation and select-and-place selections.
+    verdict: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     session_item: Mapped[SessionItem] = relationship(back_populates="selected_answers")
     answer: Mapped[Answer] = relationship()

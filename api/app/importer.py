@@ -30,6 +30,15 @@ Expected document shape:
               {"text": "...", "correct_position": 1},
               {"text": "... (a distractor, never placed)"}
             ]
+          },
+          {
+            "question": "...",
+            "section_key": "...",
+            "question_type": "yes_no",
+            "answers": [
+              {"text": "...", "answer": "yes"},
+              {"text": "...", "answer": "no"}
+            ]
           }
         ]
       }
@@ -41,7 +50,10 @@ and ``items`` (each pointing at the ``correct_category`` it belongs to); the
 items are stored as answer rows. Select-and-place questions also carry an
 ``answers`` list (the option pool); the options that make up the answer flag
 their rank with ``correct_position`` (1-based, contiguous from 1), and the
-remaining options are distractors that are never placed.
+remaining options are distractors that are never placed. Yes/No questions carry
+an ``answers`` list of statements; each flags its expected answer with
+``answer`` ("yes" or "no") and the question is correct only when every verdict
+matches.
 
 Every question may carry an optional ``explanation`` (a description of the
 question/answer) that the UI reveals once the question has been answered.
@@ -85,8 +97,8 @@ def _parse_question_type(raw_question: dict, number: int) -> QuestionType:
     except ValueError:
         raise ImportError_(
             f"Question {number} has unknown question_type '{raw_type}' "
-            "(expected 'single_choice', 'multiple_choice', 'allocation' or "
-            "'select_and_place')."
+            "(expected 'single_choice', 'multiple_choice', 'allocation', "
+            "'select_and_place' or 'yes_no')."
         ) from None
 
 
@@ -239,6 +251,45 @@ def _build_select_and_place(
         )
 
 
+def _build_yes_no(question: Question, raw_question: dict, number: int) -> None:
+    """Attach the statements of a yes/no question.
+
+    Every statement is stored as an answer row carrying its expected verdict in
+    ``correct_verdict`` (``True`` = "Yes", ``False`` = "No"), read from the
+    statement's ``answer`` field ("yes"/"no"). The user answers each statement
+    with yes or no; the question is correct only when every verdict matches.
+    """
+    raw_answers = raw_question.get("answers")
+    if not isinstance(raw_answers, list) or not raw_answers:
+        raise ImportError_(
+            f"Question {number} is a yes/no question and needs a non-empty "
+            "'answers' list."
+        )
+
+    for index, raw_answer in enumerate(raw_answers):
+        if not isinstance(raw_answer, dict) or not raw_answer.get("text"):
+            raise ImportError_(
+                f"Question {number}, answer {index + 1} is missing its 'text'."
+            )
+        raw_value = raw_answer.get("answer")
+        if not isinstance(raw_value, str) or raw_value.strip().lower() not in (
+            "yes",
+            "no",
+        ):
+            raise ImportError_(
+                f"Question {number}, answer {index + 1} needs an 'answer' of "
+                "'yes' or 'no'."
+            )
+
+        Answer(
+            text=html.unescape(raw_answer["text"]),
+            is_correct=False,
+            position=index,
+            question=question,
+            correct_verdict=raw_value.strip().lower() == "yes",
+        )
+
+
 def build_exam_from_payload(payload: str) -> Exam:
     try:
         data = json.loads(payload)
@@ -286,6 +337,8 @@ def build_exam_from_payload(payload: str) -> Exam:
             _build_allocation(question, raw_question, number)
         elif question_type is QuestionType.SELECT_AND_PLACE:
             _build_select_and_place(question, raw_question, number)
+        elif question_type is QuestionType.YES_NO:
+            _build_yes_no(question, raw_question, number)
         else:
             _build_choice_answers(question, raw_question, number, question_type)
 
