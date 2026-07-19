@@ -21,6 +21,8 @@ from app.domain.enums import QuestionType, SessionMode
 from app.repositories import exams as exams_repo
 from app.repositories import sessions as sessions_repo
 from app.services import review as review_service
+from app.storage.blob import MediaStorage, get_media_storage
+from app.storage.resolver import replace_media_placeholders
 
 
 @dataclass
@@ -46,11 +48,40 @@ def _shuffle_answer_order(question: models.Question) -> list[str]:
     return answer_ids
 
 
+async def _resolve_media(session: models.ExamSession) -> None:
+    """Swap each question's ``media://`` placeholders for short-lived signed URLs.
+
+    Mutates the loaded question text/explanation in place for serving only; the
+    read path never commits, so nothing is persisted. Questions without media
+    (the common case) never touch storage.
+    """
+    storage: MediaStorage | None = None
+    for item in session.items:
+        question = item.question
+        if not question.media:
+            continue
+        if storage is None:
+            storage = get_media_storage()
+        url_by_id = {
+            str(media.id): await storage.signed_url(media.blob_path)
+            for media in question.media
+        }
+        resolved_text = replace_media_placeholders(question.text, url_by_id)
+        if resolved_text is not None:
+            question.text = resolved_text
+        question.explanation = replace_media_placeholders(
+            question.explanation, url_by_id
+        )
+
+
 async def get_session(
     db: AsyncSession, user_id: uuid.UUID, session_id: uuid.UUID
 ) -> models.ExamSession | None:
     """A running (or finished) session with its ordered questions, or ``None``."""
-    return await sessions_repo.load_with_items(db, user_id, session_id)
+    session = await sessions_repo.load_with_items(db, user_id, session_id)
+    if session is not None:
+        await _resolve_media(session)
+    return session
 
 
 async def list_overviews(
@@ -102,6 +133,7 @@ async def start_session(
 
     result = await sessions_repo.load_with_items(db, user.id, session.id)
     assert result is not None  # just created and owned by this user
+    await _resolve_media(result)
     return result
 
 
@@ -236,6 +268,7 @@ async def finish_session(
     await db.commit()
     result = await sessions_repo.load_with_items(db, user.id, session_id)
     assert result is not None
+    await _resolve_media(result)
     return result
 
 

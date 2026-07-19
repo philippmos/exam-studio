@@ -70,12 +70,27 @@ sections are matched by ``name`` (the JSON ``key`` is not persisted), with any
 referenced-but-missing module created on the fly.
 """
 
+import hashlib
 import html
+import io
 import json
+import re
+import uuid
+import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.core.config import Settings, get_settings
 from app.domain.enums import QuestionType
-from app.models import Answer, Exam, Question, QuestionCategory, Section
+from app.models import (
+    Answer,
+    Exam,
+    Question,
+    QuestionCategory,
+    QuestionMedia,
+    Section,
+)
+from app.storage.blob import MediaUpload
 
 
 class ImportError_(ValueError):
@@ -360,19 +375,37 @@ def merge_questions_into_exam(exam: Exam, payload: str) -> ImportSummary:
     the caller is responsible for committing.
     """
     incoming = build_exam_from_payload(payload)
+    summary, _grafted = _graft_new_questions(exam, incoming)
+    return summary
 
-    existing_texts = {
-        question.text for section in exam.sections for question in section.questions
+
+def _graft_new_questions(
+    exam: Exam,
+    incoming: Exam,
+    dedup_key: Callable[[Question], str] | None = None,
+) -> tuple[ImportSummary, list[Question]]:
+    """Move the not-yet-present questions of ``incoming`` onto ``exam``.
+
+    A question is "new" when its ``dedup_key`` is not already in the exam
+    (default: the exact question text). Incoming sections are matched to the
+    exam's modules by ``name``; a referenced module that does not exist yet is
+    created. Returns the add/skip summary and the list of questions actually
+    grafted (so the caller can, e.g., attach their media).
+    """
+    key_of = dedup_key or (lambda question: question.text)
+    existing_keys = {
+        key_of(question) for section in exam.sections for question in section.questions
     }
     section_by_name = {section.name: section for section in exam.sections}
     next_position = max((section.position for section in exam.sections), default=-1) + 1
 
-    added = 0
+    grafted: list[Question] = []
     skipped = 0
     for incoming_section in incoming.sections:
         target = section_by_name.get(incoming_section.name)
         for incoming_question in list(incoming_section.questions):
-            if incoming_question.text in existing_texts:
+            key = key_of(incoming_question)
+            if key in existing_keys:
                 skipped += 1
                 continue
             if target is None:
@@ -385,7 +418,397 @@ def merge_questions_into_exam(exam: Exam, payload: str) -> ImportSummary:
             # and categories, which hang off the question) into the persistent
             # exam graph; the transient incoming exam/sections are left behind.
             incoming_question.section = target
-            existing_texts.add(incoming_question.text)
-            added += 1
+            existing_keys.add(key)
+            grafted.append(incoming_question)
 
-    return ImportSummary(added=added, skipped=skipped)
+    return ImportSummary(added=len(grafted), skipped=skipped), grafted
+
+
+# --------------------------------------------------------------------------- #
+# ZIP import (question images)                                                 #
+# --------------------------------------------------------------------------- #
+#
+# A ZIP import bundles the JSON manifest with the images it references:
+#
+#     exam.zip
+#     ├── exam.json          # the same document as a plain JSON import
+#     └── images/            # image files referenced from question HTML
+#         ├── diagram.png
+#         └── topology.svg
+#
+# Question HTML points at a bundled image with a ZIP-relative path, e.g.
+# ``<img src="images/diagram.png">``. On import each referenced image is
+# validated, uploaded to blob storage (content-addressed under the exam prefix)
+# and its ``src`` rewritten to a stable ``media://{id}`` placeholder that is
+# resolved to a signed URL when the question is served.
+
+# The manifest must sit at the archive root under this exact (case-sensitive) name.
+_MANIFEST_NAME = "exam.json"
+# Only references under this folder are treated as bundled images.
+_IMAGES_PREFIX = "images/"
+
+# ``<img ... src="...">`` — captures (prefix incl. ``src=``, quote, url).
+_IMG_SRC_RE = re.compile(
+    r'(<img\b[^>]*?\bsrc\s*=\s*)(["\'])(.*?)\2',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _size_label(num_bytes: int) -> str:
+    """A human-friendly size limit, e.g. "5 MB" (or bytes when under 1 MB)."""
+    if num_bytes >= 1024 * 1024:
+        return f"{num_bytes // (1024 * 1024)} MB"
+    return f"{num_bytes} bytes"
+
+
+# Blob extension per (sniffed) content type.
+_EXT_BY_TYPE = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/gif": "gif",
+    "image/webp": "webp",
+    "image/svg+xml": "svg",
+}
+
+
+def _open_import_zip(
+    zip_bytes: bytes, settings: Settings
+) -> tuple[str, zipfile.ZipFile]:
+    """Open and sanity-check an import ZIP, returning ``(manifest_text, zip)``.
+
+    Guards against oversized uploads, zip bombs (total uncompressed size and
+    entry count) and unsafe entry paths, then reads the ``exam.json`` manifest.
+    The caller owns the returned :class:`zipfile.ZipFile` and must close it.
+    """
+    if len(zip_bytes) > settings.import_zip_max_bytes:
+        raise ImportError_(
+            f"The import archive exceeds the "
+            f"{_size_label(settings.import_zip_max_bytes)} limit."
+        )
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(zip_bytes))
+    except zipfile.BadZipFile as exc:
+        raise ImportError_("The uploaded file is not a valid ZIP archive.") from exc
+
+    infos = archive.infolist()
+    if len(infos) > settings.media_max_files + 50:
+        archive.close()
+        raise ImportError_("The ZIP archive contains too many entries.")
+
+    max_total = settings.import_zip_max_bytes + settings.media_max_file_bytes * (
+        settings.media_max_files + 1
+    )
+    total = 0
+    for info in infos:
+        name = info.filename.replace("\\", "/")
+        if name.startswith("/") or ".." in name.split("/"):
+            archive.close()
+            raise ImportError_(f"The ZIP contains an unsafe path: '{info.filename}'.")
+        total += info.file_size
+        if total > max_total:
+            archive.close()
+            raise ImportError_(
+                "The ZIP's uncompressed contents exceed the allowed size."
+            )
+
+    try:
+        manifest_bytes = archive.read(_MANIFEST_NAME)
+    except KeyError:
+        archive.close()
+        raise ImportError_(
+            f"The ZIP archive must contain a '{_MANIFEST_NAME}' file at its root."
+        ) from None
+    try:
+        manifest = manifest_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        archive.close()
+        raise ImportError_(f"'{_MANIFEST_NAME}' is not valid UTF-8.") from exc
+
+    return manifest, archive
+
+
+def _image_entries(archive: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
+    """The archive's image files, keyed by their normalised ``images/...`` name."""
+    entries: dict[str, zipfile.ZipInfo] = {}
+    for info in archive.infolist():
+        if info.is_dir():
+            continue
+        name = info.filename.replace("\\", "/")
+        if name.startswith(_IMAGES_PREFIX):
+            entries[name] = info
+    return entries
+
+
+def _normalize_zip_ref(raw_src: str) -> str | None:
+    """Normalise an ``<img src>`` value to a bundled image path, or ``None``.
+
+    Returns ``None`` for anything that is not a local reference under
+    ``images/`` (external URLs, ``data:`` URIs, absolute or traversing paths),
+    which is then left untouched in the HTML.
+    """
+    value = raw_src.strip().replace("\\", "/")
+    if value.startswith("./"):
+        value = value[2:]
+    if "://" in value or value.lower().startswith("data:") or value.startswith("/"):
+        return None
+    if ".." in value.split("/"):
+        return None
+    if not value.startswith(_IMAGES_PREFIX):
+        return None
+    return value
+
+
+def _looks_like_svg(data: bytes) -> bool:
+    head = data[:512].lstrip()
+    if head.startswith(b"\xef\xbb\xbf"):  # UTF-8 BOM
+        head = head[3:].lstrip()
+    lowered = head.lower()
+    return lowered.startswith(b"<svg") or (
+        lowered.startswith(b"<?xml") and b"<svg" in data[:2048].lower()
+    )
+
+
+def _detect_image_type(data: bytes) -> str | None:
+    """Sniff an image's content type from its magic bytes (never the extension)."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    if _looks_like_svg(data):
+        return "image/svg+xml"
+    return None
+
+
+def _sniff_content_type(data: bytes, settings: Settings) -> str | None:
+    """The image's content type if it is sniffable *and* allowed, else ``None``."""
+    content_type = _detect_image_type(data)
+    if content_type is None:
+        return None
+    if content_type not in settings.media_allowed_content_types_list:
+        return None
+    return content_type
+
+
+def _rewrite_img_src(html_text: str, resolve: Callable[[str], str | None]) -> str:
+    """Rewrite each ``<img src>`` for which ``resolve`` returns a replacement."""
+
+    def _sub(match: re.Match[str]) -> str:
+        prefix, quote, url = match.group(1), match.group(2), match.group(3)
+        replacement = resolve(url)
+        if replacement is None:
+            return match.group(0)
+        return f"{prefix}{quote}{replacement}{quote}"
+
+    return _IMG_SRC_RE.sub(_sub, html_text)
+
+
+def _attach_media_to_question(
+    question: Question,
+    archive: zipfile.ZipFile,
+    image_entries: dict[str, zipfile.ZipInfo],
+    entry_bytes: dict[str, bytes],
+    uploads: dict[str, MediaUpload],
+    exam_id: uuid.UUID,
+    settings: Settings,
+) -> None:
+    """Upload-plan and rewrite the bundled images referenced by one question."""
+    path_to_placeholder: dict[str, str] = {}
+    sha_to_media_id: dict[str, str] = {}
+
+    def resolve(raw_src: str) -> str | None:
+        normalized = _normalize_zip_ref(raw_src)
+        if normalized is None:
+            return None
+        if normalized in path_to_placeholder:
+            return path_to_placeholder[normalized]
+
+        info = image_entries.get(normalized)
+        if info is None:
+            raise ImportError_(
+                f"Image '{raw_src.strip()}' referenced by a question is not in "
+                f"the ZIP (bundled images must live under '{_IMAGES_PREFIX}')."
+            )
+        if info.file_size > settings.media_max_file_bytes:
+            raise ImportError_(
+                f"Image '{normalized}' exceeds the per-file limit of "
+                f"{_size_label(settings.media_max_file_bytes)}."
+            )
+
+        data = entry_bytes.get(normalized)
+        if data is None:
+            data = archive.read(info)
+            if len(data) > settings.media_max_file_bytes:
+                raise ImportError_(
+                    f"Image '{normalized}' exceeds the per-file limit of "
+                    f"{_size_label(settings.media_max_file_bytes)}."
+                )
+            entry_bytes[normalized] = data
+
+        content_type = _sniff_content_type(data, settings)
+        if content_type is None:
+            raise ImportError_(
+                f"Image '{normalized}' is not an allowed image type "
+                f"({', '.join(settings.media_allowed_content_types_list)})."
+            )
+
+        sha = hashlib.sha256(data).hexdigest()
+        media_id = sha_to_media_id.get(sha)
+        if media_id is None:
+            blob_path = f"exams/{exam_id}/{sha}.{_EXT_BY_TYPE[content_type]}"
+            media = QuestionMedia(
+                id=uuid.uuid4(),
+                question=question,
+                blob_path=blob_path,
+                content_type=content_type,
+                sha256=sha,
+                byte_size=len(data),
+            )
+            media_id = str(media.id)
+            sha_to_media_id[sha] = media_id
+            uploads.setdefault(
+                blob_path,
+                MediaUpload(blob_path=blob_path, data=data, content_type=content_type),
+            )
+
+        placeholder = f"media://{media_id}"
+        path_to_placeholder[normalized] = placeholder
+        return placeholder
+
+    if question.text:
+        question.text = _rewrite_img_src(question.text, resolve)
+    if question.explanation:
+        question.explanation = _rewrite_img_src(question.explanation, resolve)
+
+
+def _attach_media(
+    questions: list[Question],
+    archive: zipfile.ZipFile,
+    exam_id: uuid.UUID,
+    settings: Settings,
+) -> list[MediaUpload]:
+    """Process the bundled images of every question, returning the upload plan."""
+    image_entries = _image_entries(archive)
+    entry_bytes: dict[str, bytes] = {}
+    uploads: dict[str, MediaUpload] = {}
+    for question in questions:
+        _attach_media_to_question(
+            question, archive, image_entries, entry_bytes, uploads, exam_id, settings
+        )
+    if len(uploads) > settings.media_max_files:
+        raise ImportError_(
+            f"The import references more than {settings.media_max_files} images."
+        )
+    return list(uploads.values())
+
+
+def _canonicalize_media(text: str, sha_lookup: Callable[[str], str | None]) -> str:
+    """Rewrite ``<img src>`` values to a content hash for dedup comparison.
+
+    Both a stored ``media://{id}`` and a bundled ``images/...`` reference to the
+    *same* image collapse to the same ``sha256:...`` token, so an already-imported
+    image question is recognised as a duplicate on re-import (while questions that
+    differ only in *which* image they show stay distinct).
+    """
+
+    def _sub(match: re.Match[str]) -> str:
+        prefix, quote, url = match.group(1), match.group(2), match.group(3)
+        sha = sha_lookup(url)
+        if sha is None:
+            return match.group(0)
+        return f"{prefix}{quote}sha256:{sha}{quote}"
+
+    return _IMG_SRC_RE.sub(_sub, text)
+
+
+def _make_media_dedup_key(
+    exam: Exam,
+    archive: zipfile.ZipFile,
+    image_entries: dict[str, zipfile.ZipInfo],
+) -> Callable[[Question], str]:
+    """A dedup key that compares image questions by their images' content.
+
+    Existing questions carry ``media://{id}`` (resolved to a hash via their media
+    rows); incoming questions carry ``images/...`` (resolved via the archive).
+    """
+    existing_sha_by_id = {
+        str(media.id): media.sha256
+        for section in exam.sections
+        for question in section.questions
+        for media in question.media
+    }
+    sha_by_path: dict[str, str] = {}
+
+    def _archive_sha(normalized: str) -> str | None:
+        if normalized not in sha_by_path:
+            info = image_entries.get(normalized)
+            if info is None:
+                return None
+            sha_by_path[normalized] = hashlib.sha256(archive.read(info)).hexdigest()
+        return sha_by_path[normalized]
+
+    def sha_lookup(url: str) -> str | None:
+        stripped = url.strip()
+        if stripped.startswith("media://"):
+            return existing_sha_by_id.get(stripped.removeprefix("media://"))
+        normalized = _normalize_zip_ref(url)
+        if normalized is None:
+            return None
+        return _archive_sha(normalized)
+
+    def dedup_key(question: Question) -> str:
+        return _canonicalize_media(question.text, sha_lookup)
+
+    return dedup_key
+
+
+def build_exam_from_zip(
+    zip_bytes: bytes, *, settings: Settings | None = None
+) -> tuple[Exam, list[MediaUpload]]:
+    """Build an exam from a ZIP bundle (``exam.json`` + ``images/``).
+
+    Validates the manifest exactly like :func:`build_exam_from_payload`, then
+    validates and upload-plans the bundled images and rewrites each question's
+    HTML to reference them as ``media://{id}``. Returns the (transient) exam and
+    the list of blobs to upload; nothing is uploaded or committed here.
+    """
+    settings = settings or get_settings()
+    manifest, archive = _open_import_zip(zip_bytes, settings)
+    try:
+        exam = build_exam_from_payload(manifest)
+        # Fix the id now so image blob paths can be scoped to the exam.
+        exam.id = uuid.uuid4()
+        questions = [q for section in exam.sections for q in section.questions]
+        uploads = _attach_media(questions, archive, exam.id, settings)
+    finally:
+        archive.close()
+    return exam, uploads
+
+
+def merge_questions_from_zip(
+    exam: Exam, zip_bytes: bytes, *, settings: Settings | None = None
+) -> tuple[ImportSummary, list[MediaUpload]]:
+    """Additively import a ZIP bundle's questions (with images) into ``exam``.
+
+    Same additive semantics as :func:`merge_questions_into_exam`, but duplicates
+    are detected content-aware: a question already imported with the same image
+    is recognised even though its stored ``media://`` reference differs from the
+    incoming ``images/`` one. Images are only processed for the questions
+    actually added. Returns the add/skip summary and the blobs to upload.
+
+    ``exam`` must be loaded with its sections, their questions and each
+    question's media (see ``get_owned_with_questions``).
+    """
+    settings = settings or get_settings()
+    manifest, archive = _open_import_zip(zip_bytes, settings)
+    try:
+        incoming = build_exam_from_payload(manifest)
+        dedup_key = _make_media_dedup_key(exam, archive, _image_entries(archive))
+        summary, grafted = _graft_new_questions(exam, incoming, dedup_key)
+        uploads = _attach_media(grafted, archive, exam.id, settings)
+    finally:
+        archive.close()
+    return summary, uploads

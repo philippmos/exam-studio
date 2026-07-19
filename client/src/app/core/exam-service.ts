@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, from, map, switchMap } from 'rxjs';
 
+import { AuthService } from './auth-service';
+import { ConfigService } from './config-service';
 import { GraphqlService } from './graphql-service';
 import {
   Allocation,
@@ -150,6 +152,8 @@ const EXAM_STATS_FIELDS = `
 @Injectable({ providedIn: 'root' })
 export class ExamService {
   private readonly graphql = inject(GraphqlService);
+  private readonly auth = inject(AuthService);
+  private readonly config = inject(ConfigService);
 
   getExams(): Observable<Exam[]> {
     return this.graphql
@@ -409,6 +413,87 @@ export class ExamService {
         { examId, payload },
       )
       .pipe(map((data) => data.addExamQuestions));
+  }
+
+  /**
+   * Import an exam from a ZIP bundle (`exam.json` + `images/`). The archive is
+   * uploaded to the REST endpoint (binary payloads do not belong on GraphQL),
+   * then the created exam is fetched so callers get the same `Exam` shape as
+   * {@link importExam}.
+   */
+  importExamZip(file: File): Observable<Exam> {
+    return from(this.postFile<{ examId: string }>('/import/zip', file)).pipe(
+      switchMap((result) => this.getExam(result.examId)),
+      map((exam) => {
+        if (!exam) {
+          throw new Error('Import succeeded but the exam could not be loaded.');
+        }
+        return exam;
+      }),
+    );
+  }
+
+  /**
+   * Add questions from a ZIP bundle (same format as `importExamZip`) to an
+   * existing exam; returns the updated exam plus the added/skipped counts, like
+   * {@link addExamQuestions}.
+   */
+  addExamQuestionsZip(
+    examId: string,
+    file: File,
+  ): Observable<{ exam: Exam; added: number; skipped: number }> {
+    return from(
+      this.postFile<{ examId: string; added: number; skipped: number }>(
+        `/import/exams/${examId}/zip`,
+        file,
+      ),
+    ).pipe(
+      switchMap((result) =>
+        this.getExam(result.examId).pipe(
+          map((exam) => {
+            if (!exam) {
+              throw new Error(
+                'Import succeeded but the exam could not be loaded.',
+              );
+            }
+            return { exam, added: result.added, skipped: result.skipped };
+          }),
+        ),
+      ),
+    );
+  }
+
+  /** POST a file as multipart/form-data to a REST endpoint, unwrapping errors. */
+  private async postFile<T>(path: string, file: File): Promise<T> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    // No content-type header: the browser sets the multipart boundary itself;
+    // fetchApi attaches the Bearer token.
+    const response = await this.auth.fetchApi(this.apiUrl(path), {
+      method: 'POST',
+      body: form,
+    });
+    if (!response.ok) {
+      let detail = `Import failed (HTTP ${response.status}).`;
+      try {
+        detail =
+          ((await response.json()) as { detail?: string })?.detail ?? detail;
+      } catch {
+        /* non-JSON body */
+      }
+      throw new Error(detail);
+    }
+    return (await response.json()) as T;
+  }
+
+  /** Resolve a REST API path against the same origin/host as the GraphQL URL. */
+  private apiUrl(path: string): string {
+    const graphql = new URL(
+      this.config.get().graphqlUrl,
+      window.location.origin,
+    );
+    const base = graphql.href.replace(/\/graphql\/?$/, '');
+    return `${base}${path}`;
   }
 
   deleteExam(id: string): Observable<boolean> {

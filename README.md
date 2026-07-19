@@ -85,6 +85,10 @@ ExamSession ──< SessionItem ──< SessionItemAnswer (the chosen answers)
   `select_and_place` (drag a subset of the options into the answer area and put
   them in the right order — the options are answer rows that carry their rank in
   the solution, the rest are distractors).
+* A question's text/explanation may embed **images**. Each image is a
+  **QuestionMedia** row pointing at a blob in storage; the question HTML
+  references it as `media://{id}`, resolved to a signed URL when served (see
+  [docs/import.md](docs/import.md)).
 * Starting an exam snapshots an ordered **ExamSession** of **SessionItem**s.
   Every answer you give is persisted on its item.
 
@@ -134,6 +138,12 @@ volume).
 | client  | Angular build served by nginx | 8080      |
 | api     | FastAPI / uvicorn             | 8000      |
 | db      | PostgreSQL 16                 | 5432      |
+| azurite | Azure Blob emulator (question images) | 10000 |
+
+> **Media storage.** Question images live in Azure Blob Storage. Locally the
+> bundled **Azurite** emulator is used (seeded in `.env.example`); in Azure the
+> container app authenticates to a real Storage account with its **managed
+> identity**. See **[docs/import.md](docs/import.md)** for the configuration.
 
 ## Quick start (local dev, without containers for the apps)
 
@@ -222,6 +232,12 @@ reports (incl. traces/screenshots of failures) are job artifacts.
 > let a pipeline with api changes run on the default branch once.
 
 ### Import data
+
+> Questions can embed **images**. To bundle pictures with an exam, import a
+> **`.zip`** (an `exam.json` manifest plus an `images/` folder) instead of a bare
+> JSON file; the image files are uploaded to blob storage and referenced from the
+> question HTML. The full format, limits and storage setup are documented in
+> **[docs/import.md](docs/import.md)**.
 
 Create a json file with your desired exam content. The file carries no ids:
 sections are referenced by their `key`, question numbers follow the order in

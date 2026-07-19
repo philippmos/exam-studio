@@ -22,10 +22,19 @@
         POSTGRES_USER: exam
         POSTGRES_PASSWORD: exam
         POSTGRES_DB: examstudio
+    # Azure Blob emulator for question-image storage. Reachable by both the API
+    # (uploads) and the job container (fetching signed URLs) via the alias, so
+    # the connection string's host works unchanged and no host swap is needed.
+    - name: mcr.microsoft.com/azure-storage/azurite:latest
+      alias: azurite
+      command:
+        ["azurite-blob", "--blobHost", "0.0.0.0", "--blobPort", "10000", "--skipApiVersionCheck"]
     - name: $API_IMAGE:$API_SERVICE_TAG
       alias: api
       variables:
         DATABASE_URL: postgresql+asyncpg://exam:exam@db:5432/examstudio
+        AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+        AZURE_STORAGE_CONTAINER: question-media
       # Services start in parallel, so retry the migrations until PostgreSQL
       # accepts connections (max 2 min), then hand over to the app server.
       command:

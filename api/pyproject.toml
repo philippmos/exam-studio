@@ -13,6 +13,13 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.30",
     "alembic>=1.14",
+    # --- Media storage (Azure Blob; managed identity in prod, Azurite local)
+    "azure-storage-blob>=12.19",
+    "azure-identity>=1.17",
+    # Async transport for the azure aio clients (BlobServiceClient.aio).
+    "aiohttp>=3.10",
+    # Multipart parsing for the ZIP import upload endpoints (FastAPI UploadFile).
+    "python-multipart>=0.0.9",
     # --- Configuration -----------------------------------------------------
     "pydantic-settings>=2.6",
     # --- Auth0 access-token validation (RS256/JWKS) ------------------------
@@ -74,9 +81,9 @@ ignore = ["E501", "UP042"]
 known-first-party = ["app"]
 
 [tool.ruff.lint.flake8-bugbear]
-# FastAPI/Strawberry inject dependencies via callables in argument defaults;
-# that is the intended idiom, not a mutable-default bug (B008).
-extend-immutable-calls = ["fastapi.Depends"]
+# FastAPI/Strawberry inject dependencies and parse request parts via callables in
+# argument defaults; that is the intended idiom, not a mutable-default bug (B008).
+extend-immutable-calls = ["fastapi.Depends", "fastapi.File"]
 
 # --------------------------------------------------------------------------- #
 # mypy — static type checking                                                 #
@@ -98,5 +105,6 @@ no_implicit_optional = true
 module = [
     "prometheus_fastapi_instrumentator.*",
     "opentelemetry.*",
+    "azure.*",
 ]
 ignore_missing_imports = true

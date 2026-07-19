@@ -129,6 +129,13 @@ Adjust `DATABASE_URL` / `CORS_ORIGINS` if needed, and set `AUTH0_DOMAIN` /
 API rejects every GraphQL request with **HTTP 401** until these are configured
 and a valid token is supplied.
 
+For question images, point `AZURE_STORAGE_CONNECTION_STRING` at a local
+[Azurite](https://github.com/Azure/Azurite) emulator (defaults are in
+`.env.example`), or, in Azure, set `AZURE_STORAGE_ACCOUNT_URL` and rely on the
+container app's managed identity. See
+[../docs/import.md](../docs/import.md#storage-configuration) for all storage
+settings. Text‑only exams need no storage configured.
+
 ### 4. Run the database migrations
 
 ```bash
@@ -235,6 +242,16 @@ mutation merges a document (same format) into it (client: exam detail →
 duplicates are skipped and nothing is ever removed. Sections are matched by
 `name` (a referenced module that does not exist yet is created). The result
 reports how many questions were `added` versus `skipped`.
+
+### Images (ZIP import)
+
+Questions can embed images. Because the image files are binary, image‑carrying
+imports go through the REST endpoints `POST /import/zip` and
+`POST /import/exams/{examId}/zip` (`multipart/form-data`) rather than GraphQL:
+upload a `.zip` bundling the `exam.json` manifest with an `images/` folder. The
+importer stores each image in Azure Blob Storage and serves it through a
+short‑lived signed URL. The full format, limits, security and storage
+configuration are documented in **[../docs/import.md](../docs/import.md)**.
 
 ## GraphQL API overview
 

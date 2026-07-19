@@ -5,6 +5,7 @@ from app.models.exam import Exam
 from app.models.exam_session import ExamSession
 from app.models.question import Question
 from app.models.question_category import QuestionCategory
+from app.models.question_media import QuestionMedia
 from app.models.question_review_state import QuestionReviewState
 from app.models.section import Section
 from app.models.session_item import SessionItem
@@ -24,6 +25,7 @@ __all__ = [
     "ExamSession",
     "Question",
     "QuestionCategory",
+    "QuestionMedia",
     "QuestionReviewState",
     "Section",
     "SessionItem",

@@ -18,6 +18,17 @@ services:
       timeout: 5s
       retries: 10
 
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: exam-studio-azurite
+    restart: unless-stopped
+    # Blob service only; bind to all interfaces so the api container can reach it.
+    command: azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --skipApiVersionCheck
+    ports:
+      - "10000:10000"
+    volumes:
+      - exam_studio_azurite:/data
+
   api:
     build:
       context: ./api
@@ -29,9 +40,17 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS}
       AUTH0_DOMAIN: ${AUTH0_DOMAIN}
       AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
+      # Question-image storage: the api talks to Azurite over the compose network
+      # (azurite:10000); signed URLs are rewritten to MEDIA_PUBLIC_BASE_URL so the
+      # browser can reach them on the published host port (localhost:10000).
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-question-media}
+      MEDIA_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_BASE_URL}
     depends_on:
       db:
         condition: service_healthy
+      azurite:
+        condition: service_started
     ports:
       - "8000:8000"
     healthcheck:
@@ -63,3 +82,4 @@ services:
 
 volumes:
   exam_studio_pgdata:
+  exam_studio_azurite:

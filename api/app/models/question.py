@@ -12,6 +12,7 @@ from app.domain.enums import QuestionType
 if TYPE_CHECKING:
     from app.models.answer import Answer
     from app.models.question_category import QuestionCategory
+    from app.models.question_media import QuestionMedia
     from app.models.section import Section
 
 
@@ -44,4 +45,11 @@ class Question(Base):
         back_populates="question",
         cascade="all, delete-orphan",
         order_by="QuestionCategory.position",
+    )
+    # Images referenced from the question's HTML (text/explanation) as
+    # ``media://{id}``. Deleting the question deletes these rows; the blob
+    # objects themselves are cleaned up when the exam is deleted.
+    media: Mapped[list[QuestionMedia]] = relationship(
+        back_populates="question",
+        cascade="all, delete-orphan",
     )

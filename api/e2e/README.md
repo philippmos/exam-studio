@@ -24,6 +24,7 @@ instance, exactly like the Angular client does.
 | --------------------------- | ------------------------------------------------------------- |
 | `health.spec.ts`            | `/health`, GraphQL endpoint reachable                         |
 | `import-exam.spec.ts`       | `importExam` happy path + every validation error               |
+| `import-exam-zip.spec.ts`   | ZIP import (`/import/zip`, `/import/exams/:id/zip`): image upload, signed-URL serving, content-aware dedupe, validation |
 | `exams.spec.ts`             | `exams`, `exam`, `deleteExam`                                  |
 | `sessions.spec.ts`          | `startSession` modes (`ALL_RANDOM`, `BY_SECTION`, `UNANSWERED`), no-solution-leaking |
 | `submit-answer.spec.ts`     | `submitAnswer` correctness semantics + validation              |
@@ -45,7 +46,8 @@ Test design:
 ## Run locally
 
 ```bash
-# 1. start the database + API (repo root)
+# 1. start the database + API (repo root). This also starts the Azurite blob
+#    emulator that the ZIP-import tests need (the api service depends on it).
 docker compose up -d --build db api
 
 # 2. run the tests
@@ -55,6 +57,12 @@ npm test            # uses API_URL=http://localhost:8000 by default
 npm run report      # open the HTML report
 ```
 
+> The `import-exam-zip.spec.ts` tests upload images to Azure Blob Storage and
+> fetch them back through signed URLs, so they need the **Azurite** emulator
+> running and the API pointed at it (both are wired up by `docker compose`; the
+> compose `.env` sets `MEDIA_PUBLIC_BASE_URL=http://localhost:10000/...` so the
+> signed URLs are reachable from the host test runner).
+
 Point the suite at another instance with `API_URL=http://host:port npm test`.
 
 ## In the pipeline
@@ -62,6 +70,8 @@ Point the suite at another instance with `API_URL=http://host:port npm test`.
 The `api-e2e` job (see `api/.gitlab-api-ci.yml`) runs after the image build:
 
 * `postgres:16` starts as a job service — a **fresh database per pipeline**.
+* `azurite` (Azure Blob emulator) starts as a job service for the ZIP-import
+  media tests; the API points at it via `AZURE_STORAGE_CONNECTION_STRING`.
 * The **API image built in this pipeline** (`:$CI_COMMIT_SHORT_SHA`) runs as a
   second service; it applies the alembic migrations on boot.
 * The tests run against `http://api:8000`; JUnit results show up in the
