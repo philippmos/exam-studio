@@ -19,6 +19,10 @@ class Answer(Base):
     Choice questions flag the right options with ``is_correct``. Allocation
     questions instead point each item at the category it belongs to via
     ``correct_category_id`` (``is_correct`` is unused and stays ``False``).
+    Select-and-place questions store the option's rank in the solution order in
+    ``correct_position`` (``None`` for the distractor options never placed).
+    Yes/No questions store the statement's expected verdict in ``correct_verdict``
+    (``True`` for "Yes", ``False`` for "No").
     """
 
     __tablename__ = "answers"
@@ -34,6 +38,13 @@ class Answer(Base):
     correct_category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("question_categories.id", ondelete="SET NULL"), nullable=True
     )
+    # Select-and-place options only: the option's 1-based rank in the correct
+    # order. Null for the distractor options (never placed) and for every
+    # choice/allocation answer.
+    correct_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Yes/No statements only: the correct verdict (True = "Yes", False = "No").
+    # Null for every choice/allocation/select-and-place answer.
+    correct_verdict: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     question: Mapped[Question] = relationship(back_populates="answers")
     correct_category: Mapped[QuestionCategory | None] = relationship()

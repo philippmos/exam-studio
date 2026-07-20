@@ -56,16 +56,19 @@ async def list_for_user(
 async def get_owned_with_questions(
     db: AsyncSession, user_id: uuid.UUID, exam_id: uuid.UUID
 ) -> models.Exam | None:
-    """The owned exam with its sections and their questions eager-loaded.
+    """The owned exam with its sections, questions and question media eager-loaded.
 
-    Used by the merge import, which needs the existing question texts (to detect
-    duplicates) and the modules (to match by name).
+    Used by the merge import, which needs the existing question texts and their
+    media (to detect duplicates, including image questions) and the modules (to
+    match by name).
     """
     return await db.scalar(
         select(models.Exam)
         .where(models.Exam.id == exam_id, models.Exam.user_id == user_id)
         .options(
-            selectinload(models.Exam.sections).selectinload(models.Section.questions)
+            selectinload(models.Exam.sections)
+            .selectinload(models.Section.questions)
+            .selectinload(models.Question.media)
         )
     )
 
@@ -83,6 +86,18 @@ async def question_counts_by_section(
         .group_by(models.Question.section_id)
     )
     return {section_id: count for section_id, count in result.all()}
+
+
+async def exam_has_media(db: AsyncSession, exam_id: uuid.UUID) -> bool:
+    """Whether any of the exam's questions carry image media (a cheap EXISTS)."""
+    found = await db.scalar(
+        select(models.QuestionMedia.id)
+        .join(models.Question, models.QuestionMedia.question_id == models.Question.id)
+        .join(models.Section, models.Question.section_id == models.Section.id)
+        .where(models.Section.exam_id == exam_id)
+        .limit(1)
+    )
+    return found is not None
 
 
 async def count_questions(db: AsyncSession, exam_id: uuid.UUID) -> int:

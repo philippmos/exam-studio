@@ -82,6 +82,44 @@
         "section_key": "basics",
         "question_type": "allocation",
         "explanation": "HTTP and SSH need the reliable, connection-oriented delivery of TCP. DHCP and TFTP use the lightweight, connectionless UDP."
+      },
+      {
+        "question": "Put the steps of establishing a TCP connection (the three-way handshake) in the correct order.",
+        "answers": [
+          { "text": "The client sends a SYN segment to the server.", "correct_position": 1 },
+          { "text": "The server replies with a SYN-ACK segment.", "correct_position": 2 },
+          { "text": "The client sends an ACK segment back to the server.", "correct_position": 3 },
+          { "text": "The client sends a FIN segment to close the connection." },
+          { "text": "The server floods the client with unsolicited data." }
+        ],
+        "section_key": "basics",
+        "question_type": "select_and_place",
+        "explanation": "TCP opens a connection with a three-way handshake: SYN, then SYN-ACK, then ACK. A FIN closes an existing connection, and unsolicited flooding is not part of the handshake."
+      },
+      {
+        "question": "Put the steps of establishing a TCP <a href=\"https://www.pmo-software.de\">connection</a> (the three-way handshake) in the correct order.",
+        "answers": [
+          { "text": "The client sends a SYN segment to the server.", "correct_position": 1 },
+          { "text": "The server replies with a SYN-ACK segment.", "correct_position": 2 },
+          { "text": "The client sends an ACK segment back to the server.", "correct_position": 3 },
+          { "text": "The client sends a FIN segment to close the connection." },
+          { "text": "The server floods the client with unsolicited data." }
+        ],
+        "section_key": "basics",
+        "question_type": "select_and_place",
+        "explanation": "TCP opens a connection with a three-way handshake: SYN, then SYN-ACK, then ACK. A FIN closes an existing connection, and unsolicited flooding is not part of the handshake."
+      },
+      {
+        "question": "For each statement about transport protocols, decide whether it is true (yes) or false (no).",
+        "answers": [
+          { "text": "TCP is connection-oriented.", "answer": "yes" },
+          { "text": "UDP guarantees reliable, in-order delivery.", "answer": "no" },
+          { "text": "TCP uses a three-way handshake to establish a connection.", "answer": "yes" },
+          { "text": "UDP has a higher per-packet overhead than TCP.", "answer": "no" }
+        ],
+        "section_key": "basics",
+        "question_type": "yes_no",
+        "explanation": "TCP is connection-oriented and reliable, opening connections with a three-way handshake. UDP is connectionless, does not guarantee delivery or ordering, and has less overhead than TCP."
       }
     ]
   }

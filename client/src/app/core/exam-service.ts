@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, from, map, switchMap } from 'rxjs';
 
+import { AuthService } from './auth-service';
+import { ConfigService } from './config-service';
 import { GraphqlService } from './graphql-service';
 import {
   Allocation,
@@ -17,6 +19,7 @@ import {
   StudyGoalSource,
   StudyStreak,
   SuggestedStudyGoal,
+  Verdict,
 } from './models';
 
 const EXAM_FIELDS = `
@@ -58,10 +61,26 @@ const SESSION_FIELDS = `
       answerId
       categoryId
     }
+    selectedPlacements {
+      answerId
+      position
+    }
+    selectedVerdicts {
+      answerId
+      value
+    }
     correctAnswerIds
     correctAllocations {
       answerId
       categoryId
+    }
+    correctPlacements {
+      answerId
+      position
+    }
+    correctVerdicts {
+      answerId
+      value
     }
     isCorrect
     answeredAt
@@ -133,6 +152,8 @@ const EXAM_STATS_FIELDS = `
 @Injectable({ providedIn: 'root' })
 export class ExamService {
   private readonly graphql = inject(GraphqlService);
+  private readonly auth = inject(AuthService);
+  private readonly config = inject(ConfigService);
 
   getExams(): Observable<Exam[]> {
     return this.graphql
@@ -394,6 +415,87 @@ export class ExamService {
       .pipe(map((data) => data.addExamQuestions));
   }
 
+  /**
+   * Import an exam from a ZIP bundle (`exam.json` + `images/`). The archive is
+   * uploaded to the REST endpoint (binary payloads do not belong on GraphQL),
+   * then the created exam is fetched so callers get the same `Exam` shape as
+   * {@link importExam}.
+   */
+  importExamZip(file: File): Observable<Exam> {
+    return from(this.postFile<{ examId: string }>('/import/zip', file)).pipe(
+      switchMap((result) => this.getExam(result.examId)),
+      map((exam) => {
+        if (!exam) {
+          throw new Error('Import succeeded but the exam could not be loaded.');
+        }
+        return exam;
+      }),
+    );
+  }
+
+  /**
+   * Add questions from a ZIP bundle (same format as `importExamZip`) to an
+   * existing exam; returns the updated exam plus the added/skipped counts, like
+   * {@link addExamQuestions}.
+   */
+  addExamQuestionsZip(
+    examId: string,
+    file: File,
+  ): Observable<{ exam: Exam; added: number; skipped: number }> {
+    return from(
+      this.postFile<{ examId: string; added: number; skipped: number }>(
+        `/import/exams/${examId}/zip`,
+        file,
+      ),
+    ).pipe(
+      switchMap((result) =>
+        this.getExam(result.examId).pipe(
+          map((exam) => {
+            if (!exam) {
+              throw new Error(
+                'Import succeeded but the exam could not be loaded.',
+              );
+            }
+            return { exam, added: result.added, skipped: result.skipped };
+          }),
+        ),
+      ),
+    );
+  }
+
+  /** POST a file as multipart/form-data to a REST endpoint, unwrapping errors. */
+  private async postFile<T>(path: string, file: File): Promise<T> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    // No content-type header: the browser sets the multipart boundary itself;
+    // fetchApi attaches the Bearer token.
+    const response = await this.auth.fetchApi(this.apiUrl(path), {
+      method: 'POST',
+      body: form,
+    });
+    if (!response.ok) {
+      let detail = `Import failed (HTTP ${response.status}).`;
+      try {
+        detail =
+          ((await response.json()) as { detail?: string })?.detail ?? detail;
+      } catch {
+        /* non-JSON body */
+      }
+      throw new Error(detail);
+    }
+    return (await response.json()) as T;
+  }
+
+  /** Resolve a REST API path against the same origin/host as the GraphQL URL. */
+  private apiUrl(path: string): string {
+    const graphql = new URL(
+      this.config.get().graphqlUrl,
+      window.location.origin,
+    );
+    const base = graphql.href.replace(/\/graphql\/?$/, '');
+    return `${base}${path}`;
+  }
+
   deleteExam(id: string): Observable<boolean> {
     return this.graphql
       .request<{
@@ -447,9 +549,30 @@ export class ExamService {
     return this.submit(sessionItemId, { allocations });
   }
 
+  /** Submit a select-and-place answer: the option ids in the placed order. */
+  submitPlacement(
+    sessionItemId: string,
+    placedAnswerIds: string[],
+  ): Observable<AnswerResult> {
+    return this.submit(sessionItemId, { placedAnswerIds });
+  }
+
+  /** Submit a yes/no answer: a Yes/No verdict for every statement. */
+  submitVerdicts(
+    sessionItemId: string,
+    verdicts: Verdict[],
+  ): Observable<AnswerResult> {
+    return this.submit(sessionItemId, { verdicts });
+  }
+
   private submit(
     sessionItemId: string,
-    answer: { selectedAnswerIds?: string[]; allocations?: Allocation[] },
+    answer: {
+      selectedAnswerIds?: string[];
+      allocations?: Allocation[];
+      placedAnswerIds?: string[];
+      verdicts?: Verdict[];
+    },
   ): Observable<AnswerResult> {
     return this.graphql
       .request<{ submitAnswer: AnswerResult }>(
@@ -457,12 +580,16 @@ export class ExamService {
           $sessionItemId: UUID!
           $selectedAnswerIds: [UUID!]
           $allocations: [AllocationInput!]
+          $placedAnswerIds: [UUID!]
+          $verdicts: [VerdictInput!]
           $tzOffsetMinutes: Int!
         ) {
           submitAnswer(
             sessionItemId: $sessionItemId
             selectedAnswerIds: $selectedAnswerIds
             allocations: $allocations
+            placedAnswerIds: $placedAnswerIds
+            verdicts: $verdicts
             tzOffsetMinutes: $tzOffsetMinutes
           ) {
             sessionItemId
@@ -471,6 +598,14 @@ export class ExamService {
             correctAllocations {
               answerId
               categoryId
+            }
+            correctPlacements {
+              answerId
+              position
+            }
+            correctVerdicts {
+              answerId
+              value
             }
             reviewBox
             reviewIntervalDays
@@ -481,6 +616,8 @@ export class ExamService {
           sessionItemId,
           selectedAnswerIds: answer.selectedAnswerIds ?? [],
           allocations: answer.allocations ?? [],
+          placedAnswerIds: answer.placedAnswerIds ?? [],
+          verdicts: answer.verdicts ?? [],
           tzOffsetMinutes: -new Date().getTimezoneOffset(),
         },
       )

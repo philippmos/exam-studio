@@ -3,6 +3,8 @@ import {
   allocationExamSpec,
   EXPLANATION_MARKER,
   SECTION_CRYPTOGRAPHY,
+  SELECT_AND_PLACE_ORDER,
+  selectAndPlaceExamSpec,
   smallExamSpec,
   twoSectionExamSpec,
   uniqueName,
@@ -136,6 +138,29 @@ test.describe('exam mode', () => {
 
     await quiz.expectQuestion(1, 1);
     await quiz.answerAllocation(ALLOCATION_SOLUTION);
+    await quiz.expectFeedback(true);
+
+    await quiz.finish();
+    await quiz.expectSummary(1, 1);
+  });
+
+  test('orders a select-and-place question via drag and drop', async ({
+    page,
+    examFactory,
+  }) => {
+    const name = uniqueName();
+    await examFactory.create(selectAndPlaceExamSpec(name));
+
+    const dashboard = new DashboardPage(page);
+    const detail = new ExamDetailPage(page);
+    const quiz = new QuizPage(page);
+
+    await dashboard.goto();
+    await dashboard.openExam(name);
+    await detail.startExamMode('all');
+
+    await quiz.expectQuestion(1, 1);
+    await quiz.answerSelectAndPlace(SELECT_AND_PLACE_ORDER);
     await quiz.expectFeedback(true);
 
     await quiz.finish();

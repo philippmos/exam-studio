@@ -57,6 +57,35 @@ class Settings(BaseSettings):
     # Reject queries nested deeper than this (a cheap DoS guard).
     graphql_max_depth: int = 15
 
+    # --- Media storage (Azure Blob Storage) -----------------------------------
+    # Question images live in a *private* blob container. In Azure the container
+    # app authenticates with its managed identity — set ``azure_storage_account_url``
+    # (e.g. "https://acct.blob.core.windows.net"). Locally, point the connection
+    # string at Azurite; when set it takes precedence over the account URL.
+    azure_storage_account_url: str = ""
+    azure_storage_connection_string: str = ""
+    azure_storage_container: str = "question-media"
+    # Browser-facing base URL for signed image links. Leave empty in Azure (the
+    # real blob URL is used as-is); set it locally to the host the *browser* can
+    # reach Azurite on when that differs from the API's (e.g. "azurite:10000" for
+    # the API vs. "localhost:10000" for the browser). The SAS signature is
+    # computed over the blob path, not the host, so swapping the host is safe.
+    media_public_base_url: str = ""
+    # How long a signed image URL stays valid (seconds).
+    media_sas_ttl_seconds: int = 3600
+
+    # --- Import limits (defence against oversized uploads / zip bombs) ---------
+    # Max size of an uploaded import ZIP, and of a single extracted image, and
+    # the max number of images one import may contain.
+    import_zip_max_bytes: int = 25 * 1024 * 1024
+    media_max_file_bytes: int = 5 * 1024 * 1024
+    media_max_files: int = 50
+    # Comma-separated allow-list of image content types (sniffed, not trusted
+    # from the file extension). Consume via ``media_allowed_content_types_list``.
+    media_allowed_content_types: str = (
+        "image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -72,6 +101,12 @@ class Settings(BaseSettings):
     @property
     def auth0_algorithms_list(self) -> list[str]:
         return [a.strip() for a in self.auth0_algorithms.split(",") if a.strip()]
+
+    @property
+    def media_allowed_content_types_list(self) -> list[str]:
+        return [
+            t.strip() for t in self.media_allowed_content_types.split(",") if t.strip()
+        ]
 
     @property
     def auth0_issuer(self) -> str:

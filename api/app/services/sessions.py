@@ -21,6 +21,8 @@ from app.domain.enums import QuestionType, SessionMode
 from app.repositories import exams as exams_repo
 from app.repositories import sessions as sessions_repo
 from app.services import review as review_service
+from app.storage.blob import MediaStorage, get_media_storage
+from app.storage.resolver import replace_media_placeholders
 
 
 @dataclass
@@ -34,6 +36,10 @@ class AnswerOutcome:
     correct_answer_ids: list[uuid.UUID] = field(default_factory=list)
     # (answer id, correct category id) pairs for allocation questions.
     correct_allocations: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    # (answer id, 0-based slot) pairs for select-and-place questions.
+    correct_placements: list[tuple[uuid.UUID, int]] = field(default_factory=list)
+    # (answer id, correct verdict) pairs for yes/no questions.
+    correct_verdicts: list[tuple[uuid.UUID, bool]] = field(default_factory=list)
 
 
 def _shuffle_answer_order(question: models.Question) -> list[str]:
@@ -42,11 +48,40 @@ def _shuffle_answer_order(question: models.Question) -> list[str]:
     return answer_ids
 
 
+async def _resolve_media(session: models.ExamSession) -> None:
+    """Swap each question's ``media://`` placeholders for short-lived signed URLs.
+
+    Mutates the loaded question text/explanation in place for serving only; the
+    read path never commits, so nothing is persisted. Questions without media
+    (the common case) never touch storage.
+    """
+    storage: MediaStorage | None = None
+    for item in session.items:
+        question = item.question
+        if not question.media:
+            continue
+        if storage is None:
+            storage = get_media_storage()
+        url_by_id = {
+            str(media.id): await storage.signed_url(media.blob_path)
+            for media in question.media
+        }
+        resolved_text = replace_media_placeholders(question.text, url_by_id)
+        if resolved_text is not None:
+            question.text = resolved_text
+        question.explanation = replace_media_placeholders(
+            question.explanation, url_by_id
+        )
+
+
 async def get_session(
     db: AsyncSession, user_id: uuid.UUID, session_id: uuid.UUID
 ) -> models.ExamSession | None:
     """A running (or finished) session with its ordered questions, or ``None``."""
-    return await sessions_repo.load_with_items(db, user_id, session_id)
+    session = await sessions_repo.load_with_items(db, user_id, session_id)
+    if session is not None:
+        await _resolve_media(session)
+    return session
 
 
 async def list_overviews(
@@ -98,6 +133,7 @@ async def start_session(
 
     result = await sessions_repo.load_with_items(db, user.id, session.id)
     assert result is not None  # just created and owned by this user
+    await _resolve_media(result)
     return result
 
 
@@ -107,13 +143,17 @@ async def submit_answer(
     session_item_id: uuid.UUID,
     selected_answer_ids: list[uuid.UUID] | None,
     placements: list[tuple[uuid.UUID, uuid.UUID]] | None,
+    placed_answer_ids: list[uuid.UUID] | None,
+    verdicts: list[tuple[uuid.UUID, bool]] | None,
     tz_offset_minutes: int,
 ) -> AnswerOutcome:
     """Persist the answer for a question and report correctness.
 
     Choice questions pass ``selected_answer_ids``; allocation questions pass
-    ``placements`` (answer id, category id). Every answer also advances the
-    question's spaced-repetition schedule.
+    ``placements`` (answer id, category id); select-and-place questions pass
+    ``placed_answer_ids`` (the answer ids in the order they were placed); yes/no
+    questions pass ``verdicts`` (answer id, Yes/No value per statement). Every
+    answer also advances the question's spaced-repetition schedule.
     """
     item = await sessions_repo.get_item_with_selection(db, session_item_id)
     if item is None:
@@ -128,6 +168,8 @@ async def submit_answer(
 
     correct_answer_ids: list[uuid.UUID] = []
     correct_allocations: list[tuple[uuid.UUID, uuid.UUID]] = []
+    correct_placements: list[tuple[uuid.UUID, int]] = []
+    correct_verdicts: list[tuple[uuid.UUID, bool]] = []
     if question.question_type == QuestionType.ALLOCATION.value:
         categories = await sessions_repo.categories_for_question(db, item.question_id)
         allocation = grading.grade_allocation(
@@ -141,6 +183,42 @@ async def submit_answer(
         ]
         is_correct = allocation.is_correct
         correct_allocations = allocation.correct_allocations
+    elif question.question_type == QuestionType.SELECT_AND_PLACE.value:
+        # Sort (rank, answer id) tuples so the ids come out in solution order.
+        ordered_ids = [
+            answer_id
+            for _, answer_id in sorted(
+                (answer.correct_position, answer.id)
+                for answer in answers
+                if answer.correct_position is not None
+            )
+        ]
+        placement = grading.grade_select_and_place(
+            ordered_ids,
+            {answer.id for answer in answers},
+            placed_answer_ids or [],
+        )
+        selection = [
+            models.SessionItemAnswer(answer_id=aid, position=slot)
+            for aid, slot in placement.chosen.items()
+        ]
+        is_correct = placement.is_correct
+        correct_placements = placement.correct_placements
+    elif question.question_type == QuestionType.YES_NO.value:
+        verdict_grade = grading.grade_yes_no(
+            {
+                answer.id: answer.correct_verdict
+                for answer in answers
+                if answer.correct_verdict is not None
+            },
+            verdicts or [],
+        )
+        selection = [
+            models.SessionItemAnswer(answer_id=aid, verdict=value)
+            for aid, value in verdict_grade.chosen.items()
+        ]
+        is_correct = verdict_grade.is_correct
+        correct_verdicts = verdict_grade.correct_verdicts
     else:
         choice = grading.grade_choice(
             QuestionType(question.question_type),
@@ -175,6 +253,8 @@ async def submit_answer(
         review_interval_days=outcome.interval_days,
         correct_answer_ids=correct_answer_ids,
         correct_allocations=correct_allocations,
+        correct_placements=correct_placements,
+        correct_verdicts=correct_verdicts,
     )
 
 
@@ -188,6 +268,7 @@ async def finish_session(
     await db.commit()
     result = await sessions_repo.load_with_items(db, user.id, session_id)
     assert result is not None
+    await _resolve_media(result)
     return result
 
 

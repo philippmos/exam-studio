@@ -37,32 +37,40 @@ testable in isolation and the GraphQL layer stays a thin adapter.
 ```
 Exam ──< Section ──< Question ──< Answer
                         │            ├─ is_correct flag        (choice)
-                        │            └─ correct_category_id     (allocation item)
-                        ├─ question_type (SINGLE_CHOICE / MULTIPLE_CHOICE / ALLOCATION)
+                        │            ├─ correct_category_id     (allocation item)
+                        │            └─ correct_position         (select-and-place option)
+                        ├─ question_type (SINGLE_CHOICE / MULTIPLE_CHOICE / ALLOCATION / SELECT_AND_PLACE)
                         ├─ explanation (optional; revealed after answering)
                         └─< QuestionCategory  (allocation baskets: key + label)
 
 ExamSession ──< SessionItem ──< SessionItemAnswer  (the persisted selection)
-                     │              └─ category_id  (basket, allocation only)
+                     │              ├─ category_id  (basket, allocation only)
+                     │              └─ position     (slot, select-and-place only)
                      └─ is_correct + answered_at
 ```
 
 * An **Exam** (a certification) is divided into **Section**s (modules).
 * Each **Section** contains **Question**s, each with several **Answer** rows.
   A question's `question_type` decides what is expected: `SINGLE_CHOICE`
-  (exactly one correct answer), `MULTIPLE_CHOICE` (one or more) or `ALLOCATION`.
+  (exactly one correct answer), `MULTIPLE_CHOICE` (one or more), `ALLOCATION` or
+  `SELECT_AND_PLACE`.
   For choice questions, correct options are stored as a boolean flag on the
   answer row (proper normalisation). For an **ALLOCATION** question the answers
   are the items to sort and each points at the **QuestionCategory** (basket) it
   belongs to via `correct_category_id`; the baskets themselves are
-  `QuestionCategory` rows (`key` + `label`).
+  `QuestionCategory` rows (`key` + `label`). For a **SELECT_AND_PLACE** question
+  the answers are the option pool; the options that make up the answer carry
+  their 1-based rank in `correct_position` (the rest are distractors), and the
+  pool is shuffled per session.
 * An **ExamSession** is one run. When it starts, an ordered list of
   **SessionItem**s is snapshotted. Answering a question writes the chosen
   answers (one **SessionItemAnswer** row each) and whether the selection was
   correct onto its item. A multiple-choice selection only counts as correct
   when it matches the set of correct answers exactly; an allocation answer
   records the chosen basket per item (`SessionItemAnswer.category_id`) and is
-  correct only when every item sits in its correct category.
+  correct only when every item sits in its correct category; a select-and-place
+  answer records the placed slot per option (`SessionItemAnswer.position`) and
+  is correct only when the placed order matches the solution exactly.
 
 ### Learning-progress statistics
 
@@ -83,7 +91,9 @@ constraints so a question appears **at most once per session**. Migration
 and it drops the former one-correct-answer-per-question index. Migration `0007`
 adds allocation support: the `question_categories` table plus the
 `answers.correct_category_id` and `session_item_answers.category_id` columns.
-Migration `0008` adds the optional `questions.explanation` column.
+Migration `0008` adds the optional `questions.explanation` column. Migration
+`0016` adds select-and-place support: the `answers.correct_position` and
+`session_item_answers.position` columns.
 
 ## Getting started
 
@@ -118,6 +128,13 @@ Adjust `DATABASE_URL` / `CORS_ORIGINS` if needed, and set `AUTH0_DOMAIN` /
 [Authentication](#authentication-auth0) and `docs/auth0-setup.md`). The
 API rejects every GraphQL request with **HTTP 401** until these are configured
 and a valid token is supplied.
+
+For question images, point `AZURE_STORAGE_CONNECTION_STRING` at a local
+[Azurite](https://github.com/Azure/Azurite) emulator (defaults are in
+`.env.example`), or, in Azure, set `AZURE_STORAGE_ACCOUNT_URL` and rely on the
+container app's managed identity. See
+[../docs/import.md](../docs/import.md#storage-configuration) for all storage
+settings. Text‑only exams need no storage configured.
 
 ### 4. Run the database migrations
 
@@ -226,6 +243,16 @@ duplicates are skipped and nothing is ever removed. Sections are matched by
 `name` (a referenced module that does not exist yet is created). The result
 reports how many questions were `added` versus `skipped`.
 
+### Images (ZIP import)
+
+Questions can embed images. Because the image files are binary, image‑carrying
+imports go through the REST endpoints `POST /import/zip` and
+`POST /import/exams/{examId}/zip` (`multipart/form-data`) rather than GraphQL:
+upload a `.zip` bundling the `exam.json` manifest with an `images/` folder. The
+importer stores each image in Azure Blob Storage and serves it through a
+short‑lived signed URL. The full format, limits, security and storage
+configuration are documented in **[../docs/import.md](../docs/import.md)**.
+
 ## GraphQL API overview
 
 **Queries**
@@ -248,7 +275,7 @@ reports how many questions were `added` versus `skipped`.
 | `addExamQuestions(examId, payload)`                | Add new questions from a JSON document to an existing exam; returns `{exam, added, skipped}`. |
 | `deleteExam(id)`                                   | Delete an exam (cascades).               |
 | `startSession(examId, mode, sectionId)`            | Start a run; snapshots the questions.    |
-| `submitAnswer(sessionItemId, selectedAnswerIds, allocations, tzOffsetMinutes)` | Persist the answer; returns correctness and the question's updated review schedule. Choice questions pass `selectedAnswerIds`, allocation questions pass `allocations` (`{answerId, categoryId}` per item). |
+| `submitAnswer(sessionItemId, selectedAnswerIds, allocations, placedAnswerIds, tzOffsetMinutes)` | Persist the answer; returns correctness and the question's updated review schedule. Choice questions pass `selectedAnswerIds`, allocation questions pass `allocations` (`{answerId, categoryId}` per item), select-and-place questions pass `placedAnswerIds` (the option ids in placed order). |
 | `finishSession(id)`                                | Mark a session finished.                 |
 
 `mode` is one of `ALL_RANDOM`, `BY_SECTION` (requires `sectionId`),

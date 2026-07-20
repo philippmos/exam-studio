@@ -143,4 +143,82 @@ describe('QuestionView', () => {
 
     expect(emitted).toEqual([[{ answerId: 'i1', categoryId: 'c1' }]]);
   });
+
+  it('seeds the select-and-place pool with every option, answer area empty', () => {
+    const component = createWith(
+      makeQuestion({
+        questionType: 'SELECT_AND_PLACE',
+        answers: [
+          { id: 'o1', text: 'First', position: 0 },
+          { id: 'o2', text: 'Second', position: 1 },
+          { id: 'o3', text: 'Distractor', position: 2 },
+        ],
+      }),
+    );
+
+    expect(component.pool().map((a) => a.id)).toEqual(['o1', 'o2', 'o3']);
+    expect(component.placed()).toEqual([]);
+  });
+
+  it('emits the placed option ids in order, and only when non-empty', () => {
+    const component = createWith(
+      makeQuestion({
+        questionType: 'SELECT_AND_PLACE',
+        answers: [
+          { id: 'o1', text: 'First', position: 0 },
+          { id: 'o2', text: 'Second', position: 1 },
+          { id: 'o3', text: 'Distractor', position: 2 },
+        ],
+      }),
+    );
+    const emitted: string[][] = [];
+    component.submitPlacements.subscribe((ids) => emitted.push(ids));
+
+    // Nothing placed yet → no emission.
+    component.submitPlacement();
+    expect(emitted).toHaveLength(0);
+
+    // Place o2 then o1 into the answer area (so the order is o2, o1).
+    component.dropPlacement(dragEvent(component.pool(), component.placed(), 1, 0));
+    component.dropPlacement(dragEvent(component.pool(), component.placed(), 0, 1));
+
+    expect(component.placed().map((a) => a.id)).toEqual(['o2', 'o1']);
+
+    component.submitPlacement();
+    expect(emitted).toEqual([['o2', 'o1']]);
+  });
+
+  it('grades each placed slot against the solution order (answered view)', () => {
+    const question = makeQuestion({
+      questionType: 'SELECT_AND_PLACE',
+      answers: [
+        { id: 'o1', text: 'First', position: 0 },
+        { id: 'o2', text: 'Second', position: 1 },
+        { id: 'o3', text: 'Distractor', position: 2 },
+      ],
+    });
+    TestBed.configureTestingModule({ imports: [QuestionView] });
+    const fixture = TestBed.createComponent(QuestionView);
+    fixture.componentRef.setInput('question', question);
+    fixture.componentRef.setInput('answered', true);
+    // The user placed o1 correctly but o3 where o2 belongs.
+    fixture.componentRef.setInput('selectedPlacements', [
+      { answerId: 'o1', position: 0 },
+      { answerId: 'o3', position: 1 },
+    ]);
+    fixture.componentRef.setInput('correctPlacements', [
+      { answerId: 'o1', position: 0 },
+      { answerId: 'o2', position: 1 },
+    ]);
+    const component = fixture.componentInstance;
+
+    expect(component.placedAnswers().map((a) => a.id)).toEqual(['o1', 'o3']);
+    expect(component.correctOrderAnswers().map((a) => a.id)).toEqual([
+      'o1',
+      'o2',
+    ]);
+    expect(component.isPlacementCorrect(0)).toBe(true);
+    expect(component.isPlacementCorrect(1)).toBe(false);
+    expect(component.allPlacementsCorrect()).toBe(false);
+  });
 });

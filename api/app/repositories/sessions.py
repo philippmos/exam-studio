@@ -55,6 +55,9 @@ async def load_with_items(
             selectinload(models.ExamSession.items)
             .selectinload(models.SessionItem.question)
             .selectinload(models.Question.categories),
+            selectinload(models.ExamSession.items)
+            .selectinload(models.SessionItem.question)
+            .selectinload(models.Question.media),
             selectinload(models.ExamSession.items).selectinload(
                 models.SessionItem.selected_answers
             ),

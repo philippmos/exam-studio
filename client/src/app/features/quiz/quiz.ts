@@ -24,6 +24,7 @@ import {
   AnswerResult,
   ExamSession,
   SessionItem,
+  Verdict,
 } from '../../core/models';
 import { ConfirmDialog } from '../../shared/confirm-dialog/confirm-dialog';
 import { QuestionView } from '../../shared/question-view/question-view';
@@ -92,8 +93,14 @@ import { QuestionView } from '../../shared/question-view/question-view';
                   [correctAnswerIds]="item.correctAnswerIds"
                   [selectedAllocations]="item.selectedAllocations"
                   [correctAllocations]="item.correctAllocations"
+                  [selectedPlacements]="item.selectedPlacements"
+                  [correctPlacements]="item.correctPlacements"
+                  [selectedVerdicts]="item.selectedVerdicts"
+                  [correctVerdicts]="item.correctVerdicts"
                   (submitAnswers)="answer(item, $event)"
                   (submitAllocations)="answerAllocation(item, $event)"
+                  (submitPlacements)="answerPlacements(item, $event)"
+                  (submitVerdicts)="answerVerdicts(item, $event)"
                 />
               </mat-card-content>
             </mat-card>
@@ -394,6 +401,43 @@ export class Quiz {
     });
   }
 
+  answerPlacements(item: SessionItem, placedAnswerIds: string[]): void {
+    if (this.isAnswered(item)) {
+      return;
+    }
+    this.examService.submitPlacement(item.id, placedAnswerIds).subscribe({
+      next: (result) =>
+        this.applyResult(item.id, result, {
+          // Mark the item answered (isAnswered checks selectedAnswerIds).
+          selectedAnswerIds: placedAnswerIds,
+          selectedPlacements: placedAnswerIds.map((answerId, position) => ({
+            answerId,
+            position,
+          })),
+          correctPlacements: result.correctPlacements,
+        }),
+      error: (err: Error) =>
+        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+    });
+  }
+
+  answerVerdicts(item: SessionItem, verdicts: Verdict[]): void {
+    if (this.isAnswered(item)) {
+      return;
+    }
+    this.examService.submitVerdicts(item.id, verdicts).subscribe({
+      next: (result) =>
+        this.applyResult(item.id, result, {
+          // Mark the item answered (isAnswered checks selectedAnswerIds).
+          selectedAnswerIds: verdicts.map((v) => v.answerId),
+          selectedVerdicts: verdicts,
+          correctVerdicts: result.correctVerdicts,
+        }),
+      error: (err: Error) =>
+        this.snackBar.open(err.message, 'Dismiss', { duration: 5000 }),
+    });
+  }
+
   /** Merge a submit result onto the item and record its review schedule. */
   private applyResult(
     itemId: string,
@@ -422,6 +466,10 @@ export class Quiz {
         return 'Select all answers that apply';
       case 'ALLOCATION':
         return 'Sort every item into a basket';
+      case 'SELECT_AND_PLACE':
+        return 'Drag the answers into the correct order';
+      case 'YES_NO':
+        return 'Answer each statement with yes or no';
       default:
         return 'Select an answer';
     }

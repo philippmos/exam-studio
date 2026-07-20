@@ -16,6 +16,9 @@ export const WRONG_PREFIX = 'Wrong:';
 export interface AnswerSpec {
   text: string;
   is_correct?: boolean;
+  // Select-and-place options: the 1-based rank in the correct order (omitted
+  // for the distractor options that are never placed).
+  correct_position?: number;
 }
 
 export interface CategorySpec {
@@ -31,8 +34,13 @@ export interface ItemSpec {
 export interface QuestionSpec {
   question: string;
   section_key: string;
-  question_type?: 'single_choice' | 'multiple_choice' | 'allocation';
-  // Choice questions carry answers; allocation questions carry categories + items.
+  question_type?:
+    | 'single_choice'
+    | 'multiple_choice'
+    | 'allocation'
+    | 'select_and_place';
+  // Choice + select-and-place questions carry answers; allocation questions
+  // carry categories + items.
   answers?: AnswerSpec[];
   categories?: CategorySpec[];
   items?: ItemSpec[];
@@ -183,6 +191,44 @@ export function allocationExamSpec(name: string): ExamSpec {
           { text: 'Responsibility.', correct_category: 'contained' },
           { text: 'Internal structure.', correct_category: 'avoided' },
           { text: 'Hints for the implementation.', correct_category: 'avoided' },
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * The intended order of the select-and-place question, as an ordered list of
+ * option texts. The quiz page object drags these into the answer area in this
+ * order. The two options not listed are distractors that are never placed.
+ */
+export const SELECT_AND_PLACE_ORDER = [
+  'Create the account.',
+  'Sign in to the admin center.',
+  'Respond to the become-admin message.',
+  'Create a DNS TXT record.',
+];
+
+/** 1 section, 1 select-and-place question (place 4 of 6 options in order). */
+export function selectAndPlaceExamSpec(name: string): ExamSpec {
+  return {
+    name,
+    issuer: 'Playwright UI Suite',
+    sections: [{ key: 'identity', name: 'Identity' }],
+    questions: [
+      {
+        question:
+          'Which four actions should you perform, in sequence, to become the ' +
+          'global administrator of the tenant?',
+        section_key: 'identity',
+        question_type: 'select_and_place',
+        answers: [
+          { text: 'Create the account.', correct_position: 1 },
+          { text: 'Sign in to the admin center.', correct_position: 2 },
+          { text: 'Respond to the become-admin message.', correct_position: 3 },
+          { text: 'Create a DNS TXT record.', correct_position: 4 },
+          { text: 'Delete the tenant.' },
+          { text: 'Disable the account.' },
         ],
       },
     ],

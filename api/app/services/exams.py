@@ -20,9 +20,12 @@ from app.domain.enums import GoalPeriod, StudyGoalSource
 from app.importer import (
     ImportError_,
     build_exam_from_payload,
+    build_exam_from_zip,
+    merge_questions_from_zip,
     merge_questions_into_exam,
 )
 from app.repositories import exams as exams_repo
+from app.storage.blob import get_media_storage
 
 # An exam together with the per-section question counts the converter needs.
 ExamWithCounts = tuple[models.Exam, dict[uuid.UUID, int]]
@@ -137,12 +140,80 @@ async def add_exam_questions(
     )
 
 
+async def import_exam_zip(
+    db: AsyncSession, user: models.User, zip_bytes: bytes
+) -> ExamWithCounts:
+    """Import an exam from a ZIP bundle (``exam.json`` + ``images/``).
+
+    The bundle is fully validated before any image is uploaded; images then go to
+    blob storage and the exam is committed. If the commit fails the exam never
+    existed, so its (now orphaned) blob prefix is removed.
+    """
+    try:
+        exam, uploads = build_exam_from_zip(zip_bytes)
+    except ImportError_ as exc:
+        raise ValidationError(str(exc)) from exc
+
+    exam.user_id = user.id
+    storage = get_media_storage()
+    try:
+        for upload in uploads:
+            await storage.upload(upload)
+        db.add(exam)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        if uploads:
+            await storage.delete_prefix(f"exams/{exam.id}/")
+        raise
+    return await _reload(db, user.id, exam.id)
+
+
+async def add_exam_questions_zip(
+    db: AsyncSession, user: models.User, exam_id: uuid.UUID, zip_bytes: bytes
+) -> AddQuestionsOutcome:
+    """Merge new questions (with images) from a ZIP bundle into an existing exam."""
+    exam = await exams_repo.get_owned_with_questions(db, user.id, exam_id)
+    if exam is None:
+        raise NotFoundError("Exam not found.")
+    try:
+        summary, uploads = merge_questions_from_zip(exam, zip_bytes)
+    except ImportError_ as exc:
+        raise ValidationError(str(exc)) from exc
+
+    storage = get_media_storage()
+    try:
+        for upload in uploads:
+            await storage.upload(upload)
+        # The question count may have changed, so keep an automatic study goal in
+        # sync (a manual goal is left untouched).
+        await _apply_auto_goal(db, exam)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        # Any just-uploaded blobs are left in place: they are content-addressed
+        # and may already be shared with existing questions, so a blanket delete
+        # is unsafe. They are unreferenced and removed when the exam is deleted.
+        raise
+    reloaded, counts = await _reload(db, user.id, exam_id)
+    return AddQuestionsOutcome(
+        exam=reloaded, counts=counts, added=summary.added, skipped=summary.skipped
+    )
+
+
 async def delete_exam(db: AsyncSession, user: models.User, exam_id: uuid.UUID) -> bool:
     exam = await exams_repo.get_owned(db, user.id, exam_id)
     if exam is None:
         return False
+    # Note whether there are image blobs to clean up while the rows still exist;
+    # deleting the exam cascades the question_media rows but not the blobs.
+    had_media = await exams_repo.exam_has_media(db, exam_id)
     await db.delete(exam)
     await db.commit()
+    if had_media:
+        # DB is already consistent; a storage hiccup only leaves orphan blobs,
+        # never dangling references.
+        await get_media_storage().delete_prefix(f"exams/{exam_id}/")
     return True
 
 

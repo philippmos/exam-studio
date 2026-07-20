@@ -4,6 +4,7 @@ import {
   defaultExamSpec,
   SECTION_CRYPTOGRAPHY,
   SECTION_NETWORKING,
+  selectAndPlaceExamSpec,
   uniqueName,
 } from '../src/exam-payload';
 import { expect, test } from '../src/fixtures';
@@ -214,5 +215,45 @@ test.describe('importExam', () => {
       payload: buildPayload(spec),
     });
     expect(message).toContain("references unknown category 'does-not-exist'");
+  });
+
+  test('imports a select-and-place question', async ({ examFactory }) => {
+    const exam = await examFactory.create(selectAndPlaceExamSpec(uniqueName()));
+
+    expect(exam.questionCount).toBe(1);
+    expect(exam.sections.map((s) => s.questionCount)).toEqual([1]);
+  });
+
+  test('rejects a select-and-place question without any placed answer', async ({
+    gql,
+  }) => {
+    const spec = selectAndPlaceExamSpec(uniqueName());
+    // Strip every rank so no option is part of the answer.
+    spec.questions[0].answers = spec.questions[0].answers!.map(({ text }) => ({
+      text,
+    }));
+
+    const message = await gql.expectError(IMPORT_MUTATION, {
+      payload: buildPayload(spec),
+    });
+    expect(message).toContain("at least one answer with a 'correct_position'");
+  });
+
+  test('rejects a select-and-place question with non-contiguous ranks', async ({
+    gql,
+  }) => {
+    const spec = selectAndPlaceExamSpec(uniqueName());
+    // Ranks 1, 2, 3, 5 — a gap at 4.
+    spec.questions[0].answers = [
+      { text: 'A', correct_position: 1 },
+      { text: 'B', correct_position: 2 },
+      { text: 'C', correct_position: 3 },
+      { text: 'D', correct_position: 5 },
+    ];
+
+    const message = await gql.expectError(IMPORT_MUTATION, {
+      payload: buildPayload(spec),
+    });
+    expect(message).toContain('must number its placed answers 1..N');
   });
 });

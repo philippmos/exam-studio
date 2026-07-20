@@ -12,9 +12,19 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { Observable, from, switchMap } from 'rxjs';
 
 import { ExamService } from '../../core/exam-service';
 import { Exam } from '../../core/models';
+
+/** Whether a picked file is a ZIP bundle (images) rather than a plain JSON. */
+function isZip(file: File): boolean {
+  return (
+    file.name.toLowerCase().endsWith('.zip') ||
+    file.type === 'application/zip' ||
+    file.type === 'application/x-zip-compressed'
+  );
+}
 
 /** Data passed in when opening the dialog. */
 export interface AddQuestionsDialogData {
@@ -42,9 +52,10 @@ export interface AddQuestionsResult {
     <h2 mat-dialog-title>Add questions</h2>
     <mat-dialog-content>
       <p class="hint">
-        Select an exam JSON file (e.g. <code>exam.json</code>). New questions
-        are added to this exam; questions that already exist are skipped and
-        nothing is removed.
+        Select an exam <code>.json</code> file, or a <code>.zip</code> bundle
+        (<code>exam.json</code> + an <code>images/</code> folder) when questions
+        embed pictures. New questions are added to this exam; questions that
+        already exist are skipped and nothing is removed.
       </p>
 
       <button mat-stroked-button type="button" (click)="fileInput.click()">
@@ -54,7 +65,7 @@ export interface AddQuestionsResult {
       <input
         #fileInput
         type="file"
-        accept="application/json,.json"
+        accept="application/json,.json,application/zip,.zip"
         hidden
         (change)="onFileSelected($event)"
       />
@@ -72,7 +83,7 @@ export interface AddQuestionsResult {
       </button>
       <button
         mat-flat-button
-        [disabled]="!fileContent() || importing()"
+        [disabled]="!file() || importing()"
         (click)="doImport()"
       >
         Add
@@ -106,7 +117,7 @@ export class AddQuestionsDialog {
   private readonly data = inject<AddQuestionsDialogData>(MAT_DIALOG_DATA);
 
   readonly fileName = signal<string | null>(null);
-  readonly fileContent = signal<string | null>(null);
+  readonly file = signal<File | null>(null);
   readonly importing = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -116,22 +127,28 @@ export class AddQuestionsDialog {
     if (!file) {
       return;
     }
+    this.file.set(file);
     this.fileName.set(file.name);
     this.error.set(null);
-    file
-      .text()
-      .then((text) => this.fileContent.set(text))
-      .catch(() => this.error.set('Could not read the selected file.'));
   }
 
   doImport(): void {
-    const payload = this.fileContent();
-    if (!payload) {
+    const file = this.file();
+    if (!file) {
       return;
     }
     this.importing.set(true);
     this.error.set(null);
-    this.examService.addExamQuestions(this.data.examId, payload).subscribe({
+    // ZIP bundles (with images) go to the upload endpoint; a plain JSON file is
+    // read client-side and sent as the GraphQL string payload as before.
+    const added: Observable<AddQuestionsResult> = isZip(file)
+      ? this.examService.addExamQuestionsZip(this.data.examId, file)
+      : from(file.text()).pipe(
+          switchMap((text) =>
+            this.examService.addExamQuestions(this.data.examId, text),
+          ),
+        );
+    added.subscribe({
       next: (result) => this.dialogRef.close(result),
       error: (err: Error) => {
         this.importing.set(false);

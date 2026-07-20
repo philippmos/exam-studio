@@ -89,12 +89,21 @@ export interface Allocation {
   categoryId: string;
 }
 
+export interface Placement {
+  answerId: string;
+  position: number;
+}
+
 export interface Question {
   id: string;
   text: string;
   explanation: string | null;
   sectionId: string;
-  questionType: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'ALLOCATION';
+  questionType:
+    | 'SINGLE_CHOICE'
+    | 'MULTIPLE_CHOICE'
+    | 'ALLOCATION'
+    | 'SELECT_AND_PLACE';
   answers: Answer[];
   categories: Category[];
 }
@@ -104,8 +113,10 @@ export interface SessionItem {
   position: number;
   selectedAnswerIds: string[];
   selectedAllocations: Allocation[];
+  selectedPlacements: Placement[];
   correctAnswerIds: string[] | null;
   correctAllocations: Allocation[] | null;
+  correctPlacements: Placement[] | null;
   isCorrect: boolean | null;
   answeredAt: string | null;
   question: Question;
@@ -149,6 +160,7 @@ export interface AnswerResult {
   isCorrect: boolean;
   correctAnswerIds: string[];
   correctAllocations: Allocation[];
+  correctPlacements: Placement[];
   reviewBox: number;
   reviewIntervalDays: number;
 }
