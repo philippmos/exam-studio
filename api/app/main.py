@@ -99,11 +99,10 @@ def create_app() -> FastAPI:
     async def _media_storage_error_handler(
         request: Request, exc: MediaStorageError
     ) -> JSONResponse:
+        # Surface the (non-sensitive, actionable) reason — typically "not
+        # configured" — so the operator can fix it without reading the logs.
         logger.error("media storage error", reason=str(exc))
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "Media storage is unavailable."},
-        )
+        return JSONResponse(status_code=503, content={"detail": str(exc)})
 
     @app.get("/health/live", tags=["health"])
     async def liveness() -> dict[str, str]:
