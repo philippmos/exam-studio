@@ -376,6 +376,14 @@ import {
         /* Delineate the (intentionally dark) code block on a dark surface. */
         border: 1px solid color-mix(in srgb, #f8f8f2 12%, transparent);
       }
+      /* Keep imported images inside the card on every screen size. */
+      .question-text ::ng-deep img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 12px 0;
+        border-radius: 10px;
+      }
       .multi-hint {
         display: flex;
         align-items: center;
@@ -537,6 +545,14 @@ import {
         font-size: 14px;
         /* Delineate the (intentionally dark) code block on a dark surface. */
         border: 1px solid color-mix(in srgb, #f8f8f2 12%, transparent);
+      }
+      /* Keep imported images inside the card on every screen size. */
+      .explanation-body ::ng-deep img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 12px 0;
+        border-radius: 10px;
       }
 
       /* ---- Allocation (drag & drop into baskets) ---- */
