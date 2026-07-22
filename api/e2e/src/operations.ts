@@ -83,6 +83,7 @@ export const SESSION_FIELDS = `
         id
         text
         position
+        selectboxId
       }
       categories {
         id
@@ -595,4 +596,29 @@ export function withFirstTwoSwapped(order: string[]): string[] {
   const swapped = [...order];
   [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
   return swapped;
+}
+
+/**
+ * The correct selectbox selection: every option marked with CORRECT_PREFIX.
+ * Each selectbox has exactly one correct option, so this is one option per
+ * selectbox — the full correct answer. (The API hides which option is correct.)
+ */
+export function correctSelectboxIdsOf(item: SessionItem): string[] {
+  return correctAnswerIdsOf(item);
+}
+
+/**
+ * The correct selectbox selection with one selectbox's option swapped for a
+ * wrong option *in the same selectbox*, so it stays structurally valid (one
+ * option per selectbox) but grades as incorrect.
+ */
+export function withOneSelectboxWrong(item: SessionItem): string[] {
+  const correct = correctSelectboxIdsOf(item);
+  const firstCorrect = item.question.answers.find((a) => a.id === correct[0])!;
+  const wrongInSameBox = item.question.answers.find(
+    (a) =>
+      a.selectboxId === firstCorrect.selectboxId &&
+      !a.text.startsWith('Correct:'),
+  )!;
+  return correct.map((id) => (id === firstCorrect.id ? wrongInSameBox.id : id));
 }

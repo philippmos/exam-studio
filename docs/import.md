@@ -26,8 +26,8 @@ documented in the repo‑root [`exam.schema.json`](../exam.schema.json) and the
 [api README](../api/README.md#import-data).
 
 Question `question_type` is one of `single_choice`, `multiple_choice`,
-`allocation`, `select_and_place` or `yes_no`. Every question may carry an
-optional `explanation`.
+`allocation`, `select_and_place`, `yes_no` or `selectbox`. Every question may
+carry an optional `explanation`.
 
 **HTML is allowed** in a question's `question` and `explanation` text — it is
 rendered as sanitised HTML in the client (`<script>`, event handlers, etc. are

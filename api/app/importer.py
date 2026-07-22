@@ -39,6 +39,21 @@ Expected document shape:
               {"text": "...", "answer": "yes"},
               {"text": "...", "answer": "no"}
             ]
+          },
+          {
+            "question": "...",
+            "section_key": "...",
+            "question_type": "selectbox",
+            "selectboxes": [
+              {
+                "key": "...",
+                "label": "...",
+                "options": [
+                  {"text": "...", "is_correct": true},
+                  {"text": "..."}
+                ]
+              }
+            ]
           }
         ]
       }
@@ -53,7 +68,10 @@ their rank with ``correct_position`` (1-based, contiguous from 1), and the
 remaining options are distractors that are never placed. Yes/No questions carry
 an ``answers`` list of statements; each flags its expected answer with
 ``answer`` ("yes" or "no") and the question is correct only when every verdict
-matches.
+matches. Selectbox questions carry a ``selectboxes`` list; each selectbox
+(stored as a category with ``key`` + ``label``) holds a non-empty ``options``
+list, exactly one of which is flagged ``is_correct``, and the question is
+correct only when every selectbox's chosen option is its correct one.
 
 Every question may carry an optional ``explanation`` (a description of the
 question/answer) that the UI reveals once the question has been answered.
@@ -113,7 +131,7 @@ def _parse_question_type(raw_question: dict, number: int) -> QuestionType:
         raise ImportError_(
             f"Question {number} has unknown question_type '{raw_type}' "
             "(expected 'single_choice', 'multiple_choice', 'allocation', "
-            "'select_and_place' or 'yes_no')."
+            "'select_and_place', 'yes_no' or 'selectbox')."
         ) from None
 
 
@@ -305,6 +323,74 @@ def _build_yes_no(question: Question, raw_question: dict, number: int) -> None:
         )
 
 
+def _build_selectbox(question: Question, raw_question: dict, number: int) -> None:
+    """Attach the selectboxes and their options of a selectbox question.
+
+    Each selectbox becomes a ``QuestionCategory`` (``key`` + ``label``); every
+    option is stored as an answer row grouped under its selectbox (``selectbox``),
+    and exactly one option per selectbox is flagged ``is_correct``. Options are
+    numbered with a single ``position`` counter running across all selectboxes.
+    """
+    raw_selectboxes = raw_question.get("selectboxes")
+    if not isinstance(raw_selectboxes, list) or not raw_selectboxes:
+        raise ImportError_(
+            f"Question {number} is a selectbox question and needs a non-empty "
+            "'selectboxes' list."
+        )
+
+    seen_keys: set[str] = set()
+    position = 0  # option position, running across every selectbox
+    for box_index, raw_box in enumerate(raw_selectboxes):
+        key = raw_box.get("key") if isinstance(raw_box, dict) else None
+        label = raw_box.get("label") if isinstance(raw_box, dict) else None
+        if not key or not label:
+            raise ImportError_(
+                f"Question {number}, selectbox {box_index + 1} needs both "
+                "'key' and 'label'."
+            )
+        if key in seen_keys:
+            raise ImportError_(
+                f"Question {number} has a duplicate selectbox key '{key}'."
+            )
+        seen_keys.add(key)
+        selectbox = QuestionCategory(
+            key=key,
+            label=html.unescape(label),
+            position=box_index,
+            question=question,
+        )
+
+        raw_options = raw_box.get("options")
+        if not isinstance(raw_options, list) or not raw_options:
+            raise ImportError_(
+                f"Question {number}, selectbox '{key}' needs a non-empty "
+                "'options' list."
+            )
+        correct_count = 0
+        for raw_option in raw_options:
+            if not isinstance(raw_option, dict) or not raw_option.get("text"):
+                raise ImportError_(
+                    f"Question {number}, selectbox '{key}' has an option missing "
+                    "its 'text'."
+                )
+            is_correct = bool(raw_option.get("is_correct", False))
+            correct_count += int(is_correct)
+            Answer(
+                text=html.unescape(raw_option["text"]),
+                is_correct=is_correct,
+                position=position,
+                question=question,
+                selectbox=selectbox,
+            )
+            position += 1
+
+        if correct_count != 1:
+            raise ImportError_(
+                f"Question {number}, selectbox '{key}' must have exactly one "
+                f"correct option, found {correct_count}."
+            )
+
+
 def build_exam_from_payload(payload: str) -> Exam:
     try:
         data = json.loads(payload)
@@ -354,6 +440,8 @@ def build_exam_from_payload(payload: str) -> Exam:
             _build_select_and_place(question, raw_question, number)
         elif question_type is QuestionType.YES_NO:
             _build_yes_no(question, raw_question, number)
+        elif question_type is QuestionType.SELECTBOX:
+            _build_selectbox(question, raw_question, number)
         else:
             _build_choice_answers(question, raw_question, number, question_type)
 

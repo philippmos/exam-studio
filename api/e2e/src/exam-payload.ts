@@ -30,6 +30,14 @@ export interface ItemSpec {
   correct_category: string;
 }
 
+/** One selectbox of a selectbox question: a labelled dropdown of options. */
+export interface SelectboxSpec {
+  key: string;
+  label: string;
+  // One option must be flagged is_correct (via the correct() helper).
+  options: AnswerSpec[];
+}
+
 export interface QuestionSpec {
   question: string;
   section_key: string;
@@ -37,12 +45,14 @@ export interface QuestionSpec {
     | 'single_choice'
     | 'multiple_choice'
     | 'allocation'
-    | 'select_and_place';
+    | 'select_and_place'
+    | 'selectbox';
   // Choice + select-and-place questions carry answers; allocation questions
-  // carry categories + items.
+  // carry categories + items; selectbox questions carry selectboxes.
   answers?: AnswerSpec[];
   categories?: CategorySpec[];
   items?: ItemSpec[];
+  selectboxes?: SelectboxSpec[];
   // Optional description of the question/answer, revealed once answered.
   explanation?: string;
 }
@@ -207,6 +217,48 @@ export function selectAndPlaceExamSpec(name: string): ExamSpec {
         answers: Object.entries(SELECT_AND_PLACE_SOLUTION).map(
           ([text, correct_position]) => ({ text, correct_position }),
         ),
+      },
+    ],
+  };
+}
+
+/**
+ * 1 section, 1 selectbox question with two selectboxes. Each selectbox has one
+ * correct option (marked with CORRECT_PREFIX) and two wrong ones, so the tests
+ * can pick the right/wrong option per selectbox without the API revealing it.
+ */
+export function selectboxExamSpec(name: string): ExamSpec {
+  return {
+    name,
+    issuer: 'Playwright Test Suite',
+    sections: [{ key: 'identity', name: 'Identity' }],
+    questions: [
+      {
+        question:
+          'For the hybrid identity design, choose the correct option in each ' +
+          'selectbox.',
+        section_key: 'identity',
+        question_type: 'selectbox',
+        selectboxes: [
+          {
+            key: 'auth',
+            label: 'Authentication by the domain controller:',
+            options: [
+              correct('Federation with AD FS'),
+              wrong('Pass-through authentication'),
+              wrong('Password hash synchronization'),
+            ],
+          },
+          {
+            key: 'sspr',
+            label: 'SSPR:',
+            options: [
+              wrong('Device writeback'),
+              wrong('Group writeback'),
+              correct('Password writeback'),
+            ],
+          },
+        ],
       },
     ],
   };

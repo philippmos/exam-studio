@@ -5,6 +5,7 @@ import {
   allocationExamSpec,
   SELECT_AND_PLACE_SOLUTION,
   selectAndPlaceExamSpec,
+  selectboxExamSpec,
   uniqueName,
 } from '../src/exam-payload';
 import { expect, test } from '../src/fixtures';
@@ -12,6 +13,7 @@ import {
   correctAllocationsOf,
   correctAnswerIdsOf,
   correctOrderOf,
+  correctSelectboxIdsOf,
   getSession,
   startSession,
   submitAllocation,
@@ -19,6 +21,7 @@ import {
   submitPlacement,
   withFirstTwoSwapped,
   withOneMisplaced,
+  withOneSelectboxWrong,
   wrongAnswerIdOf,
 } from '../src/operations';
 import { Allocation, ExamSession, SessionItem } from '../src/types';
@@ -522,5 +525,137 @@ test.describe('submitAnswer (select-and-place)', () => {
       placedAnswerIds: [randomUUID()],
     });
     expect(message).toContain('do not belong to this question');
+  });
+});
+
+// Selectbox questions reuse the choice submit path (selectedAnswerIds): one
+// chosen option per selectbox, and the mere presence of the row is the pick.
+const SUBMIT_SELECTBOX_MUTATION = `
+  mutation Submit($sessionItemId: UUID!, $selectedAnswerIds: [UUID!]) {
+    submitAnswer(sessionItemId: $sessionItemId, selectedAnswerIds: $selectedAnswerIds) {
+      sessionItemId
+      isCorrect
+    }
+  }
+`;
+
+test.describe('submitAnswer (selectbox)', () => {
+  test('serves the options grouped into selectboxes', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectboxExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+
+    expect(item.question.questionType).toBe('SELECTBOX');
+    // Two selectboxes (categories), six options total, each grouped into one.
+    expect(item.question.categories).toHaveLength(2);
+    expect(item.question.answers).toHaveLength(6);
+    for (const answer of item.question.answers) {
+      expect(answer.selectboxId).not.toBeNull();
+    }
+    for (const box of item.question.categories) {
+      const options = item.question.answers.filter(
+        (a) => a.selectboxId === box.id,
+      );
+      expect(options).toHaveLength(3);
+    }
+    // Exactly one correct option per selectbox.
+    expect(correctSelectboxIdsOf(item)).toHaveLength(2);
+  });
+
+  test('accepts the correct option in every selectbox', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectboxExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const correct = correctSelectboxIdsOf(item);
+
+    const result = await submitAnswer(gql, item.id, correct);
+
+    expect(result.isCorrect).toBe(true);
+    expect([...result.correctAnswerIds].sort()).toEqual([...correct].sort());
+  });
+
+  test('one wrong selectbox fails the whole question', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectboxExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+
+    const result = await submitAnswer(gql, item.id, withOneSelectboxWrong(item));
+
+    expect(result.isCorrect).toBe(false);
+    // The solution (one option per selectbox) is returned for the feedback view.
+    expect([...result.correctAnswerIds].sort()).toEqual(
+      [...correctSelectboxIdsOf(item)].sort(),
+    );
+  });
+
+  test('rejects choosing two options in one selectbox', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectboxExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const correct = correctSelectboxIdsOf(item);
+    const firstBox = item.question.answers.find(
+      (a) => a.id === correct[0],
+    )!.selectboxId;
+    const extraInFirstBox = item.question.answers.find(
+      (a) => a.selectboxId === firstBox && !correct.includes(a.id),
+    )!;
+
+    const message = await gql.expectError(SUBMIT_SELECTBOX_MUTATION, {
+      sessionItemId: item.id,
+      selectedAnswerIds: [...correct, extraInFirstBox.id],
+    });
+    expect(message).toContain('exactly one option for each selectbox');
+  });
+
+  test('rejects leaving a selectbox unanswered', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectboxExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    // Only the first selectbox's option — the second is left unchosen.
+    const partial = [correctSelectboxIdsOf(item)[0]];
+
+    const message = await gql.expectError(SUBMIT_SELECTBOX_MUTATION, {
+      sessionItemId: item.id,
+      selectedAnswerIds: partial,
+    });
+    expect(message).toContain('exactly one option for each selectbox');
+  });
+
+  test('persists the selection for review and resume', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(selectboxExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const correct = correctSelectboxIdsOf(item);
+
+    await submitAnswer(gql, item.id, correct);
+
+    const reloaded = (await getSession(gql, session.id))!;
+    expect(reloaded.answered).toBe(1);
+    expect(reloaded.correct).toBe(1);
+
+    const ri = reloaded.items.find((i) => i.id === item.id)!;
+    expect(ri.isCorrect).toBe(true);
+    expect(ri.answeredAt).not.toBeNull();
+    expect([...ri.selectedAnswerIds].sort()).toEqual([...correct].sort());
+    // Once answered, the solution may be shown.
+    expect([...ri.correctAnswerIds!].sort()).toEqual([...correct].sort());
   });
 });

@@ -73,6 +73,33 @@
         "section_key": "dummy_section",
         "question_type": "yes_no",
         "explanation": "Dummy explanation text. Each statement is answered with yes or no; the question is correct only when every verdict matches."
+      },
+      {
+        "question": "For the hybrid identity design, choose the correct option in each selectbox.",
+        "selectboxes": [
+          {
+            "key": "auth",
+            "label": "Authentication by the domain controller:",
+            "options": [
+              { "text": "Federation with Active Directory Federation Services (AD FS)", "is_correct": true },
+              { "text": "Pass-through authentication" },
+              { "text": "Password hash synchronization" }
+            ]
+          },
+          {
+            "key": "sspr",
+            "label": "SSPR:",
+            "options": [
+              { "text": "Device writeback" },
+              { "text": "Group writeback" },
+              { "text": "Password hash synchronization" },
+              { "text": "Password writeback", "is_correct": true }
+            ]
+          }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "selectbox",
+        "explanation": "Dummy explanation text. Pick one option per selectbox; the question is correct only when every selectbox's chosen option is its correct one."
       }
     ]
   }

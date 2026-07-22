@@ -46,8 +46,8 @@ describe('QuestionView', () => {
     const question = makeQuestion({
       questionType: 'SINGLE_CHOICE',
       answers: [
-        { id: 'a', text: 'A', position: 0 },
-        { id: 'b', text: 'B', position: 1 },
+        { id: 'a', text: 'A', position: 0, selectboxId: null },
+        { id: 'b', text: 'B', position: 1, selectboxId: null },
       ],
     });
     const component = createWith(question);
@@ -63,9 +63,9 @@ describe('QuestionView', () => {
     const question = makeQuestion({
       questionType: 'MULTIPLE_CHOICE',
       answers: [
-        { id: 'a', text: 'A', position: 0 },
-        { id: 'b', text: 'B', position: 1 },
-        { id: 'c', text: 'C', position: 2 },
+        { id: 'a', text: 'A', position: 0, selectboxId: null },
+        { id: 'b', text: 'B', position: 1, selectboxId: null },
+        { id: 'c', text: 'C', position: 2, selectboxId: null },
       ],
     });
     const component = createWith(question);
@@ -90,8 +90,8 @@ describe('QuestionView', () => {
       makeQuestion({
         questionType: 'ALLOCATION',
         answers: [
-          { id: 'i1', text: 'Item 1', position: 0 },
-          { id: 'i2', text: 'Item 2', position: 1 },
+          { id: 'i1', text: 'Item 1', position: 0, selectboxId: null },
+          { id: 'i2', text: 'Item 2', position: 1, selectboxId: null },
         ],
         categories: [{ id: 'c1', key: 'good', label: 'Good', position: 0 }],
       }),
@@ -106,8 +106,8 @@ describe('QuestionView', () => {
       makeQuestion({
         questionType: 'ALLOCATION',
         answers: [
-          { id: 'i1', text: 'Item 1', position: 0 },
-          { id: 'i2', text: 'Item 2', position: 1 },
+          { id: 'i1', text: 'Item 1', position: 0, selectboxId: null },
+          { id: 'i2', text: 'Item 2', position: 1, selectboxId: null },
         ],
         categories: [{ id: 'c1', key: 'good', label: 'Good', position: 0 }],
       }),
@@ -125,7 +125,7 @@ describe('QuestionView', () => {
     const component = createWith(
       makeQuestion({
         questionType: 'ALLOCATION',
-        answers: [{ id: 'i1', text: 'Item 1', position: 0 }],
+        answers: [{ id: 'i1', text: 'Item 1', position: 0, selectboxId: null }],
         categories: [{ id: 'c1', key: 'good', label: 'Good', position: 0 }],
       }),
     );
@@ -149,9 +149,9 @@ describe('QuestionView', () => {
       makeQuestion({
         questionType: 'SELECT_AND_PLACE',
         answers: [
-          { id: 'o1', text: 'First', position: 0 },
-          { id: 'o2', text: 'Second', position: 1 },
-          { id: 'o3', text: 'Distractor', position: 2 },
+          { id: 'o1', text: 'First', position: 0, selectboxId: null },
+          { id: 'o2', text: 'Second', position: 1, selectboxId: null },
+          { id: 'o3', text: 'Distractor', position: 2, selectboxId: null },
         ],
       }),
     );
@@ -165,9 +165,9 @@ describe('QuestionView', () => {
       makeQuestion({
         questionType: 'SELECT_AND_PLACE',
         answers: [
-          { id: 'o1', text: 'First', position: 0 },
-          { id: 'o2', text: 'Second', position: 1 },
-          { id: 'o3', text: 'Distractor', position: 2 },
+          { id: 'o1', text: 'First', position: 0, selectboxId: null },
+          { id: 'o2', text: 'Second', position: 1, selectboxId: null },
+          { id: 'o3', text: 'Distractor', position: 2, selectboxId: null },
         ],
       }),
     );
@@ -192,9 +192,9 @@ describe('QuestionView', () => {
     const question = makeQuestion({
       questionType: 'SELECT_AND_PLACE',
       answers: [
-        { id: 'o1', text: 'First', position: 0 },
-        { id: 'o2', text: 'Second', position: 1 },
-        { id: 'o3', text: 'Distractor', position: 2 },
+        { id: 'o1', text: 'First', position: 0, selectboxId: null },
+        { id: 'o2', text: 'Second', position: 1, selectboxId: null },
+        { id: 'o3', text: 'Distractor', position: 2, selectboxId: null },
       ],
     });
     TestBed.configureTestingModule({ imports: [QuestionView] });
@@ -220,5 +220,78 @@ describe('QuestionView', () => {
     expect(component.isPlacementCorrect(0)).toBe(true);
     expect(component.isPlacementCorrect(1)).toBe(false);
     expect(component.allPlacementsCorrect()).toBe(false);
+  });
+
+  it('groups options per selectbox and emits a chosen id per selectbox', () => {
+    const question = makeQuestion({
+      questionType: 'SELECTBOX',
+      categories: [
+        { id: 'auth', key: 'auth', label: 'Authentication:', position: 0 },
+        { id: 'sspr', key: 'sspr', label: 'SSPR:', position: 1 },
+      ],
+      answers: [
+        { id: 'a1', text: 'AD FS', position: 0, selectboxId: 'auth' },
+        { id: 'a2', text: 'Pass-through', position: 1, selectboxId: 'auth' },
+        { id: 's1', text: 'Device writeback', position: 2, selectboxId: 'sspr' },
+        { id: 's2', text: 'Password writeback', position: 3, selectboxId: 'sspr' },
+      ],
+    });
+    const component = createWith(question);
+    const emitted: string[][] = [];
+    component.submitAnswers.subscribe((ids) => emitted.push(ids));
+
+    expect(component.optionsForSelectbox('auth').map((o) => o.id)).toEqual([
+      'a1',
+      'a2',
+    ]);
+    expect(component.optionsForSelectbox('sspr').map((o) => o.id)).toEqual([
+      's1',
+      's2',
+    ]);
+
+    // Only one selectbox chosen → nothing emitted yet.
+    component.setSelectboxChoice('auth', 'a1');
+    expect(component.allSelectboxesChosen()).toBe(false);
+    component.submitSelectbox();
+    expect(emitted).toHaveLength(0);
+
+    component.setSelectboxChoice('sspr', 's2');
+    expect(component.allSelectboxesChosen()).toBe(true);
+    component.submitSelectbox();
+
+    // One chosen option per selectbox, in selectbox order.
+    expect(emitted).toEqual([['a1', 's2']]);
+  });
+
+  it('grades each selectbox against the solution (answered view)', () => {
+    const question = makeQuestion({
+      questionType: 'SELECTBOX',
+      categories: [
+        { id: 'auth', key: 'auth', label: 'Authentication:', position: 0 },
+        { id: 'sspr', key: 'sspr', label: 'SSPR:', position: 1 },
+      ],
+      answers: [
+        { id: 'a1', text: 'AD FS', position: 0, selectboxId: 'auth' },
+        { id: 'a2', text: 'Pass-through', position: 1, selectboxId: 'auth' },
+        { id: 's1', text: 'Device writeback', position: 2, selectboxId: 'sspr' },
+        { id: 's2', text: 'Password writeback', position: 3, selectboxId: 'sspr' },
+      ],
+    });
+    TestBed.configureTestingModule({ imports: [QuestionView] });
+    const fixture = TestBed.createComponent(QuestionView);
+    fixture.componentRef.setInput('question', question);
+    fixture.componentRef.setInput('answered', true);
+    // The user picked a1 (correct for auth) and s1 (wrong for sspr).
+    fixture.componentRef.setInput('selectedAnswerIds', ['a1', 's1']);
+    fixture.componentRef.setInput('correctAnswerIds', ['a1', 's2']);
+    const component = fixture.componentInstance;
+
+    expect(component.selectedOptionOf('auth')?.id).toBe('a1');
+    expect(component.correctOptionOf('auth')?.id).toBe('a1');
+    expect(component.isSelectboxCorrect('auth')).toBe(true);
+
+    expect(component.selectedOptionOf('sspr')?.id).toBe('s1');
+    expect(component.correctOptionOf('sspr')?.id).toBe('s2');
+    expect(component.isSelectboxCorrect('sspr')).toBe(false);
   });
 });

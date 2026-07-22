@@ -470,6 +470,8 @@ export class Quiz {
         return 'Drag the answers into the correct order';
       case 'YES_NO':
         return 'Answer each statement with yes or no';
+      case 'SELECTBOX':
+        return 'Choose one option for each selectbox';
       default:
         return 'Select an answer';
     }

@@ -120,6 +120,32 @@
         "section_key": "basics",
         "question_type": "yes_no",
         "explanation": "TCP is connection-oriented and reliable, opening connections with a three-way handshake. UDP is connectionless, does not guarantee delivery or ordering, and has less overhead than TCP."
+      },
+      {
+        "question": "Choose the correct answer in each selectbox.",
+        "selectboxes": [
+          {
+            "key": "web_protocol",
+            "label": "Protocol used to browse secure websites:",
+            "options": [
+              { "text": "HTTPS", "is_correct": true },
+              { "text": "FTP" },
+              { "text": "SMTP" }
+            ]
+          },
+          {
+            "key": "web_port",
+            "label": "Default port for that protocol:",
+            "options": [
+              { "text": "21" },
+              { "text": "443", "is_correct": true },
+              { "text": "25" }
+            ]
+          }
+        ],
+        "section_key": "security",
+        "question_type": "selectbox",
+        "explanation": "HTTPS secures web traffic and listens on port 443 by default. FTP uses port 21 and SMTP uses port 25."
       }
     ]
   }

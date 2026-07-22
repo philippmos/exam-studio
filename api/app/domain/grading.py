@@ -59,6 +59,17 @@ class VerdictGrade:
     correct_verdicts: list[tuple[uuid.UUID, bool]]
 
 
+@dataclass(frozen=True)
+class SelectboxGrade:
+    """Graded selectbox answer (one option chosen per selectbox)."""
+
+    # The validated selection to persist (one row per chosen option id).
+    selected_answer_ids: list[uuid.UUID]
+    is_correct: bool
+    # The solution: the correct option of every selectbox.
+    correct_answer_ids: list[uuid.UUID]
+
+
 def grade_choice(
     question_type: QuestionType,
     answer_ids: set[uuid.UUID],
@@ -189,4 +200,45 @@ def grade_yes_no(
         chosen=chosen,
         is_correct=is_correct,
         correct_verdicts=list(correct_verdict_by_answer.items()),
+    )
+
+
+def grade_selectbox(
+    selectbox_by_answer: dict[uuid.UUID, uuid.UUID],
+    correct_by_selectbox: dict[uuid.UUID, uuid.UUID],
+    selected_answer_ids: Iterable[uuid.UUID] | None,
+) -> SelectboxGrade:
+    """Validate and grade a selectbox answer (one option chosen per selectbox).
+
+    ``selectbox_by_answer`` maps every option to the selectbox it belongs to and
+    ``correct_by_selectbox`` gives the correct option of each selectbox. The user
+    must choose exactly one option in each selectbox; the answer is correct only
+    when every selectbox's chosen option is its correct one.
+    """
+    selectbox_ids = set(selectbox_by_answer.values())
+    if not selectbox_ids:
+        raise ValidationError("This question has no selectboxes configured.")
+
+    selected = set(selected_answer_ids or [])
+    if not selected:
+        raise ValidationError("At least one option must be selected.")
+    if not selected <= set(selectbox_by_answer):
+        raise ValidationError("Selected answers do not belong to this question.")
+
+    chosen_by_selectbox: dict[uuid.UUID, set[uuid.UUID]] = {
+        selectbox_id: set() for selectbox_id in selectbox_ids
+    }
+    for answer_id in selected:
+        chosen_by_selectbox[selectbox_by_answer[answer_id]].add(answer_id)
+    if any(len(chosen) != 1 for chosen in chosen_by_selectbox.values()):
+        raise ValidationError("Choose exactly one option for each selectbox.")
+
+    is_correct = all(
+        chosen_by_selectbox[selectbox_id] == {correct_by_selectbox.get(selectbox_id)}
+        for selectbox_id in selectbox_ids
+    )
+    return SelectboxGrade(
+        selected_answer_ids=sorted(selected, key=str),
+        is_correct=is_correct,
+        correct_answer_ids=sorted(correct_by_selectbox.values(), key=str),
     )

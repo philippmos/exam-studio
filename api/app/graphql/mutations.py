@@ -197,8 +197,10 @@ class Mutation:
         pass ``placed_answer_ids`` (the answer ids in the placed order) and are
         correct only when that order matches the solution exactly; yes/no
         questions pass ``verdicts`` (a Yes/No answer per statement) and are
-        correct only when every verdict matches. Every answer also advances the
-        question's spaced-repetition schedule.
+        correct only when every verdict matches; selectbox questions also pass
+        ``selected_answer_ids`` (the chosen option of every selectbox) and are
+        correct only when each selectbox's option is its correct one. Every
+        answer also advances the question's spaced-repetition schedule.
         """
         placements = (
             [(placement.answer_id, placement.category_id) for placement in allocations]

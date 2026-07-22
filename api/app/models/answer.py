@@ -23,6 +23,9 @@ class Answer(Base):
     ``correct_position`` (``None`` for the distractor options never placed).
     Yes/No questions store the statement's expected verdict in ``correct_verdict``
     (``True`` for "Yes", ``False`` for "No").
+    Selectbox questions group each option under a selectbox (a
+    ``QuestionCategory``) via ``selectbox_id`` and flag the one correct option of
+    each selectbox with ``is_correct``.
     """
 
     __tablename__ = "answers"
@@ -45,6 +48,19 @@ class Answer(Base):
     # Yes/No statements only: the correct verdict (True = "Yes", False = "No").
     # Null for every choice/allocation/select-and-place answer.
     correct_verdict: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # Selectbox options only: the selectbox (a category) this option is listed
+    # under. Exactly one option per selectbox is flagged ``is_correct``. Null for
+    # every choice/allocation/select-and-place/yes-no answer.
+    selectbox_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("question_categories.id", ondelete="SET NULL"), nullable=True
+    )
 
     question: Mapped[Question] = relationship(back_populates="answers")
-    correct_category: Mapped[QuestionCategory | None] = relationship()
+    # Two columns reference ``question_categories`` (an allocation item's solution
+    # basket and a selectbox option's group), so each relationship pins its FK.
+    correct_category: Mapped[QuestionCategory | None] = relationship(
+        foreign_keys=[correct_category_id]
+    )
+    selectbox: Mapped[QuestionCategory | None] = relationship(
+        foreign_keys=[selectbox_id]
+    )

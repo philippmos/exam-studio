@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     # the max number of images one import may contain.
     import_zip_max_bytes: int = 25 * 1024 * 1024
     media_max_file_bytes: int = 5 * 1024 * 1024
-    media_max_files: int = 50
+    media_max_files: int = 100
     # Comma-separated allow-list of image content types (sniffed, not trusted
     # from the file extension). Consume via ``media_allowed_content_types_list``.
     media_allowed_content_types: str = (

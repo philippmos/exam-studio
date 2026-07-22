@@ -94,6 +94,7 @@ const SESSION_FIELDS = `
         id
         text
         position
+        selectboxId
       }
       categories {
         id
