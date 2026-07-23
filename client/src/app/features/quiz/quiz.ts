@@ -465,7 +465,7 @@ export class Quiz {
       case 'MULTIPLE_CHOICE':
         return 'Select all answers that apply';
       case 'ALLOCATION':
-        return 'Sort every item into a basket';
+        return 'Sort each item into its basket (some may belong in none)';
       case 'SELECT_AND_PLACE':
         return 'Drag the answers into the correct order';
       case 'YES_NO':

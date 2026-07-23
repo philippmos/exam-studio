@@ -20,7 +20,10 @@ Expected document shape:
             "section_key": "...",
             "question_type": "allocation",
             "categories": [{"key": "...", "label": "..."}],
-            "items": [{"text": "...", "correct_category": "<category key>"}]
+            "items": [
+              {"text": "...", "correct_category": "<category key>"},
+              {"text": "... (a distractor, belongs in no category)"}
+            ]
           },
           {
             "question": "...",
@@ -61,11 +64,13 @@ Expected document shape:
 
 Choice questions carry an ``answers`` list (correct options flagged with
 ``is_correct``). Allocation questions instead carry ``categories`` (the baskets)
-and ``items`` (each pointing at the ``correct_category`` it belongs to); the
-items are stored as answer rows. Select-and-place questions also carry an
-``answers`` list (the option pool); the options that make up the answer flag
-their rank with ``correct_position`` (1-based, contiguous from 1), and the
-remaining options are distractors that are never placed. Yes/No questions carry
+and ``items``; an item names the ``correct_category`` it belongs to, while an
+item that omits ``correct_category`` is a distractor that belongs in no basket
+(at least one item must name a category). The items are stored as answer rows.
+Select-and-place questions also carry an ``answers`` list (the option pool); the
+options that make up the answer flag their rank with ``correct_position``
+(1-based, contiguous from 1), and the remaining options are distractors that are
+never placed. Yes/No questions carry
 an ``answers`` list of statements; each flags its expected answer with
 ``answer`` ("yes" or "no") and the question is correct only when every verdict
 matches. Selectbox questions carry a ``selectboxes`` list; each selectbox
@@ -207,20 +212,26 @@ def _build_allocation(question: Question, raw_question: dict, number: int) -> No
             f"Question {number} is an allocation question and needs a non-empty "
             "'items' list."
         )
+    real_count = 0  # items that name a category (the rest are distractors)
     for position, raw_item in enumerate(raw_items):
         if not isinstance(raw_item, dict) or not raw_item.get("text"):
             raise ImportError_(
                 f"Question {number}, item {position + 1} is missing its 'text'."
             )
         raw_category = raw_item.get("correct_category")
-        category = (
-            category_by_key.get(raw_category) if isinstance(raw_category, str) else None
-        )
-        if category is None:
-            raise ImportError_(
-                f"Question {number}, item {position + 1} references unknown "
-                f"category '{raw_item.get('correct_category')}'."
+        category: QuestionCategory | None = None
+        if raw_category is not None:
+            category = (
+                category_by_key.get(raw_category)
+                if isinstance(raw_category, str)
+                else None
             )
+            if category is None:
+                raise ImportError_(
+                    f"Question {number}, item {position + 1} references unknown "
+                    f"category '{raw_item.get('correct_category')}'."
+                )
+            real_count += 1
 
         Answer(
             text=html.unescape(raw_item["text"]),
@@ -228,6 +239,13 @@ def _build_allocation(question: Question, raw_question: dict, number: int) -> No
             position=position,
             question=question,
             correct_category=category,
+        )
+
+    if real_count == 0:
+        raise ImportError_(
+            f"Question {number} is an allocation question and needs at least one "
+            "item with a 'correct_category' (items that omit it are distractors "
+            "that belong in no category)."
         )
 
 

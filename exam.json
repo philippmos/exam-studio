@@ -68,7 +68,7 @@
         "explanation": "WPA3 encryption and a strong pre-shared key protect a Wi-Fi network. Broadcasting the admin password or disabling encryption do the opposite."
       },
       {
-        "question": "Sort each protocol by the transport layer it runs on.",
+        "question": "Sort each protocol by the transport layer it runs on. One item is not a transport protocol at all — leave it in the tray.",
         "categories": [
           { "key": "tcp", "label": "TCP" },
           { "key": "udp", "label": "UDP" }
@@ -77,11 +77,12 @@
           { "text": "HTTP", "correct_category": "tcp" },
           { "text": "SSH", "correct_category": "tcp" },
           { "text": "DHCP", "correct_category": "udp" },
-          { "text": "TFTP", "correct_category": "udp" }
+          { "text": "TFTP", "correct_category": "udp" },
+          { "text": "HTML" }
         ],
         "section_key": "basics",
         "question_type": "allocation",
-        "explanation": "HTTP and SSH need the reliable, connection-oriented delivery of TCP. DHCP and TFTP use the lightweight, connectionless UDP."
+        "explanation": "HTTP and SSH need the reliable, connection-oriented delivery of TCP. DHCP and TFTP use the lightweight, connectionless UDP. HTML is a markup language, not a transport protocol, so it belongs in neither basket."
       },
       {
         "question": "Put the steps of establishing a TCP connection (the three-way handshake) in the correct order.",

@@ -28,12 +28,17 @@ class ChoiceGrade:
 
 @dataclass(frozen=True)
 class AllocationGrade:
-    """Graded allocation answer (each item sorted into a basket)."""
+    """Graded allocation answer (each item sorted into a basket).
+
+    Items whose correct category is ``None`` are distractors that belong in no
+    basket; the solution (``correct_allocations``) only lists the real items.
+    """
 
     # answer id -> chosen category id, the selection to persist.
     chosen: dict[uuid.UUID, uuid.UUID]
     is_correct: bool
-    # The solution as (answer id, correct category id) pairs, in item order.
+    # The solution as (answer id, correct category id) pairs, in item order;
+    # distractors (no correct category) are omitted.
     correct_allocations: list[tuple[uuid.UUID, uuid.UUID]]
 
 
@@ -105,11 +110,15 @@ def grade_allocation(
     category_ids: set[uuid.UUID],
     placements: Iterable[tuple[uuid.UUID, uuid.UUID]],
 ) -> AllocationGrade:
-    """Validate and grade an allocation (every item sorted into a basket).
+    """Validate and grade an allocation (each item sorted into a basket).
 
-    Correct only when every item sits in its own correct category. Pass
-    ``correct_category_by_answer`` in item order so the returned solution keeps
-    that order.
+    Items whose value in ``correct_category_by_answer`` is ``None`` are
+    distractors that belong in no basket: the answer is correct only when every
+    real item sits in its own correct category *and* every distractor is left
+    unplaced. A distractor may still be dragged into a basket, and a real item
+    may be left in the tray — either one makes the answer incorrect (it is not
+    rejected). Pass ``correct_category_by_answer`` in item order so the returned
+    solution keeps that order.
     """
     answer_ids = set(correct_category_by_answer)
 
@@ -119,15 +128,18 @@ def grade_allocation(
             raise ValidationError("Each item may be sorted into only one category.")
         chosen[answer_id] = category_id
 
+    if not chosen:
+        raise ValidationError("At least one item must be sorted into a category.")
     if not set(chosen) <= answer_ids:
         raise ValidationError("Selected answers do not belong to this question.")
     if not set(chosen.values()) <= category_ids:
         raise ValidationError("Selected categories do not belong to this question.")
-    if set(chosen) != answer_ids:
-        raise ValidationError("Every item must be sorted into a category.")
 
+    # A real item must sit in its correct category; a distractor (correct
+    # category None) must be left unplaced, so ``chosen.get`` returning None
+    # matches only for a distractor that was not dragged into any basket.
     is_correct = all(
-        chosen[aid] == correct_category_by_answer[aid] for aid in answer_ids
+        chosen.get(aid) == correct_category_by_answer[aid] for aid in answer_ids
     )
     correct_allocations = [
         (aid, cid) for aid, cid in correct_category_by_answer.items() if cid is not None

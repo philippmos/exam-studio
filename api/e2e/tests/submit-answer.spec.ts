@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 
 import {
   ALLOCATION_SOLUTION,
+  ALLOCATION_WITH_DISTRACTOR_SOLUTION,
   allocationExamSpec,
+  allocationWithDistractorExamSpec,
   SELECT_AND_PLACE_SOLUTION,
   selectAndPlaceExamSpec,
   selectboxExamSpec,
@@ -11,9 +13,11 @@ import {
 import { expect, test } from '../src/fixtures';
 import {
   correctAllocationsOf,
+  correctAllocationsWithDistractorsOf,
   correctAnswerIdsOf,
   correctOrderOf,
   correctSelectboxIdsOf,
+  distractorItemOf,
   getSession,
   startSession,
   submitAllocation,
@@ -336,20 +340,35 @@ test.describe('submitAnswer (allocation)', () => {
     expect(ri.selectedAllocations).toHaveLength(4);
   });
 
-  test('rejects a placement that leaves an item unsorted', async ({
+  test('an incomplete placement (a real item left unsorted) is incorrect', async ({
     gql,
     examFactory,
   }) => {
     const exam = await examFactory.create(allocationExamSpec(uniqueName()));
     const session = await startSession(gql, exam.id, 'ALL_RANDOM');
     const item = session.items[0];
+    // Only two of the four items placed; leaving a real item unsorted is wrong,
+    // not rejected (the client cannot tell a real item from a distractor).
     const partial = correctAllocationsOf(item, ALLOCATION_SOLUTION).slice(0, 2);
+
+    const result = await submitAllocation(gql, item.id, partial);
+
+    expect(result.isCorrect).toBe(false);
+    expect(result.correctAllocations).toHaveLength(4);
+  });
+
+  test('rejects an empty placement', async ({ gql, examFactory }) => {
+    const exam = await examFactory.create(allocationExamSpec(uniqueName()));
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
 
     const message = await gql.expectError(SUBMIT_ALLOC_MUTATION, {
       sessionItemId: item.id,
-      allocations: partial,
+      allocations: [],
     });
-    expect(message).toContain('Every item must be sorted into a category');
+    expect(message).toContain(
+      'At least one item must be sorted into a category',
+    );
   });
 
   test('rejects a category that belongs to no question', async ({
@@ -369,6 +388,81 @@ test.describe('submitAnswer (allocation)', () => {
       allocations: bogus,
     });
     expect(message).toContain('Selected categories do not belong to this question');
+  });
+});
+
+test.describe('submitAnswer (allocation with distractors)', () => {
+  test('serves every item, including the distractors', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(
+      allocationWithDistractorExamSpec(uniqueName()),
+    );
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+
+    expect(item.question.questionType).toBe('ALLOCATION');
+    // 5 items in the tray, only 4 of which belong in a basket.
+    expect(item.question.answers).toHaveLength(5);
+    expect(
+      correctAllocationsWithDistractorsOf(
+        item,
+        ALLOCATION_WITH_DISTRACTOR_SOLUTION,
+      ),
+    ).toHaveLength(4);
+  });
+
+  test('leaving the distractor unplaced is fully correct', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(
+      allocationWithDistractorExamSpec(uniqueName()),
+    );
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+
+    const result = await submitAllocation(
+      gql,
+      item.id,
+      correctAllocationsWithDistractorsOf(
+        item,
+        ALLOCATION_WITH_DISTRACTOR_SOLUTION,
+      ),
+    );
+
+    expect(result.isCorrect).toBe(true);
+    // Only the four real items are part of the solution.
+    expect(result.correctAllocations).toHaveLength(4);
+  });
+
+  test('placing the distractor into a basket is incorrect', async ({
+    gql,
+    examFactory,
+  }) => {
+    const exam = await examFactory.create(
+      allocationWithDistractorExamSpec(uniqueName()),
+    );
+    const session = await startSession(gql, exam.id, 'ALL_RANDOM');
+    const item = session.items[0];
+    const correct = correctAllocationsWithDistractorsOf(
+      item,
+      ALLOCATION_WITH_DISTRACTOR_SOLUTION,
+    );
+    const distractor = distractorItemOf(
+      item,
+      ALLOCATION_WITH_DISTRACTOR_SOLUTION,
+    );
+
+    // Everything right, but the distractor is dragged into the first basket.
+    const withDistractor = [
+      ...correct,
+      { answerId: distractor.id, categoryId: item.question.categories[0].id },
+    ];
+    const result = await submitAllocation(gql, item.id, withDistractor);
+
+    expect(result.isCorrect).toBe(false);
   });
 });
 

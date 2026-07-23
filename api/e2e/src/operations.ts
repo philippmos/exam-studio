@@ -2,6 +2,7 @@ import { GraphqlClient } from './graphql-client';
 import {
   AddQuestionsResult,
   Allocation,
+  Answer,
   AnswerResult,
   Exam,
   ExamSession,
@@ -571,6 +572,38 @@ export function withOneMisplaced(
       ? { ...alloc, categoryId: wrongCategory.id }
       : alloc,
   );
+}
+
+/**
+ * The fully correct placement of an allocation question that has distractors:
+ * every item that names a category is sorted into it; distractor items (whose
+ * text maps to `undefined`) are left unplaced. The API hides the solution.
+ */
+export function correctAllocationsWithDistractorsOf(
+  item: SessionItem,
+  solution: Record<string, string | undefined>,
+): Allocation[] {
+  const byKey = categoryIdByKey(item);
+  return item.question.answers
+    .filter((answer) => solution[answer.text] !== undefined)
+    .map((answer) => ({
+      answerId: answer.id,
+      categoryId: byKey.get(solution[answer.text]!)!,
+    }));
+}
+
+/** A distractor item of the question (its text maps to `undefined`). */
+export function distractorItemOf(
+  item: SessionItem,
+  solution: Record<string, string | undefined>,
+): Answer {
+  const distractor = item.question.answers.find(
+    (answer) => solution[answer.text] === undefined,
+  );
+  if (!distractor) {
+    throw new Error(`Question "${item.question.text}" has no distractor item.`);
+  }
+  return distractor;
 }
 
 /**

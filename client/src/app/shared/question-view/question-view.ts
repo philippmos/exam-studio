@@ -205,7 +205,8 @@ import {
       @if (!answered()) {
         <p class="multi-hint">
           <mat-icon>drag_indicator</mat-icon> Drag each item into the basket it
-          belongs to.
+          belongs to. Some items may not belong in any basket — leave those in
+          the tray.
         </p>
         <div class="alloc" cdkDropListGroup>
           <div class="basket tray">
@@ -254,7 +255,7 @@ import {
         <div class="submit-row">
           <button
             mat-flat-button
-            [disabled]="tray().length > 0"
+            [disabled]="placedCount() === 0"
             (click)="submitAllocation()"
           >
             Check answer
@@ -281,14 +282,39 @@ import {
                       }}</mat-icon>
                       <span class="chip-label">{{ item.text }}</span>
                       @if (!isItemCorrect(item.id, cat.id)) {
-                        <span class="correction">
-                          → {{ categoryLabel(correctCategoryId(item.id)) }}
-                        </span>
+                        <span class="correction">{{
+                          correctionFor(item.id)
+                        }}</span>
                       }
                     </div>
                   }
                   @if (itemsInBasket(cat.id).length === 0) {
                     <p class="empty-hint">—</p>
+                  }
+                </div>
+              </div>
+            }
+            <!-- Items left in the tray: correct only if they are distractors. -->
+            @if (unplacedAnswers().length > 0) {
+              <div class="basket">
+                <h4 class="basket-title">Not in any basket</h4>
+                <div class="dropzone static">
+                  @for (item of unplacedAnswers(); track item.id) {
+                    <div
+                      class="chip"
+                      [class.correct]="isUnplacedCorrect(item.id)"
+                      [class.wrong]="!isUnplacedCorrect(item.id)"
+                    >
+                      <mat-icon class="state-icon">{{
+                        isUnplacedCorrect(item.id) ? 'check_circle' : 'cancel'
+                      }}</mat-icon>
+                      <span class="chip-label">{{ item.text }}</span>
+                      @if (!isUnplacedCorrect(item.id)) {
+                        <span class="correction">{{
+                          correctionFor(item.id)
+                        }}</span>
+                      }
+                    </div>
                   }
                 </div>
               </div>
@@ -312,9 +338,7 @@ import {
                 class="selectbox"
                 [id]="'sb-' + box.id"
                 [value]="selectboxChoice(box.id) ?? ''"
-                (change)="
-                  setSelectboxChoice(box.id, $any($event.target).value)
-                "
+                (change)="setSelectboxChoice(box.id, $any($event.target).value)"
               >
                 <option value="" disabled>Select…</option>
                 @for (opt of optionsForSelectbox(box.id); track opt.id) {
@@ -1062,16 +1086,26 @@ export class QuestionView {
     this.basketItems.set({ ...this.basketItems() });
   }
 
+  /** How many items the user has dropped into baskets (the pre-submit gate). */
+  readonly placedCount = computed(() =>
+    Object.values(this.basketItems()).reduce(
+      (total, items) => total + items.length,
+      0,
+    ),
+  );
+
   submitAllocation(): void {
-    if (this.tray().length > 0) {
-      return;
-    }
     const baskets = this.basketItems();
     const allocations: Allocation[] = [];
     for (const category of this.question().categories) {
       for (const item of baskets[category.id]) {
         allocations.push({ answerId: item.id, categoryId: category.id });
       }
+    }
+    // Distractor items belong in no basket and stay in the tray, so gate on at
+    // least one placed item rather than an empty tray (which may never happen).
+    if (allocations.length === 0) {
+      return;
     }
     this.submitAllocations.emit(allocations);
   }
@@ -1099,6 +1133,31 @@ export class QuestionView {
     return (
       this.question().categories.find((c) => c.id === categoryId)?.label ?? ''
     );
+  }
+
+  /**
+   * Items the user left in the tray, i.e. not sorted into any basket (answered
+   * view, from the inputs). Correctly left there only if they are distractors.
+   */
+  readonly unplacedAnswers = computed<Answer[]>(() => {
+    const placed = new Set(this.selectedAllocations().map((a) => a.answerId));
+    return this.question().answers.filter((answer) => !placed.has(answer.id));
+  });
+
+  /** An unplaced item is correct only when it is a distractor (belongs nowhere). */
+  isUnplacedCorrect(answerId: string): boolean {
+    return this.correctCategoryId(answerId) === null;
+  }
+
+  /**
+   * The answered-view correction for a mis-sorted item: an arrow to its correct
+   * basket, or a note that it belongs in no basket (a distractor).
+   */
+  correctionFor(answerId: string): string {
+    const categoryId = this.correctCategoryId(answerId);
+    return categoryId === null
+      ? '→ not in any basket'
+      : `→ ${this.categoryLabel(categoryId)}`;
   }
 
   // ---- Select-and-place questions ----------------------------------------
@@ -1210,14 +1269,16 @@ export class QuestionView {
   /** The user's verdict for a statement (answered view, from the inputs). */
   selectedVerdictOf(answerId: string): boolean | null {
     return (
-      this.selectedVerdicts().find((v) => v.answerId === answerId)?.value ?? null
+      this.selectedVerdicts().find((v) => v.answerId === answerId)?.value ??
+      null
     );
   }
 
   /** The correct verdict for a statement (answered view, from the inputs). */
   correctVerdictOf(answerId: string): boolean | null {
     return (
-      this.correctVerdicts()?.find((v) => v.answerId === answerId)?.value ?? null
+      this.correctVerdicts()?.find((v) => v.answerId === answerId)?.value ??
+      null
     );
   }
 
@@ -1273,14 +1334,17 @@ export class QuestionView {
     const chosen = this.selectboxChoices();
     // One chosen option per selectbox — emitted as plain answer ids, so the
     // selection rides the same submit path as a choice question.
-    this.submitAnswers.emit(this.question().categories.map((box) => chosen[box.id]));
+    this.submitAnswers.emit(
+      this.question().categories.map((box) => chosen[box.id]),
+    );
   }
 
   /** The option the user chose in a selectbox (answered view, from the inputs). */
   selectedOptionOf(categoryId: string): Answer | null {
     const ids = new Set(this.selectedAnswerIds());
     return (
-      this.optionsForSelectbox(categoryId).find((opt) => ids.has(opt.id)) ?? null
+      this.optionsForSelectbox(categoryId).find((opt) => ids.has(opt.id)) ??
+      null
     );
   }
 
@@ -1288,7 +1352,8 @@ export class QuestionView {
   correctOptionOf(categoryId: string): Answer | null {
     const ids = new Set(this.correctAnswerIds() ?? []);
     return (
-      this.optionsForSelectbox(categoryId).find((opt) => ids.has(opt.id)) ?? null
+      this.optionsForSelectbox(categoryId).find((opt) => ids.has(opt.id)) ??
+      null
     );
   }
 

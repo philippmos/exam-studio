@@ -18,7 +18,8 @@ class Answer(Base):
 
     Choice questions flag the right options with ``is_correct``. Allocation
     questions instead point each item at the category it belongs to via
-    ``correct_category_id`` (``is_correct`` is unused and stays ``False``).
+    ``correct_category_id`` (``None`` for a distractor item that belongs in no
+    category; ``is_correct`` is unused and stays ``False``).
     Select-and-place questions store the option's rank in the solution order in
     ``correct_position`` (``None`` for the distractor options never placed).
     Yes/No questions store the statement's expected verdict in ``correct_verdict``
@@ -37,7 +38,8 @@ class Answer(Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    # Allocation items only: the category this item should be sorted into.
+    # Allocation items only: the category this item should be sorted into
+    # (None for a distractor item that belongs in no category).
     correct_category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("question_categories.id", ondelete="SET NULL"), nullable=True
     )

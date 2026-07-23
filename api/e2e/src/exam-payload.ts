@@ -27,7 +27,8 @@ export interface CategorySpec {
 
 export interface ItemSpec {
   text: string;
-  correct_category: string;
+  // Omitted for a distractor item that belongs in no category.
+  correct_category?: string;
 }
 
 /** One selectbox of a selectbox question: a labelled dropdown of options. */
@@ -179,6 +180,52 @@ export function allocationExamSpec(name: string): ExamSpec {
           { key: 'avoided', label: 'Avoided' },
         ],
         items: Object.entries(ALLOCATION_SOLUTION).map(
+          ([text, correct_category]) => ({ text, correct_category }),
+        ),
+      },
+    ],
+  };
+}
+
+/**
+ * An allocation solution that includes a distractor: item text -> the category
+ * key it belongs to, or `undefined` for a distractor that belongs in no
+ * category. The API hides the solution, so tests reconstruct the correct (and a
+ * deliberately wrong) placement from this.
+ */
+export const ALLOCATION_WITH_DISTRACTOR_SOLUTION: Record<
+  string,
+  string | undefined
+> = {
+  'Interfaces.': 'contained',
+  'Responsibility.': 'contained',
+  'Internal structure.': 'avoided',
+  'Hints for the implementation.': 'avoided',
+  'The last committer of the file.': undefined,
+};
+
+/**
+ * 1 section, 1 allocation question with a distractor: four items belong in a
+ * basket and one belongs in none (it stays in the tray). Mirrors the
+ * select-and-place distractor spec.
+ */
+export function allocationWithDistractorExamSpec(name: string): ExamSpec {
+  return {
+    name,
+    issuer: 'Playwright Test Suite',
+    sections: [{ key: 'architecture', name: 'Architecture' }],
+    questions: [
+      {
+        question:
+          'Which information belongs in a black-box description? Sort each ' +
+          'item into its basket; some items belong in none.',
+        section_key: 'architecture',
+        question_type: 'allocation',
+        categories: [
+          { key: 'contained', label: 'Contained' },
+          { key: 'avoided', label: 'Avoided' },
+        ],
+        items: Object.entries(ALLOCATION_WITH_DISTRACTOR_SOLUTION).map(
           ([text, correct_category]) => ({ text, correct_category }),
         ),
       },

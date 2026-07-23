@@ -34,7 +34,7 @@
         "explanation": "Dummy explanation text."
       },
       {
-        "question": "You document a component of your software architecture. Which information should be contained in the black box description and which should be avoided?",
+        "question": "You document a component of your software architecture. Which information should be contained in the black box description and which should be avoided? One item belongs in neither — leave it unsorted.",
         "categories": [
           { "key": "contained", "label": "Contained" },
           { "key": "avoided",   "label": "Avoided" }
@@ -43,11 +43,12 @@
           { "text": "Interfaces.",                  "correct_category": "contained" },
           { "text": "Responsibility.",              "correct_category": "contained" },
           { "text": "Internal structure.",          "correct_category": "avoided" },
-          { "text": "Hints for the implementation.","correct_category": "avoided" }
+          { "text": "Hints for the implementation.","correct_category": "avoided" },
+          { "text": "The commit history of the file." }
         ],
         "section_key": "dummy_section",
         "question_type": "allocation",
-        "explanation": "Dummy explanation text."
+        "explanation": "Dummy explanation text. The commit history is a distractor that belongs in neither category."
       },
       {
         "question": "You need to gain global administrator privileges to the Azure AD tenant that contains the self-signed users. Which four actions should you perform, in sequence?",

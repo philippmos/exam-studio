@@ -29,6 +29,14 @@ Question `question_type` is one of `single_choice`, `multiple_choice`,
 `allocation`, `select_and_place`, `yes_no` or `selectbox`. Every question may
 carry an optional `explanation`.
 
+`allocation` and `select_and_place` questions may include **distractors** — an
+allocation `item` that omits `correct_category`, or a select-and-place option
+that omits `correct_position`, belongs in no basket/slot. The learner can still
+drag a distractor into a basket or slot, but doing so (or leaving a real
+item/option out) makes the answer incorrect; only the items/options that carry
+the attribute count towards the solution. Each such question needs at least one
+item/option that *does* carry the attribute.
+
 **HTML is allowed** in a question's `question` and `explanation` text — it is
 rendered as sanitised HTML in the client (`<script>`, event handlers, etc. are
 stripped). This is what makes embedded images possible.

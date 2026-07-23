@@ -60,8 +60,9 @@ ExamSession ──< SessionItem ──< SessionItemAnswer  (the persisted select
   For choice questions, correct options are stored as a boolean flag on the
   answer row (proper normalisation). For an **ALLOCATION** question the answers
   are the items to sort and each points at the **QuestionCategory** (basket) it
-  belongs to via `correct_category_id`; the baskets themselves are
-  `QuestionCategory` rows (`key` + `label`). For a **SELECT_AND_PLACE** question
+  belongs to via `correct_category_id` (null for a distractor item that belongs
+  in no basket); the baskets themselves are `QuestionCategory` rows
+  (`key` + `label`). For a **SELECT_AND_PLACE** question
   the answers are the option pool; the options that make up the answer carry
   their 1-based rank in `correct_position` (the rest are distractors), and the
   pool is shuffled per session. For a **YES_NO** question the answers are the
@@ -75,7 +76,8 @@ ExamSession ──< SessionItem ──< SessionItemAnswer  (the persisted select
   correct onto its item. A multiple-choice selection only counts as correct
   when it matches the set of correct answers exactly; an allocation answer
   records the chosen basket per item (`SessionItemAnswer.category_id`) and is
-  correct only when every item sits in its correct category; a select-and-place
+  correct only when every real item sits in its correct category and every
+  distractor is left unsorted; a select-and-place
   answer records the placed slot per option (`SessionItemAnswer.position`) and
   is correct only when the placed order matches the solution exactly; a yes/no
   answer records a verdict per statement (`SessionItemAnswer.verdict`) and is

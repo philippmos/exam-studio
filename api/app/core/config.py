@@ -77,9 +77,9 @@ class Settings(BaseSettings):
     # --- Import limits (defence against oversized uploads / zip bombs) ---------
     # Max size of an uploaded import ZIP, and of a single extracted image, and
     # the max number of images one import may contain.
-    import_zip_max_bytes: int = 25 * 1024 * 1024
+    import_zip_max_bytes: int = 30 * 1024 * 1024
     media_max_file_bytes: int = 5 * 1024 * 1024
-    media_max_files: int = 100
+    media_max_files: int = 600
     # Comma-separated allow-list of image content types (sniffed, not trusted
     # from the file extension). Consume via ``media_allowed_content_types_list``.
     media_allowed_content_types: str = (
