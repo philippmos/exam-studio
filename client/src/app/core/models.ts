@@ -2,9 +2,15 @@ export interface Answer {
   id: string;
   text: string;
   position: number;
+  /**
+   * Selectbox questions only: the selectbox (a `Category`) this option is listed
+   * under, so the client can group the options into their dropdowns. Null for
+   * every other question type.
+   */
+  selectboxId: string | null;
 }
 
-/** A target basket of an allocation question. */
+/** A basket of an allocation question, or a selectbox of a selectbox question. */
 export interface Category {
   id: string;
   key: string;
@@ -37,7 +43,8 @@ export type QuestionType =
   | 'MULTIPLE_CHOICE'
   | 'ALLOCATION'
   | 'SELECT_AND_PLACE'
-  | 'YES_NO';
+  | 'YES_NO'
+  | 'SELECTBOX';
 
 export interface Question {
   id: string;
@@ -48,11 +55,15 @@ export interface Question {
   questionType: QuestionType;
   /**
    * Choice options, the items to sort for an allocation question, the
-   * (shuffled) option pool of a select-and-place question, or the statements of
-   * a yes/no question.
+   * (shuffled) option pool of a select-and-place question, the statements of a
+   * yes/no question, or the options of a selectbox question (each carrying its
+   * `selectboxId`).
    */
   answers: Answer[];
-  /** Baskets for an allocation question; empty for choice questions. */
+  /**
+   * Baskets for an allocation question, or the selectboxes of a selectbox
+   * question; empty for the choice types.
+   */
   categories: Category[];
 }
 

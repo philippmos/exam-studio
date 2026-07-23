@@ -67,11 +67,17 @@ class AnswerType:
     id: uuid.UUID
     text: str
     position: int
+    # Selectbox questions only: the selectbox (a category) this option is listed
+    # under, so the client can group the options into their dropdowns. Null for
+    # every other question type. Which option is correct is never exposed here;
+    # it is only revealed once the question is answered (``correct_answer_ids``).
+    selectbox_id: uuid.UUID | None
 
 
 @strawberry.type
 class CategoryType:
-    """A basket of an allocation question (empty for choice questions)."""
+    """A basket of an allocation question, or a selectbox of a selectbox
+    question (empty for the other question types)."""
 
     id: uuid.UUID
     key: str
@@ -129,9 +135,10 @@ class QuestionType:
     explanation: str | None
     section_id: uuid.UUID
     question_type: QuestionTypeEnum
-    # For allocation questions these are the items to sort; for choice
-    # questions they are the options. ``categories`` holds the baskets an
-    # allocation question's items go into and is empty for choice questions.
+    # For allocation questions these are the items to sort; for choice and
+    # selectbox questions they are the options (a selectbox option carries its
+    # ``selectbox_id``). ``categories`` holds an allocation question's baskets or
+    # a selectbox question's selectboxes, and is empty for the choice types.
     answers: list[AnswerType]
     categories: list[CategoryType]
 
@@ -393,7 +400,12 @@ def to_user_settings(settings: models.UserSettings) -> UserSettingsType:
 
 
 def to_answer(answer: models.Answer) -> AnswerType:
-    return AnswerType(id=answer.id, text=answer.text, position=answer.position)
+    return AnswerType(
+        id=answer.id,
+        text=answer.text,
+        position=answer.position,
+        selectbox_id=answer.selectbox_id,
+    )
 
 
 def to_category(category: models.QuestionCategory) -> CategoryType:

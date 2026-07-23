@@ -68,7 +68,7 @@
         "explanation": "WPA3 encryption and a strong pre-shared key protect a Wi-Fi network. Broadcasting the admin password or disabling encryption do the opposite."
       },
       {
-        "question": "Sort each protocol by the transport layer it runs on.",
+        "question": "Sort each protocol by the transport layer it runs on. One item is not a transport protocol at all — leave it in the tray.",
         "categories": [
           { "key": "tcp", "label": "TCP" },
           { "key": "udp", "label": "UDP" }
@@ -77,11 +77,12 @@
           { "text": "HTTP", "correct_category": "tcp" },
           { "text": "SSH", "correct_category": "tcp" },
           { "text": "DHCP", "correct_category": "udp" },
-          { "text": "TFTP", "correct_category": "udp" }
+          { "text": "TFTP", "correct_category": "udp" },
+          { "text": "HTML" }
         ],
         "section_key": "basics",
         "question_type": "allocation",
-        "explanation": "HTTP and SSH need the reliable, connection-oriented delivery of TCP. DHCP and TFTP use the lightweight, connectionless UDP."
+        "explanation": "HTTP and SSH need the reliable, connection-oriented delivery of TCP. DHCP and TFTP use the lightweight, connectionless UDP. HTML is a markup language, not a transport protocol, so it belongs in neither basket."
       },
       {
         "question": "Put the steps of establishing a TCP connection (the three-way handshake) in the correct order.",
@@ -120,6 +121,32 @@
         "section_key": "basics",
         "question_type": "yes_no",
         "explanation": "TCP is connection-oriented and reliable, opening connections with a three-way handshake. UDP is connectionless, does not guarantee delivery or ordering, and has less overhead than TCP."
+      },
+      {
+        "question": "Choose the correct answer in each selectbox.",
+        "selectboxes": [
+          {
+            "key": "web_protocol",
+            "label": "Protocol used to browse secure websites:",
+            "options": [
+              { "text": "HTTPS", "is_correct": true },
+              { "text": "FTP" },
+              { "text": "SMTP" }
+            ]
+          },
+          {
+            "key": "web_port",
+            "label": "Default port for that protocol:",
+            "options": [
+              { "text": "21" },
+              { "text": "443", "is_correct": true },
+              { "text": "25" }
+            ]
+          }
+        ],
+        "section_key": "security",
+        "question_type": "selectbox",
+        "explanation": "HTTPS secures web traffic and listens on port 443 by default. FTP uses port 21 and SMTP uses port 25."
       }
     ]
   }

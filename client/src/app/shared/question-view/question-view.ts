@@ -205,7 +205,8 @@ import {
       @if (!answered()) {
         <p class="multi-hint">
           <mat-icon>drag_indicator</mat-icon> Drag each item into the basket it
-          belongs to.
+          belongs to. Some items may not belong in any basket — leave those in
+          the tray.
         </p>
         <div class="alloc" cdkDropListGroup>
           <div class="basket tray">
@@ -254,7 +255,7 @@ import {
         <div class="submit-row">
           <button
             mat-flat-button
-            [disabled]="tray().length > 0"
+            [disabled]="placedCount() === 0"
             (click)="submitAllocation()"
           >
             Check answer
@@ -281,9 +282,9 @@ import {
                       }}</mat-icon>
                       <span class="chip-label">{{ item.text }}</span>
                       @if (!isItemCorrect(item.id, cat.id)) {
-                        <span class="correction">
-                          → {{ categoryLabel(correctCategoryId(item.id)) }}
-                        </span>
+                        <span class="correction">{{
+                          correctionFor(item.id)
+                        }}</span>
                       }
                     </div>
                   }
@@ -293,7 +294,94 @@ import {
                 </div>
               </div>
             }
+            <!-- Items left in the tray: correct only if they are distractors. -->
+            @if (unplacedAnswers().length > 0) {
+              <div class="basket">
+                <h4 class="basket-title">Not in any basket</h4>
+                <div class="dropzone static">
+                  @for (item of unplacedAnswers(); track item.id) {
+                    <div
+                      class="chip"
+                      [class.correct]="isUnplacedCorrect(item.id)"
+                      [class.wrong]="!isUnplacedCorrect(item.id)"
+                    >
+                      <mat-icon class="state-icon">{{
+                        isUnplacedCorrect(item.id) ? 'check_circle' : 'cancel'
+                      }}</mat-icon>
+                      <span class="chip-label">{{ item.text }}</span>
+                      @if (!isUnplacedCorrect(item.id)) {
+                        <span class="correction">{{
+                          correctionFor(item.id)
+                        }}</span>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            }
           </div>
+        </div>
+      }
+    } @else if (isSelectbox()) {
+      @if (!answered()) {
+        <p class="multi-hint">
+          <mat-icon>expand_circle_down</mat-icon> Choose one option for each
+          selectbox.
+        </p>
+        <div class="selectboxes">
+          @for (box of question().categories; track box.id) {
+            <div class="selectbox-row">
+              <label class="selectbox-label" [for]="'sb-' + box.id">{{
+                box.label
+              }}</label>
+              <select
+                class="selectbox"
+                [id]="'sb-' + box.id"
+                [value]="selectboxChoice(box.id) ?? ''"
+                (change)="setSelectboxChoice(box.id, $any($event.target).value)"
+              >
+                <option value="" disabled>Select…</option>
+                @for (opt of optionsForSelectbox(box.id); track opt.id) {
+                  <option [value]="opt.id">{{ opt.text }}</option>
+                }
+              </select>
+            </div>
+          }
+        </div>
+        <div class="submit-row">
+          <button
+            mat-flat-button
+            [disabled]="!allSelectboxesChosen()"
+            (click)="submitSelectbox()"
+          >
+            Check answer
+          </button>
+        </div>
+      } @else {
+        <!-- Answered: show each selectbox's choice with right/wrong feedback. -->
+        <div class="selectboxes">
+          @for (box of question().categories; track box.id) {
+            <div
+              class="selectbox-row graded"
+              [class.correct]="isSelectboxCorrect(box.id)"
+              [class.wrong]="!isSelectboxCorrect(box.id)"
+            >
+              <mat-icon class="state-icon">{{
+                isSelectboxCorrect(box.id) ? 'check_circle' : 'cancel'
+              }}</mat-icon>
+              <span class="selectbox-label">{{ box.label }}</span>
+              <span class="sb-result">
+                <span class="sb-badge">{{
+                  optionLabel(selectedOptionOf(box.id))
+                }}</span>
+                @if (!isSelectboxCorrect(box.id)) {
+                  <span class="correction">
+                    → {{ optionLabel(correctOptionOf(box.id)) }}
+                  </span>
+                }
+              </span>
+            </div>
+          }
         </div>
       }
     } @else {
@@ -696,7 +784,8 @@ import {
         flex: 1;
       }
       .yn-group,
-      .yn-result {
+      .yn-result,
+      .sb-result {
         flex: 0 0 auto;
         display: inline-flex;
         align-items: center;
@@ -741,12 +830,86 @@ import {
         width: 20px;
         height: 20px;
       }
-      .yn-badge {
+      .yn-badge,
+      .sb-badge {
         padding: 4px 12px;
         border-radius: 999px;
         background: var(--mat-sys-surface-container-high);
         font-size: 13px;
         font-weight: 600;
+      }
+
+      /* ---- Selectbox (one dropdown choice per selectbox) ---- */
+      .selectboxes {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .selectbox-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .selectbox-label {
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 1.4;
+      }
+      .selectbox {
+        width: 100%;
+        padding: 12px 14px;
+        border: 2px solid
+          color-mix(in srgb, var(--mat-sys-outline-variant) 55%, transparent);
+        border-radius: 12px;
+        background: var(--mat-sys-surface);
+        color: inherit;
+        font: inherit;
+        font-size: 15px;
+        cursor: pointer;
+        /* Let the native control (and its option list) follow the app theme. */
+        color-scheme: light dark;
+      }
+      .selectbox:hover {
+        border-color: var(--mat-sys-primary);
+      }
+      .selectbox:focus-visible {
+        outline: 2px solid var(--mat-sys-primary);
+        outline-offset: 2px;
+      }
+      /* Answered view: a graded row like a yes/no statement. */
+      .selectbox-row.graded {
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border: 2px solid
+          color-mix(in srgb, var(--mat-sys-outline-variant) 55%, transparent);
+        border-radius: 12px;
+        background: var(--mat-sys-surface);
+      }
+      .selectbox-row.graded .selectbox-label {
+        flex: 1;
+        font-weight: 400;
+      }
+      .selectbox-row.correct {
+        border-color: var(--app-success);
+        background: var(--app-success-bg);
+      }
+      .selectbox-row.wrong {
+        border-color: var(--app-danger);
+        background: var(--app-danger-bg);
+      }
+      .selectbox-row.correct .state-icon {
+        color: var(--app-success);
+      }
+      .selectbox-row.wrong .state-icon {
+        color: var(--app-danger);
+      }
+      .selectbox-row.graded .state-icon {
+        flex: 0 0 auto;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
       }
 
       /* CDK drag visuals */
@@ -801,6 +964,9 @@ export class QuestionView {
     () => this.question().questionType === 'SELECT_AND_PLACE',
   );
   readonly isYesNo = computed(() => this.question().questionType === 'YES_NO');
+  readonly isSelectbox = computed(
+    () => this.question().questionType === 'SELECTBOX',
+  );
 
   /**
    * Local multiple-choice selection before submit. A linkedSignal so it resets
@@ -843,6 +1009,15 @@ export class QuestionView {
    * linkedSignal so it clears whenever a new question is bound.
    */
   readonly verdicts = linkedSignal<Question, Record<string, boolean>>({
+    source: this.question,
+    computation: () => ({}),
+  });
+
+  /**
+   * Local selectbox selection before submit (selectbox/category id -> chosen
+   * option id). A linkedSignal so it clears whenever a new question is bound.
+   */
+  readonly selectboxChoices = linkedSignal<Question, Record<string, string>>({
     source: this.question,
     computation: () => ({}),
   });
@@ -911,16 +1086,26 @@ export class QuestionView {
     this.basketItems.set({ ...this.basketItems() });
   }
 
+  /** How many items the user has dropped into baskets (the pre-submit gate). */
+  readonly placedCount = computed(() =>
+    Object.values(this.basketItems()).reduce(
+      (total, items) => total + items.length,
+      0,
+    ),
+  );
+
   submitAllocation(): void {
-    if (this.tray().length > 0) {
-      return;
-    }
     const baskets = this.basketItems();
     const allocations: Allocation[] = [];
     for (const category of this.question().categories) {
       for (const item of baskets[category.id]) {
         allocations.push({ answerId: item.id, categoryId: category.id });
       }
+    }
+    // Distractor items belong in no basket and stay in the tray, so gate on at
+    // least one placed item rather than an empty tray (which may never happen).
+    if (allocations.length === 0) {
+      return;
     }
     this.submitAllocations.emit(allocations);
   }
@@ -948,6 +1133,31 @@ export class QuestionView {
     return (
       this.question().categories.find((c) => c.id === categoryId)?.label ?? ''
     );
+  }
+
+  /**
+   * Items the user left in the tray, i.e. not sorted into any basket (answered
+   * view, from the inputs). Correctly left there only if they are distractors.
+   */
+  readonly unplacedAnswers = computed<Answer[]>(() => {
+    const placed = new Set(this.selectedAllocations().map((a) => a.answerId));
+    return this.question().answers.filter((answer) => !placed.has(answer.id));
+  });
+
+  /** An unplaced item is correct only when it is a distractor (belongs nowhere). */
+  isUnplacedCorrect(answerId: string): boolean {
+    return this.correctCategoryId(answerId) === null;
+  }
+
+  /**
+   * The answered-view correction for a mis-sorted item: an arrow to its correct
+   * basket, or a note that it belongs in no basket (a distractor).
+   */
+  correctionFor(answerId: string): string {
+    const categoryId = this.correctCategoryId(answerId);
+    return categoryId === null
+      ? '→ not in any basket'
+      : `→ ${this.categoryLabel(categoryId)}`;
   }
 
   // ---- Select-and-place questions ----------------------------------------
@@ -1059,14 +1269,16 @@ export class QuestionView {
   /** The user's verdict for a statement (answered view, from the inputs). */
   selectedVerdictOf(answerId: string): boolean | null {
     return (
-      this.selectedVerdicts().find((v) => v.answerId === answerId)?.value ?? null
+      this.selectedVerdicts().find((v) => v.answerId === answerId)?.value ??
+      null
     );
   }
 
   /** The correct verdict for a statement (answered view, from the inputs). */
   correctVerdictOf(answerId: string): boolean | null {
     return (
-      this.correctVerdicts()?.find((v) => v.answerId === answerId)?.value ?? null
+      this.correctVerdicts()?.find((v) => v.answerId === answerId)?.value ??
+      null
     );
   }
 
@@ -1082,5 +1294,78 @@ export class QuestionView {
       return '—';
     }
     return value ? 'Yes' : 'No';
+  }
+
+  // ---- Selectbox questions ------------------------------------------------
+
+  /** The options listed under one selectbox, in import order. */
+  optionsForSelectbox(categoryId: string): Answer[] {
+    return this.question()
+      .answers.filter((answer) => answer.selectboxId === categoryId)
+      .sort((a, b) => a.position - b.position);
+  }
+
+  /** Record the user's chosen option for one selectbox. */
+  setSelectboxChoice(categoryId: string, answerId: string): void {
+    if (this.answered()) {
+      return;
+    }
+    this.selectboxChoices.update((current) => ({
+      ...current,
+      [categoryId]: answerId,
+    }));
+  }
+
+  /** The locally chosen option id for a selectbox, or undefined if unset. */
+  selectboxChoice(categoryId: string): string | undefined {
+    return this.selectboxChoices()[categoryId];
+  }
+
+  /** Whether every selectbox has a chosen option. */
+  allSelectboxesChosen(): boolean {
+    const chosen = this.selectboxChoices();
+    return this.question().categories.every((box) => box.id in chosen);
+  }
+
+  submitSelectbox(): void {
+    if (!this.allSelectboxesChosen()) {
+      return;
+    }
+    const chosen = this.selectboxChoices();
+    // One chosen option per selectbox — emitted as plain answer ids, so the
+    // selection rides the same submit path as a choice question.
+    this.submitAnswers.emit(
+      this.question().categories.map((box) => chosen[box.id]),
+    );
+  }
+
+  /** The option the user chose in a selectbox (answered view, from the inputs). */
+  selectedOptionOf(categoryId: string): Answer | null {
+    const ids = new Set(this.selectedAnswerIds());
+    return (
+      this.optionsForSelectbox(categoryId).find((opt) => ids.has(opt.id)) ??
+      null
+    );
+  }
+
+  /** The correct option of a selectbox (answered view, from the inputs). */
+  correctOptionOf(categoryId: string): Answer | null {
+    const ids = new Set(this.correctAnswerIds() ?? []);
+    return (
+      this.optionsForSelectbox(categoryId).find((opt) => ids.has(opt.id)) ??
+      null
+    );
+  }
+
+  /** Whether the user's chosen option for a selectbox is the correct one. */
+  isSelectboxCorrect(categoryId: string): boolean {
+    const chosen = this.selectedOptionOf(categoryId);
+    const correct = this.correctOptionOf(categoryId);
+    return chosen !== null && correct !== null && chosen.id === correct.id;
+  }
+
+  /** Render an option as its text ("—" when there is none). */
+  optionLabel(option: Answer | null): string {
+    return option?.text ?? '—';
   }
 }

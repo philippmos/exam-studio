@@ -2,6 +2,7 @@ import { GraphqlClient } from './graphql-client';
 import {
   AddQuestionsResult,
   Allocation,
+  Answer,
   AnswerResult,
   Exam,
   ExamSession,
@@ -83,6 +84,7 @@ export const SESSION_FIELDS = `
         id
         text
         position
+        selectboxId
       }
       categories {
         id
@@ -573,6 +575,38 @@ export function withOneMisplaced(
 }
 
 /**
+ * The fully correct placement of an allocation question that has distractors:
+ * every item that names a category is sorted into it; distractor items (whose
+ * text maps to `undefined`) are left unplaced. The API hides the solution.
+ */
+export function correctAllocationsWithDistractorsOf(
+  item: SessionItem,
+  solution: Record<string, string | undefined>,
+): Allocation[] {
+  const byKey = categoryIdByKey(item);
+  return item.question.answers
+    .filter((answer) => solution[answer.text] !== undefined)
+    .map((answer) => ({
+      answerId: answer.id,
+      categoryId: byKey.get(solution[answer.text]!)!,
+    }));
+}
+
+/** A distractor item of the question (its text maps to `undefined`). */
+export function distractorItemOf(
+  item: SessionItem,
+  solution: Record<string, string | undefined>,
+): Answer {
+  const distractor = item.question.answers.find(
+    (answer) => solution[answer.text] === undefined,
+  );
+  if (!distractor) {
+    throw new Error(`Question "${item.question.text}" has no distractor item.`);
+  }
+  return distractor;
+}
+
+/**
  * The fully correct placed order (answer ids) of a select-and-place question,
  * reconstructed from an "item text -> 1-based rank" solution (undefined rank =
  * distractor, never placed). The API hides the solution itself.
@@ -595,4 +629,29 @@ export function withFirstTwoSwapped(order: string[]): string[] {
   const swapped = [...order];
   [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
   return swapped;
+}
+
+/**
+ * The correct selectbox selection: every option marked with CORRECT_PREFIX.
+ * Each selectbox has exactly one correct option, so this is one option per
+ * selectbox — the full correct answer. (The API hides which option is correct.)
+ */
+export function correctSelectboxIdsOf(item: SessionItem): string[] {
+  return correctAnswerIdsOf(item);
+}
+
+/**
+ * The correct selectbox selection with one selectbox's option swapped for a
+ * wrong option *in the same selectbox*, so it stays structurally valid (one
+ * option per selectbox) but grades as incorrect.
+ */
+export function withOneSelectboxWrong(item: SessionItem): string[] {
+  const correct = correctSelectboxIdsOf(item);
+  const firstCorrect = item.question.answers.find((a) => a.id === correct[0])!;
+  const wrongInSameBox = item.question.answers.find(
+    (a) =>
+      a.selectboxId === firstCorrect.selectboxId &&
+      !a.text.startsWith('Correct:'),
+  )!;
+  return correct.map((id) => (id === firstCorrect.id ? wrongInSameBox.id : id));
 }

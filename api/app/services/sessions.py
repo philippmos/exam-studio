@@ -152,8 +152,10 @@ async def submit_answer(
     Choice questions pass ``selected_answer_ids``; allocation questions pass
     ``placements`` (answer id, category id); select-and-place questions pass
     ``placed_answer_ids`` (the answer ids in the order they were placed); yes/no
-    questions pass ``verdicts`` (answer id, Yes/No value per statement). Every
-    answer also advances the question's spaced-repetition schedule.
+    questions pass ``verdicts`` (answer id, Yes/No value per statement);
+    selectbox questions pass ``selected_answer_ids`` (the chosen option of every
+    selectbox). Every answer also advances the question's spaced-repetition
+    schedule.
     """
     item = await sessions_repo.get_item_with_selection(db, session_item_id)
     if item is None:
@@ -219,6 +221,22 @@ async def submit_answer(
         ]
         is_correct = verdict_grade.is_correct
         correct_verdicts = verdict_grade.correct_verdicts
+    elif question.question_type == QuestionType.SELECTBOX.value:
+        selectbox = grading.grade_selectbox(
+            {a.id: a.selectbox_id for a in answers if a.selectbox_id is not None},
+            {
+                a.selectbox_id: a.id
+                for a in answers
+                if a.is_correct and a.selectbox_id is not None
+            },
+            selected_answer_ids,
+        )
+        selection = [
+            models.SessionItemAnswer(answer_id=aid)
+            for aid in selectbox.selected_answer_ids
+        ]
+        is_correct = selectbox.is_correct
+        correct_answer_ids = selectbox.correct_answer_ids
     else:
         choice = grading.grade_choice(
             QuestionType(question.question_type),

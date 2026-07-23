@@ -28,12 +28,17 @@ class ChoiceGrade:
 
 @dataclass(frozen=True)
 class AllocationGrade:
-    """Graded allocation answer (each item sorted into a basket)."""
+    """Graded allocation answer (each item sorted into a basket).
+
+    Items whose correct category is ``None`` are distractors that belong in no
+    basket; the solution (``correct_allocations``) only lists the real items.
+    """
 
     # answer id -> chosen category id, the selection to persist.
     chosen: dict[uuid.UUID, uuid.UUID]
     is_correct: bool
-    # The solution as (answer id, correct category id) pairs, in item order.
+    # The solution as (answer id, correct category id) pairs, in item order;
+    # distractors (no correct category) are omitted.
     correct_allocations: list[tuple[uuid.UUID, uuid.UUID]]
 
 
@@ -57,6 +62,17 @@ class VerdictGrade:
     is_correct: bool
     # The solution as (answer id, correct verdict) pairs, in statement order.
     correct_verdicts: list[tuple[uuid.UUID, bool]]
+
+
+@dataclass(frozen=True)
+class SelectboxGrade:
+    """Graded selectbox answer (one option chosen per selectbox)."""
+
+    # The validated selection to persist (one row per chosen option id).
+    selected_answer_ids: list[uuid.UUID]
+    is_correct: bool
+    # The solution: the correct option of every selectbox.
+    correct_answer_ids: list[uuid.UUID]
 
 
 def grade_choice(
@@ -94,11 +110,15 @@ def grade_allocation(
     category_ids: set[uuid.UUID],
     placements: Iterable[tuple[uuid.UUID, uuid.UUID]],
 ) -> AllocationGrade:
-    """Validate and grade an allocation (every item sorted into a basket).
+    """Validate and grade an allocation (each item sorted into a basket).
 
-    Correct only when every item sits in its own correct category. Pass
-    ``correct_category_by_answer`` in item order so the returned solution keeps
-    that order.
+    Items whose value in ``correct_category_by_answer`` is ``None`` are
+    distractors that belong in no basket: the answer is correct only when every
+    real item sits in its own correct category *and* every distractor is left
+    unplaced. A distractor may still be dragged into a basket, and a real item
+    may be left in the tray — either one makes the answer incorrect (it is not
+    rejected). Pass ``correct_category_by_answer`` in item order so the returned
+    solution keeps that order.
     """
     answer_ids = set(correct_category_by_answer)
 
@@ -108,15 +128,18 @@ def grade_allocation(
             raise ValidationError("Each item may be sorted into only one category.")
         chosen[answer_id] = category_id
 
+    if not chosen:
+        raise ValidationError("At least one item must be sorted into a category.")
     if not set(chosen) <= answer_ids:
         raise ValidationError("Selected answers do not belong to this question.")
     if not set(chosen.values()) <= category_ids:
         raise ValidationError("Selected categories do not belong to this question.")
-    if set(chosen) != answer_ids:
-        raise ValidationError("Every item must be sorted into a category.")
 
+    # A real item must sit in its correct category; a distractor (correct
+    # category None) must be left unplaced, so ``chosen.get`` returning None
+    # matches only for a distractor that was not dragged into any basket.
     is_correct = all(
-        chosen[aid] == correct_category_by_answer[aid] for aid in answer_ids
+        chosen.get(aid) == correct_category_by_answer[aid] for aid in answer_ids
     )
     correct_allocations = [
         (aid, cid) for aid, cid in correct_category_by_answer.items() if cid is not None
@@ -189,4 +212,45 @@ def grade_yes_no(
         chosen=chosen,
         is_correct=is_correct,
         correct_verdicts=list(correct_verdict_by_answer.items()),
+    )
+
+
+def grade_selectbox(
+    selectbox_by_answer: dict[uuid.UUID, uuid.UUID],
+    correct_by_selectbox: dict[uuid.UUID, uuid.UUID],
+    selected_answer_ids: Iterable[uuid.UUID] | None,
+) -> SelectboxGrade:
+    """Validate and grade a selectbox answer (one option chosen per selectbox).
+
+    ``selectbox_by_answer`` maps every option to the selectbox it belongs to and
+    ``correct_by_selectbox`` gives the correct option of each selectbox. The user
+    must choose exactly one option in each selectbox; the answer is correct only
+    when every selectbox's chosen option is its correct one.
+    """
+    selectbox_ids = set(selectbox_by_answer.values())
+    if not selectbox_ids:
+        raise ValidationError("This question has no selectboxes configured.")
+
+    selected = set(selected_answer_ids or [])
+    if not selected:
+        raise ValidationError("At least one option must be selected.")
+    if not selected <= set(selectbox_by_answer):
+        raise ValidationError("Selected answers do not belong to this question.")
+
+    chosen_by_selectbox: dict[uuid.UUID, set[uuid.UUID]] = {
+        selectbox_id: set() for selectbox_id in selectbox_ids
+    }
+    for answer_id in selected:
+        chosen_by_selectbox[selectbox_by_answer[answer_id]].add(answer_id)
+    if any(len(chosen) != 1 for chosen in chosen_by_selectbox.values()):
+        raise ValidationError("Choose exactly one option for each selectbox.")
+
+    is_correct = all(
+        chosen_by_selectbox[selectbox_id] == {correct_by_selectbox.get(selectbox_id)}
+        for selectbox_id in selectbox_ids
+    )
+    return SelectboxGrade(
+        selected_answer_ids=sorted(selected, key=str),
+        is_correct=is_correct,
+        correct_answer_ids=sorted(correct_by_selectbox.values(), key=str),
     )

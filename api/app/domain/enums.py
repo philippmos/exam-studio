@@ -23,6 +23,11 @@ class QuestionType(str, enum.Enum):
     # Answer each statement (an answer row) with Yes or No; correct only when
     # every statement's verdict matches its expected answer.
     YES_NO = "YES_NO"
+    # Pick one option per selectbox (a dropdown). A question has one or more
+    # selectboxes (stored as categories); each option (an answer row) belongs to
+    # a selectbox and exactly one option per selectbox is correct. Correct only
+    # when every selectbox's chosen option is its correct one.
+    SELECTBOX = "SELECTBOX"
 
 
 class GoalPeriod(str, enum.Enum):

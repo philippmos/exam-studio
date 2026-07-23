@@ -36,41 +36,54 @@ testable in isolation and the GraphQL layer stays a thin adapter.
 
 ```
 Exam ──< Section ──< Question ──< Answer
-                        │            ├─ is_correct flag        (choice)
+                        │            ├─ is_correct flag        (choice; selectbox correct option)
                         │            ├─ correct_category_id     (allocation item)
-                        │            └─ correct_position         (select-and-place option)
-                        ├─ question_type (SINGLE_CHOICE / MULTIPLE_CHOICE / ALLOCATION / SELECT_AND_PLACE)
+                        │            ├─ correct_position         (select-and-place option)
+                        │            ├─ correct_verdict          (yes/no statement)
+                        │            └─ selectbox_id             (selectbox option -> its selectbox)
+                        ├─ question_type (SINGLE_CHOICE / MULTIPLE_CHOICE / ALLOCATION / SELECT_AND_PLACE / YES_NO / SELECTBOX)
                         ├─ explanation (optional; revealed after answering)
-                        └─< QuestionCategory  (allocation baskets: key + label)
+                        └─< QuestionCategory  (allocation baskets / selectboxes: key + label)
 
 ExamSession ──< SessionItem ──< SessionItemAnswer  (the persisted selection)
                      │              ├─ category_id  (basket, allocation only)
-                     │              └─ position     (slot, select-and-place only)
+                     │              ├─ position     (slot, select-and-place only)
+                     │              └─ verdict      (yes/no answer, yes/no only)
                      └─ is_correct + answered_at
 ```
 
 * An **Exam** (a certification) is divided into **Section**s (modules).
 * Each **Section** contains **Question**s, each with several **Answer** rows.
   A question's `question_type` decides what is expected: `SINGLE_CHOICE`
-  (exactly one correct answer), `MULTIPLE_CHOICE` (one or more), `ALLOCATION` or
-  `SELECT_AND_PLACE`.
+  (exactly one correct answer), `MULTIPLE_CHOICE` (one or more), `ALLOCATION`,
+  `SELECT_AND_PLACE`, `YES_NO` or `SELECTBOX`.
   For choice questions, correct options are stored as a boolean flag on the
   answer row (proper normalisation). For an **ALLOCATION** question the answers
   are the items to sort and each points at the **QuestionCategory** (basket) it
-  belongs to via `correct_category_id`; the baskets themselves are
-  `QuestionCategory` rows (`key` + `label`). For a **SELECT_AND_PLACE** question
+  belongs to via `correct_category_id` (null for a distractor item that belongs
+  in no basket); the baskets themselves are `QuestionCategory` rows
+  (`key` + `label`). For a **SELECT_AND_PLACE** question
   the answers are the option pool; the options that make up the answer carry
   their 1-based rank in `correct_position` (the rest are distractors), and the
-  pool is shuffled per session.
+  pool is shuffled per session. For a **YES_NO** question the answers are the
+  statements, each carrying its expected `correct_verdict` (Yes/No). For a
+  **SELECTBOX** question the selectboxes are `QuestionCategory` rows and each
+  answer (option) points at its selectbox via `selectbox_id`, with the one
+  correct option per selectbox flagged `is_correct`.
 * An **ExamSession** is one run. When it starts, an ordered list of
   **SessionItem**s is snapshotted. Answering a question writes the chosen
   answers (one **SessionItemAnswer** row each) and whether the selection was
   correct onto its item. A multiple-choice selection only counts as correct
   when it matches the set of correct answers exactly; an allocation answer
   records the chosen basket per item (`SessionItemAnswer.category_id`) and is
-  correct only when every item sits in its correct category; a select-and-place
+  correct only when every real item sits in its correct category and every
+  distractor is left unsorted; a select-and-place
   answer records the placed slot per option (`SessionItemAnswer.position`) and
-  is correct only when the placed order matches the solution exactly.
+  is correct only when the placed order matches the solution exactly; a yes/no
+  answer records a verdict per statement (`SessionItemAnswer.verdict`) and is
+  correct only when every verdict matches; a selectbox answer records the chosen
+  option per selectbox (as ordinary choice selections) and is correct only when
+  every selectbox's option is its correct one.
 
 ### Learning-progress statistics
 
@@ -93,7 +106,10 @@ adds allocation support: the `question_categories` table plus the
 `answers.correct_category_id` and `session_item_answers.category_id` columns.
 Migration `0008` adds the optional `questions.explanation` column. Migration
 `0016` adds select-and-place support: the `answers.correct_position` and
-`session_item_answers.position` columns.
+`session_item_answers.position` columns. Migration `0017` adds yes/no support
+(`answers.correct_verdict` + `session_item_answers.verdict`) and migration
+`0019` adds selectbox support (`answers.selectbox_id`, grouping each option
+under its selectbox).
 
 ## Getting started
 
@@ -275,7 +291,7 @@ configuration are documented in **[../docs/import.md](../docs/import.md)**.
 | `addExamQuestions(examId, payload)`                | Add new questions from a JSON document to an existing exam; returns `{exam, added, skipped}`. |
 | `deleteExam(id)`                                   | Delete an exam (cascades).               |
 | `startSession(examId, mode, sectionId)`            | Start a run; snapshots the questions.    |
-| `submitAnswer(sessionItemId, selectedAnswerIds, allocations, placedAnswerIds, tzOffsetMinutes)` | Persist the answer; returns correctness and the question's updated review schedule. Choice questions pass `selectedAnswerIds`, allocation questions pass `allocations` (`{answerId, categoryId}` per item), select-and-place questions pass `placedAnswerIds` (the option ids in placed order). |
+| `submitAnswer(sessionItemId, selectedAnswerIds, allocations, placedAnswerIds, verdicts, tzOffsetMinutes)` | Persist the answer; returns correctness and the question's updated review schedule. Choice **and selectbox** questions pass `selectedAnswerIds` (selectbox: one chosen option per selectbox), allocation questions pass `allocations` (`{answerId, categoryId}` per item), select-and-place questions pass `placedAnswerIds` (the option ids in placed order), yes/no questions pass `verdicts` (`{answerId, value}` per statement). |
 | `finishSession(id)`                                | Mark a session finished.                 |
 
 `mode` is one of `ALL_RANDOM`, `BY_SECTION` (requires `sectionId`),

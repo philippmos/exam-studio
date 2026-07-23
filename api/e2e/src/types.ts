@@ -75,6 +75,8 @@ export interface Answer {
   id: string;
   text: string;
   position: number;
+  /** Selectbox questions only: the selectbox (category) this option belongs to. */
+  selectboxId: string | null;
 }
 
 export interface Category {
@@ -103,7 +105,8 @@ export interface Question {
     | 'SINGLE_CHOICE'
     | 'MULTIPLE_CHOICE'
     | 'ALLOCATION'
-    | 'SELECT_AND_PLACE';
+    | 'SELECT_AND_PLACE'
+    | 'SELECTBOX';
   answers: Answer[];
   categories: Category[];
 }

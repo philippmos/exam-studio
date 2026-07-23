@@ -81,10 +81,13 @@ ExamSession ──< SessionItem ──< SessionItemAnswer (the chosen answers)
   A question is `single_choice` (exactly one correct answer),
   `multiple_choice` (one or more correct answers), `allocation` (sort every
   item into one of the question's **categories** / baskets — the items are
-  stored as answer rows that point at their correct category) or
+  stored as answer rows that point at their correct category),
   `select_and_place` (drag a subset of the options into the answer area and put
   them in the right order — the options are answer rows that carry their rank in
-  the solution, the rest are distractors).
+  the solution, the rest are distractors), `yes_no` (answer each statement — an
+  answer row — with Yes or No) or `selectbox` (pick one option per selectbox;
+  the selectboxes are stored as categories and each option is an answer row
+  grouped under its selectbox, with one correct option per selectbox).
 * A question's text/explanation may embed **images**. Each image is a
   **QuestionMedia** row pointing at a blob in storage; the question HTML
   references it as `media://{id}`, resolved to a signed URL when served (see
@@ -243,15 +246,19 @@ Create a json file with your desired exam content. The file carries no ids:
 sections are referenced by their `key`, question numbers follow the order in
 the file, and the database generates fresh UUIDs on import. `question_type`
 is `single_choice` (exactly one answer with `is_correct: true`),
-`multiple_choice` (one or more correct answers), `allocation` or
-`select_and_place`. An allocation question replaces `answers` with `categories`
-(the baskets, `{key, label}`) and `items` (`{text, correct_category}`, the
-`correct_category` referencing a category `key`). A select-and-place question
-keeps `answers` but the options that make up the answer flag their rank with
-`correct_position` (1-based, contiguous from 1); the remaining options are
-distractors. See the last two questions below and `exam.schema.json`. Every
-question may carry an optional `explanation` — a description of the question or
-answer that the app reveals once the question has been answered.
+`multiple_choice` (one or more correct answers), `allocation`,
+`select_and_place`, `yes_no` or `selectbox`. An allocation question replaces
+`answers` with `categories` (the baskets, `{key, label}`) and `items`
+(`{text, correct_category}`, the `correct_category` referencing a category
+`key`). A select-and-place question keeps `answers` but the options that make up
+the answer flag their rank with `correct_position` (1-based, contiguous from 1);
+the remaining options are distractors. A `yes_no` question keeps `answers` as
+statements, each flagging its expected `answer` (`"yes"`/`"no"`). A `selectbox`
+question replaces `answers` with `selectboxes` — each a `{key, label, options}`
+dropdown whose `options` are `{text, is_correct?}` with exactly one correct.
+See the specialised-type questions below and `exam.schema.json`. Every question
+may carry an optional `explanation` — a description of the question or answer
+that the app reveals once the question has been answered.
 
 ```json
 {
@@ -311,6 +318,29 @@ answer that the app reveals once the question has been answered.
         ],
         "section_key": "dummy_section",
         "question_type": "select_and_place"
+      },
+      {
+        "question": "Choose the correct option in each selectbox.",
+        "selectboxes": [
+          {
+            "key": "auth",
+            "label": "Authentication:",
+            "options": [
+              { "text": "AD FS", "is_correct": true },
+              { "text": "Pass-through authentication" }
+            ]
+          },
+          {
+            "key": "sspr",
+            "label": "SSPR:",
+            "options": [
+              { "text": "Device writeback" },
+              { "text": "Password writeback", "is_correct": true }
+            ]
+          }
+        ],
+        "section_key": "dummy_section",
+        "question_type": "selectbox"
       }
     ]
   }
