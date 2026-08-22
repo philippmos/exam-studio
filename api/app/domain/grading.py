@@ -176,7 +176,9 @@ def grade_select_and_place(
     return PlacementGrade(
         chosen=chosen,
         is_correct=placed == correct_order,
-        correct_placements=[(answer_id, slot) for slot, answer_id in correct_placements],
+        correct_placements=[
+            (answer_id, slot) for slot, answer_id in correct_placements
+        ],
     )
 
 
