@@ -22,8 +22,8 @@ services:
     image: mcr.microsoft.com/azure-storage/azurite:latest
     container_name: exam-studio-azurite
     restart: unless-stopped
-    # Blob service only; bind to all interfaces so the api container can reach it.
-    command: azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --skipApiVersionCheck
+    # Blob service only; bind to all interfaces so the api container can reach
+    command: azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --skipApiVersionCheck --location /data
     ports:
       - "10000:10000"
     volumes:
