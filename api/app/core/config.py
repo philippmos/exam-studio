@@ -7,6 +7,7 @@ import order never forces settings to be read too early.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -89,6 +90,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        secrets_dir="/run/secrets" if os.path.isdir("/run/secrets") else None,
         # The API shares the repo-root .env with the db/client compose services,
         # so ignore keys that are not ours instead of failing to start.
         extra="ignore",
